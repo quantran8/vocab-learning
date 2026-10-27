@@ -1,0 +1,81 @@
+{
+  "seed": 20261027,
+  "words": [
+    {
+      "id": "appreciate",
+      "term": "appreciate",
+      "meaningVi": "trân trọng, đánh giá cao",
+      "example": "I really appreciate your help.",
+      "acceptedForms": []
+    },
+    {
+      "id": "consider",
+      "term": "consider",
+      "meaningVi": "cân nhắc",
+      "example": "Please consider the options first.",
+      "acceptedForms": []
+    },
+    {
+      "id": "improve",
+      "term": "improve",
+      "meaningVi": "cải thiện",
+      "example": "We need to improve the process.",
+      "acceptedForms": []
+    }
+  ],
+  "buildChallenges": [
+    {
+      "id": "build-appreciate",
+      "wordID": "appreciate",
+      "context": "You are thanking a colleague.",
+      "prompt": "I really ___ your help.",
+      "options": [
+        { "id": "tile-appreciate", "text": "appreciate" },
+        { "id": "tile-arrive", "text": "arrive" },
+        { "id": "tile-belong", "text": "belong" }
+      ],
+      "acceptedOptionIDs": ["tile-appreciate"],
+      "explanations": {
+        "tile-arrive": "“Arrive” can’t take a direct object — you arrive at a place, not “arrive your help”.",
+        "tile-belong": "“Belong” needs “to” and means ownership — it can’t thank someone for their help."
+      }
+    },
+    {
+      "id": "build-consider",
+      "wordID": "consider",
+      "context": "You want the team to think carefully before choosing.",
+      "prompt": "Please ___ the options first.",
+      "options": [
+        { "id": "tile-consider", "text": "consider" },
+        { "id": "tile-consist", "text": "consist" },
+        { "id": "tile-depend", "text": "depend" }
+      ],
+      "acceptedOptionIDs": ["tile-consider"],
+      "explanations": {
+        "tile-consist": "“Consist” needs “of” and describes what something is made of — it isn’t an action you ask someone to do.",
+        "tile-depend": "“Depend” needs “on” — “depend the options” isn’t grammatical, and it doesn’t mean thinking carefully."
+      }
+    },
+    {
+      "id": "build-improve",
+      "wordID": "improve",
+      "context": "The current workflow is slow and you want it to be better.",
+      "prompt": "We need to ___ the process.",
+      "options": [
+        { "id": "tile-improve", "text": "improve" },
+        { "id": "tile-happen", "text": "happen" },
+        { "id": "tile-rely", "text": "rely" }
+      ],
+      "acceptedOptionIDs": ["tile-improve"],
+      "explanations": {
+        "tile-happen": "“Happen” can’t take an object — things happen, you don’t “happen the process”.",
+        "tile-rely": "“Rely” needs “on” and means trusting something — it doesn’t make the process better."
+      }
+    }
+  ],
+  "recallPrompts": [
+    { "id": "recall-appreciate", "wordID": "appreciate", "sentence": "I really ___ your help." },
+    { "id": "recall-consider", "wordID": "consider", "sentence": "We should ___ all options." },
+    { "id": "recall-improve", "wordID": "improve", "sentence": "How can we ___ this?" }
+  ]
+}
