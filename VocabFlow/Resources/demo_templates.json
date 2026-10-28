@@ -1,0 +1,293 @@
+{
+  "seed": 20261028,
+  "templates": [
+    {
+      "id": "select",
+      "title": "Select Meaning",
+      "action": "Choose the Vietnamese meaning of an English word.",
+      "systemImage": "checklist",
+      "exercises": [
+        {
+          "id": "select-appreciate",
+          "wordID": "appreciate",
+          "variant": "gloss",
+          "prompt": "What does “appreciate” mean?",
+          "choices": [
+            {
+              "id": "gloss-appreciate",
+              "text": "trân trọng, đánh giá cao"
+            },
+            {
+              "id": "gloss-apologize",
+              "text": "xin lỗi"
+            },
+            {
+              "id": "gloss-accept",
+              "text": "chấp nhận"
+            }
+          ],
+          "acceptedChoiceID": "gloss-appreciate",
+          "explanations": {
+            "gloss-apologize": "“Xin lỗi” is “apologize”. “Appreciate” is about valuing something or being grateful.",
+            "gloss-accept": "“Chấp nhận” is “accept” — you can accept help without valuing it."
+          },
+          "feedback": "“I really appreciate your help.” — Tôi rất trân trọng sự giúp đỡ của bạn."
+        },
+        {
+          "id": "select-consider-clash",
+          "wordID": "consider",
+          "variant": "meaningClash",
+          "context": "Please consider the options first.",
+          "prompt": "What does “consider” mean in this sentence?",
+          "choices": [
+            {
+              "id": "clash-consider",
+              "text": "cân nhắc"
+            },
+            {
+              "id": "clash-decide",
+              "text": "quyết định"
+            },
+            {
+              "id": "clash-glance",
+              "text": "xem qua"
+            }
+          ],
+          "acceptedChoiceID": "clash-consider",
+          "explanations": {
+            "clash-decide": "Close, but “quyết định” is “decide”. You consider the options before you decide.",
+            "clash-glance": "“Xem qua” is a quick look (“look over”). “Consider” means thinking carefully."
+          },
+          "feedback": "“Consider” means thinking carefully about something before you decide — cân nhắc."
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "title": "Matching Pairs",
+      "action": "Pair each English word with its Vietnamese meaning.",
+      "systemImage": "square.grid.2x2",
+      "exercises": [
+        {
+          "id": "match-core",
+          "wordID": "appreciate",
+          "prompt": "Tap a word, then tap its meaning.",
+          "pairWordIDs": [
+            "appreciate",
+            "consider",
+            "improve"
+          ],
+          "feedback": "All pairs matched: appreciate — trân trọng, consider — cân nhắc, improve — cải thiện."
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "title": "Word Stack",
+      "action": "Tap or drag a word into a sentence or phrase.",
+      "systemImage": "square.stack.3d.up",
+      "exercises": [
+        {
+          "id": "stack-improve",
+          "wordID": "improve",
+          "context": "You are giving a friend advice about their essays.",
+          "prompt": "Daily practice will ___ your writing.",
+          "choices": [
+            {
+              "id": "stack-tile-improve",
+              "text": "improve"
+            },
+            {
+              "id": "stack-tile-happen",
+              "text": "happen"
+            },
+            {
+              "id": "stack-tile-depend",
+              "text": "depend"
+            }
+          ],
+          "acceptedChoiceID": "stack-tile-improve",
+          "explanations": {
+            "stack-tile-happen": "“Happen” can’t take an object — practice can’t “happen your writing”.",
+            "stack-tile-depend": "“Depend” needs “on” and describes reliance, not making something better."
+          },
+          "feedback": "“Improve your writing” — make it better. Improve takes a direct object.",
+          "variant": "sentence"
+        },
+        {
+          "id": "stack-fill-consider",
+          "wordID": "consider",
+          "variant": "fillBlank",
+          "context": "A friend just got a job offer and wants to reply tonight.",
+          "prompt": "Take a day to ___ the offer first.",
+          "choices": [
+            {
+              "id": "fill-tile-consider",
+              "text": "consider"
+            },
+            {
+              "id": "fill-tile-consist",
+              "text": "consist"
+            },
+            {
+              "id": "fill-tile-depend",
+              "text": "depend"
+            }
+          ],
+          "acceptedChoiceID": "fill-tile-consider",
+          "explanations": {
+            "fill-tile-consist": "“Consist” needs “of” and describes what something is made of — you can’t “consist the offer”.",
+            "fill-tile-depend": "“Depend” needs “on” — “depend the offer” isn’t grammatical, and it doesn’t mean thinking it over."
+          },
+          "feedback": "“Consider the offer” — think about it carefully before deciding."
+        },
+        {
+          "id": "stack-phrase-appreciate",
+          "wordID": "appreciate",
+          "context": "A friend just helped you move house.",
+          "prompt": "Thanks, I really ___ it!",
+          "choices": [
+            {
+              "id": "phrase-tile-appreciate",
+              "text": "appreciate"
+            },
+            {
+              "id": "phrase-tile-arrive",
+              "text": "arrive"
+            },
+            {
+              "id": "phrase-tile-agree",
+              "text": "agree"
+            }
+          ],
+          "acceptedChoiceID": "phrase-tile-appreciate",
+          "explanations": {
+            "phrase-tile-arrive": "“Arrive” has no object — you arrive somewhere, you can’t “arrive it”.",
+            "phrase-tile-agree": "“Agree” needs “with” or “to”, and it means sharing an opinion, not thanking."
+          },
+          "feedback": "“Thanks, I really appreciate it!” — Cảm ơn, mình thật sự trân trọng điều đó!",
+          "variant": "phrase"
+        }
+      ]
+    },
+    {
+      "id": "audioSelect",
+      "title": "Audio Select",
+      "action": "Play the pronunciation and choose the word you heard.",
+      "systemImage": "speaker.wave.2",
+      "exercises": [
+        {
+          "id": "audio-consider",
+          "wordID": "consider",
+          "prompt": "Listen, then choose the word you heard.",
+          "audioText": "consider",
+          "choices": [
+            {
+              "id": "audio-tile-consider",
+              "text": "consider"
+            },
+            {
+              "id": "audio-tile-consist",
+              "text": "consist"
+            },
+            {
+              "id": "audio-tile-confirm",
+              "text": "confirm"
+            }
+          ],
+          "acceptedChoiceID": "audio-tile-consider",
+          "explanations": {
+            "audio-tile-consist": "“Consist” ends in /-sɪst/. The word ended with /-sɪdər/.",
+            "audio-tile-confirm": "“Confirm” sounds /kənˈfɜːrm/. The middle sound you heard was /sɪd/."
+          },
+          "feedback": "You heard “consider” /kənˈsɪdər/ — cân nhắc."
+        }
+      ]
+    },
+    {
+      "id": "typing",
+      "title": "Recall Typing",
+      "action": "Type the word from its meaning — no choices.",
+      "systemImage": "keyboard",
+      "exercises": [
+        {
+          "id": "typing-improve",
+          "wordID": "improve",
+          "prompt": "Practice will ___ your listening.",
+          "hintSequence": [
+            "i _ _ _ _ _ _",
+            "i m p _ _ _ _"
+          ],
+          "feedback": "“Improve” — cải thiện: to make something better."
+        }
+      ]
+    },
+    {
+      "id": "surgery",
+      "title": "Letter Surgery",
+      "action": "Find the one wrong letter, then replace it.",
+      "systemImage": "bandage",
+      "exercises": [
+        {
+          "id": "surgery-consider",
+          "wordID": "consider",
+          "prompt": "One letter is wrong. Tap it, then pick the fix.",
+          "misspelling": "considar",
+          "wrongCharacterIndex": 6,
+          "replacementChoices": [
+            "e",
+            "o",
+            "u"
+          ],
+          "replacementCharacter": "e",
+          "feedback": "“consider” ends in -er: c-o-n-s-i-d-e-r."
+        }
+      ]
+    },
+    {
+      "id": "split",
+      "title": "Sound Split",
+      "action": "Hear the word and tap its stressed syllable.",
+      "systemImage": "rectangle.split.3x1",
+      "exercises": [
+        {
+          "id": "split-appreciate",
+          "wordID": "appreciate",
+          "prompt": "Which syllable is stressed?",
+          "audioText": "appreciate",
+          "feedback": "The stress is on the 2nd syllable: ap-PRE-ci-ate /əˈpriːʃieɪt/."
+        }
+      ]
+    },
+    {
+      "id": "trace",
+      "title": "Audio Trace",
+      "action": "Listen and spell the whole word from memory.",
+      "systemImage": "ear",
+      "exercises": [
+        {
+          "id": "trace-appreciate",
+          "wordID": "appreciate",
+          "prompt": "Listen, then spell the word you heard.",
+          "audioText": "appreciate",
+          "feedback": "a-p-p-r-e-c-i-a-t-e — double “p”, then “-ciate”."
+        }
+      ]
+    },
+    {
+      "id": "echo",
+      "title": "Echo Back",
+      "action": "Listen, repeat it aloud, then check yourself.",
+      "systemImage": "repeat",
+      "exercises": [
+        {
+          "id": "echo-improve",
+          "wordID": "improve",
+          "prompt": "Listen, say it out loud twice, then mark it done.",
+          "audioText": "improve",
+          "feedback": "Self-check only — nothing was recorded or graded. Stress the second syllable: im-PROVE."
+        }
+      ]
+    }
+  ]
+}

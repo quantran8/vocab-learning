@@ -25,7 +25,7 @@ struct RecallInput: View {
                 .padding(.horizontal, Spacing.l - 4)
                 .frame(minHeight: Spacing.tileMinHeight)
                 .background(Color.surface, in: shape)
-                .overlay(shape.strokeBorder(isFocused.wrappedValue ? Color.inputFocus : Color.inputStroke, lineWidth: 2))
+                .overlay(shape.strokeBorder(isFocused.wrappedValue ? Color.focusRing : Color.stroke, lineWidth: 2))
                 .accessibilityLabel(Text("Your answer"))
         }
     }

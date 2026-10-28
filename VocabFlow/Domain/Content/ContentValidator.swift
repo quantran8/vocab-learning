@@ -10,6 +10,7 @@ enum ContentIssue: Equatable {
     case missingBlank(id: String)
     case wordWithoutBuild(wordID: String)
     case wordWithoutRecall(wordID: String)
+    case invalidIntroChunks(wordID: String)
 }
 
 enum ContentValidator {
@@ -30,6 +31,11 @@ enum ContentValidator {
             }
             if !content.recallPrompts.contains(where: { $0.wordID == word.id }) {
                 issues.append(.wordWithoutRecall(wordID: word.id))
+            }
+            if let intro = word.intro,
+               intro.templateID == .chunkMerge || intro.introChunks != nil,
+               !IntroductionPresentation.areValidChunks(intro.introChunks, for: word.term) {
+                issues.append(.invalidIntroChunks(wordID: word.id))
             }
         }
 

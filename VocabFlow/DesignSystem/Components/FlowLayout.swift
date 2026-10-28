@@ -3,6 +3,8 @@ import SwiftUI
 struct FlowLayout: Layout {
     var spacing: CGFloat = Spacing.xs
     var lineSpacing: CGFloat = Spacing.s
+    /// `.leading` packs rows to the left edge; anything else centers each row.
+    var alignment: HorizontalAlignment = .center
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         arrange(width: proposal.width ?? .infinity, subviews: subviews).size
@@ -41,7 +43,7 @@ struct FlowLayout: Layout {
             let rowWidth = row.map(\.size.width).reduce(0, +) + spacing * CGFloat(row.count - 1)
             let rowHeight = row.map(\.size.height).max() ?? 0
             widest = max(widest, rowWidth)
-            var x = width.isFinite ? max(0, (width - rowWidth) / 2) : 0
+            var x = width.isFinite && alignment != .leading ? max(0, (width - rowWidth) / 2) : 0
             for item in row {
                 frames[item.index] = CGRect(
                     x: x,

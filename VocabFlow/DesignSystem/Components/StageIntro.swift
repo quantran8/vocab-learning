@@ -18,7 +18,7 @@ struct StageIntro: View {
             .font(Typography.eyebrow)
             .tracking(Typography.eyebrowTracking)
             .textCase(.uppercase)
-            .foregroundStyle(Color.primarySoftInk)
+            .foregroundStyle(Color.selectedInk)
 
             Text(verbatim: title)
                 .font(Typography.screenTitle)

@@ -7,48 +7,36 @@ enum WordTileVisualState: Equatable {
 struct WordTile: View {
     let text: String
     let visualState: WordTileVisualState
+    /// Face height floor; callers raise it to equalize a group of tiles.
+    var minHeight: CGFloat = Spacing.tileMinHeight
     @Environment(\.motion) private var motion
 
     var body: some View {
-        HStack(spacing: Spacing.xs) {
-            if let icon {
-                Image(systemName: icon)
-                    .accessibilityHidden(true)
-            }
-            Text(text)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        Text(text)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
         .font(Typography.tile)
         .foregroundStyle(foreground)
         .padding(.horizontal, Spacing.s)
         .padding(.vertical, Spacing.m)
-        .frame(maxWidth: .infinity, minHeight: Spacing.tileMinHeight)
+        .frame(maxWidth: .infinity, minHeight: minHeight)
         .background(face, in: shape)
         .overlay(shape.strokeBorder(border, lineWidth: borderWidth))
         .offset(y: faceDrop)
         .background(shape.fill(depth).offset(y: Spacing.tileDepth))
         .padding(.bottom, Spacing.tileDepth)
         .shadow(
-            color: visualState == .dragging ? Color.ink.opacity(0.18) : .clear,
-            radius: visualState == .dragging ? 14 : 0,
-            y: visualState == .dragging ? 10 : 0
+            color: visualState == .dragging ? Color.ink.opacity(0.14) : .clear,
+            radius: visualState == .dragging ? 10 : 0,
+            y: visualState == .dragging ? 6 : 0
         )
         .scaleEffect(scale)
-        .opacity(visualState == .disabled ? 0.45 : 1)
+        .opacity(visualState == .disabled ? 0.6 : 1)
         .contentShape(shape)
         .animation(motion.animation(visualState == .pressed ? MotionTokens.press : MotionTokens.lift), value: visualState)
     }
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: Radii.tile, style: .continuous) }
-
-    private var icon: String? {
-        switch visualState {
-        case .correct: "checkmark.circle.fill"
-        case .incorrect: "xmark.circle.fill"
-        default: nil
-        }
-    }
 
     private var faceDrop: CGFloat {
         switch visualState {
@@ -70,8 +58,8 @@ struct WordTile: View {
         switch visualState {
         case .correct: .successInk
         case .incorrect: .errorInk
-        case .selected, .dragging: .primarySoftInk
-        case .disabled: .mutedInk
+        case .selected, .dragging: .selectedInk
+        case .disabled: .disabledInk
         default: .ink
         }
     }
@@ -97,9 +85,9 @@ struct WordTile: View {
 
     private var border: Color {
         switch visualState {
-        case .selected, .dragging: .primaryAction
-        case .correct: .successInk
-        case .incorrect: .errorInk
+        case .selected, .dragging: .interactive
+        case .correct: .success
+        case .incorrect: .error
         default: .stroke
         }
     }

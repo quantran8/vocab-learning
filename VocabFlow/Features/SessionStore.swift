@@ -8,6 +8,8 @@ final class SessionStore {
     private(set) var sessionToken = UUID()
     let content: DemoContent
     let haptics: FeedbackProviding
+    /// Runs once each time a session reaches Results.
+    var onFinish: (@MainActor () -> Void)?
 
     init(content: DemoContent, haptics: FeedbackProviding) {
         self.content = content
@@ -20,6 +22,7 @@ final class SessionStore {
     func submitRecall(text: String) { send(.recallSubmitted(text)) }
     func requestHint() { send(.hintRequested) }
     func revealAnswer() { send(.answerRevealed) }
+    func dismissFeedback() { send(.feedbackDismissed) }
     func next() { send(.advance) }
     func restart() { send(.restart) }
 
@@ -48,16 +51,17 @@ final class SessionStore {
     func recallOutcome(wordID: String) -> RecallOutcome? { state.recallOutcomes[wordID] }
     var result: SessionResult { SessionReducer.result(state: state, content: content) }
 
-    var flowStep: (current: Int, total: Int) {
+    /// Progress is split into two stages: meeting the words, then practising them.
+    var flowProgress: (stage: FlowStage, current: Int, total: Int) {
         let learn = content.words.count
         let build = content.buildChallenges.count
-        let total = learn + build + content.recallPrompts.count
+        let practice = build + content.recallPrompts.count
         switch state.phase {
-        case .home: return (0, total)
-        case .learn(let index): return (index + 1, total)
-        case .build(let index): return (learn + index + 1, total)
-        case .recall(let index): return (learn + build + index + 1, total)
-        case .results: return (total, total)
+        case .home: return (.learn, 0, learn)
+        case .learn(let index): return (.learn, index + 1, learn)
+        case .build(let index): return (.practice, index + 1, practice)
+        case .recall(let index): return (.practice, build + index + 1, practice)
+        case .results: return (.practice, practice, practice)
         }
     }
 
@@ -75,7 +79,12 @@ final class SessionStore {
         case .incorrect: haptics.error()
         case .hintOpened, .answerRevealed: haptics.selectionChanged()
         case .restarted: sessionToken = UUID()
-        case .started, .advanced, .finished: break
+        case .finished: onFinish?()
+        case .started, .advanced: break
         }
     }
+}
+
+enum FlowStage: Equatable {
+    case learn, practice
 }

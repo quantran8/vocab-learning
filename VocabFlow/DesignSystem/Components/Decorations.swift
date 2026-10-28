@@ -4,32 +4,29 @@ struct BrandBar: View {
     var body: some View {
         HStack(spacing: Spacing.xs) {
             RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                .fill(Color.primaryAction)
-                .frame(width: 36, height: 36)
+                .fill(Color.ink)
+                .frame(width: 34, height: 34)
+                .overlay(alignment: .bottomTrailing) {
+                    Circle()
+                        .fill(Color.reward)
+                        .frame(width: 10, height: 10)
+                        .padding(6)
+                }
                 .overlay(
-                    Image(systemName: "sparkle")
-                        .font(.system(size: 18, weight: .bold))
+                    Text(verbatim: "v")
+                        .font(.system(size: 18, weight: .heavy))
                         .foregroundStyle(.white)
+                        .offset(x: -3, y: -2)
                 )
-                .rotationEffect(.degrees(-6))
-            Text(wordmark)
+            Text(verbatim: "vocab flow")
                 .font(Typography.wordmark)
-                .tracking(-0.7)
+                .tracking(-0.6)
+                .foregroundStyle(Color.ink)
             Spacer()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Vocab Flow"))
         .accessibilityAddTraits(.isHeader)
-    }
-
-    private var wordmark: AttributedString {
-        var vocab = AttributedString("vocab")
-        vocab.foregroundColor = Color.ink
-        var flow = AttributedString("flow")
-        flow.foregroundColor = Color.primaryAction
-        var dot = AttributedString(".")
-        dot.foregroundColor = Color.mint
-        return vocab + flow + dot
     }
 }
 
@@ -67,16 +64,34 @@ struct CardSurface: ViewModifier {
             .background(fill)
             .overlay(alignment: .top) {
                 if let accent {
-                    accent.frame(height: Spacing.xs)
+                    accent.frame(height: Spacing.xxs + 2)
                 }
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.stroke))
+            .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
     }
 }
 
 extension View {
     func cardSurface(radius: CGFloat = Radii.card, fill: Color = .surface, accent: Color? = nil) -> some View {
         modifier(CardSurface(radius: radius, fill: fill, accent: accent))
+    }
+}
+
+/// Small pill used for category markers and decorative highlights. Never a real score.
+struct Chip: View {
+    let text: LocalizedStringKey
+    var fill: Color = .neutralSurface
+    var foreground: Color = .ink
+
+    var body: some View {
+        Text(text)
+            .font(Typography.eyebrow)
+            .tracking(0.4)
+            .textCase(.uppercase)
+            .foregroundStyle(foreground)
+            .padding(.horizontal, Spacing.s - 2)
+            .padding(.vertical, Spacing.xxs + 1)
+            .background(fill, in: Capsule())
     }
 }

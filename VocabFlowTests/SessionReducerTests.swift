@@ -123,4 +123,33 @@ final class SessionReducerTests: XCTestCase {
         XCTAssertEqual(result.recognizedCount, 3)
         XCTAssertEqual(result.unaidedCount + result.hintedCount + result.afterRetryCount, 0)
     }
+
+    func testTryAgainClearsFeedbackButKeepsAttemptsAndHints() throws {
+        let content = try TestContent.demo()
+        let challenge = content.buildChallenges[0]
+        let wrong = TestContent.reduce(TestContent.atBuild(content), .buildSubmitted(tileID: TestContent.distractor(challenge)), content: content).state
+        let retried = TestContent.reduce(wrong, .feedbackDismissed, content: content).state
+        XCTAssertNil(retried.feedback)
+        XCTAssertEqual(retried.attempts, wrong.attempts)
+        XCTAssertEqual(retried.phase, wrong.phase)
+
+        var recall = TestContent.reduce(TestContent.atRecall(content), .hintRequested, .recallSubmitted("nope"), content: content).state
+        recall = TestContent.reduce(recall, .feedbackDismissed, content: content).state
+        XCTAssertNil(recall.feedback)
+        XCTAssertEqual(recall.attempts.filter { $0.stage == .recall }.count, 1)
+        XCTAssertEqual(recall.hintsByWordID[content.recallPrompts[0].wordID], 1)
+
+        // A retry after "Try again" is still not unaided recall.
+        let word = try XCTUnwrap(content.word(id: content.recallPrompts[0].wordID))
+        recall = TestContent.reduce(recall, .recallSubmitted(word.term), content: content).state
+        XCTAssertEqual(recall.recallOutcomes[word.id], .hintedRecall)
+    }
+
+    func testDismissIsIgnoredWhenNothingIsWrong() throws {
+        let content = try TestContent.demo()
+        let state = TestContent.atBuild(content)
+        let transition = SessionReducer.reduce(state: state, action: .feedbackDismissed, content: content)
+        XCTAssertEqual(transition.state, state)
+        XCTAssertTrue(transition.events.isEmpty)
+    }
 }

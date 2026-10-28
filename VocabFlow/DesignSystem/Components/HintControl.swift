@@ -16,7 +16,7 @@ struct HintControl: View {
                     Label("Reveal a hint (\(hintsUsed)/\(maxHints))", systemImage: "lightbulb")
                         .frame(minHeight: Spacing.minTouchTarget)
                 }
-                .foregroundStyle(Color.primaryAction)
+                .foregroundStyle(Color.selectedInk)
                 .disabled(!isEnabled || hintsUsed >= maxHints)
                 .opacity(isEnabled && hintsUsed < maxHints ? 1 : 0.4)
 
@@ -30,12 +30,12 @@ struct HintControl: View {
                 .disabled(!isEnabled)
                 .opacity(isEnabled ? 1 : 0.4)
             }
-            .font(Typography.secondary.weight(.heavy))
+            .font(Typography.secondary.weight(.bold))
 
             ForEach(Array(hints.enumerated()), id: \.offset) { _, hint in
                 Text(verbatim: hint)
                     .font(.system(.subheadline, design: .monospaced, weight: .semibold))
-                    .foregroundStyle(Color.primarySoftInk)
+                    .foregroundStyle(Color.selectedInk)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Spacing.m)
                     .padding(.vertical, Spacing.s)

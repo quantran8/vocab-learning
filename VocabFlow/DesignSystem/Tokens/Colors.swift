@@ -1,39 +1,44 @@
 import SwiftUI
 
+// Color Pop palette — see vocab-flow-color-pop-style-guide.md §2.
 extension Color {
-    static let canvas = Color(hex: 0xF7F7F2)
+    // Core palette
+    static let canvas = Color(hex: 0xFFFFFF)
     static let surface = Color(hex: 0xFFFFFF)
-    static let ink = Color(hex: 0x242536)
-    static let mutedInk = Color(hex: 0x696977)
+    static let ink = Color(hex: 0x171717)
+    static let mutedInk = Color(hex: 0x5C606B)
+    static let primaryAction = Color(hex: 0x171717)
+    static let interactive = Color(hex: 0x4775F5)
+    static let reward = Color(hex: 0xFFD23F)
+    static let success = Color(hex: 0x2BC86A)
+    static let error = Color(hex: 0xFF795D)
+    static let neutralSurface = Color(hex: 0xF5F5F5)
+    static let stroke = Color(hex: 0xE1E4EB)
 
-    static let primaryAction = Color(hex: 0x705CF6)
-    static let primaryDepth = Color(hex: 0x5140C9)
-    static let primarySoft = Color(hex: 0xEBE7FF)
-    static let primarySoftInk = Color(hex: 0x5A47C8)
+    // State support
+    static let selectedSurface = Color(hex: 0xEAF0FF)
+    static let selectedInk = Color(hex: 0x234EAE)
+    static let successSurface = Color(hex: 0xE5FAED)
+    static let successInk = Color(hex: 0x12673A)
+    static let errorSurface = Color(hex: 0xFFF0EA)
+    static let errorInk = Color(hex: 0x943727)
+    static let focusRing = Color(hex: 0x4775F5)
+    static let disabledSurface = Color(hex: 0xF1F2F4)
+    static let disabledInk = Color(hex: 0x707783)
+    static let quietSurface = Color(hex: 0xFAFAFA)
 
-    static let selectedSurface = Color(hex: 0xEFECFF)
-    static let selectedDepth = Color(hex: 0xDED8FF)
-    static let successSurface = Color(hex: 0xE5F8EF)
-    static let successInk = Color(hex: 0x147E60)
-    static let successDepth = Color(hex: 0xBFE9D8)
-    static let errorSurface = Color(hex: 0xFFF0EB)
-    static let errorInk = Color(hex: 0xA64734)
-    static let errorDepth = Color(hex: 0xF6D3C9)
+    // Stepped depth under tactile surfaces
+    static let primaryDepth = Color(hex: 0x000000)
+    static let interactiveDepth = Color(hex: 0x2B55CE)
+    static let rewardDepth = Color(hex: 0xB89528)
+    static let tileDepth = Color(hex: 0xE1E4EB)
+    static let selectedDepth = Color(hex: 0xC4D3FC)
+    static let successDepth = Color(hex: 0xB7EDCB)
+    static let errorDepth = Color(hex: 0xFFD2C6)
 
-    static let stroke = Color(hex: 0xE6E4E0)
-    static let tileDepth = Color(hex: 0xEAE8E5)
-    static let track = Color(hex: 0xE7E5E0)
-    static let slotSurface = Color(hex: 0xF1EFFC)
-    static let slotStroke = Color(hex: 0xC5BBFC)
-    static let slotTargetedStroke = Color(hex: 0x9C8EFB)
-    static let inputStroke = Color(hex: 0xE5E2E9)
-    static let inputFocus = Color(hex: 0xAA99FA)
-    static let disabledFace = Color(hex: 0xC7C3DF)
-    static let disabledDepth = Color(hex: 0xAAA7C0)
-    static let dot = Color(hex: 0xDBD8D1)
-
-    static let mint = Color(hex: 0x41C6A4)
-    static let coral = Color(hex: 0xFF8C78)
+    static let track = Color(hex: 0xE1E4EB)
+    static let slotTargetedSurface = Color(hex: 0xD9E4FF)
+    static let dot = Color(hex: 0xE1E4EB)
 
     init(hex: UInt32) {
         self.init(

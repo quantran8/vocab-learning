@@ -36,3 +36,25 @@ struct NoOpFeedback: FeedbackProviding {
     func success() {}
     func error() {}
 }
+
+/// Forwards to another provider only while haptics are switched on in Settings.
+final class SettingsAwareFeedback: FeedbackProviding {
+    var isEnabled = true
+    private let base: FeedbackProviding
+
+    init(base: FeedbackProviding) {
+        self.base = base
+    }
+
+    func selectionChanged() {
+        if isEnabled { base.selectionChanged() }
+    }
+
+    func success() {
+        if isEnabled { base.success() }
+    }
+
+    func error() {
+        if isEnabled { base.error() }
+    }
+}

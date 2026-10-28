@@ -4,7 +4,8 @@ struct DraggableWordTile: View {
     let option: WordOption
     let visualState: WordTileVisualState
     let restingOffset: CGSize
-    let slotFrame: CGRect
+    let dropFrame: CGRect
+    var isPlaced = false
     let isInteractive: Bool
     let cancelToken: Int
     let onFrameChange: (CGRect) -> Void
@@ -26,16 +27,21 @@ struct DraggableWordTile: View {
 
     var body: some View {
         WordTile(text: option.text, visualState: displayedState)
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .named(BuildInteractionState.boardSpace))
-            } action: { newFrame in
-                frame = newFrame
-                onFrameChange(newFrame)
-            }
             .offset(
                 x: restingOffset.width + translation.width,
                 y: restingOffset.height + translation.height
             )
+            // Measured outside the offset: this is the tile's home frame in the bank. Measuring inside
+            // would include the drag translation, which the hit test then adds a second time.
+            .background {
+                Color.clear
+                    .onGeometryChange(for: CGRect.self) { proxy in
+                        proxy.frame(in: .named(BuildInteractionState.boardSpace))
+                    } action: { newFrame in
+                        frame = newFrame
+                        onFrameChange(newFrame)
+                    }
+            }
             .zIndex(isDragging || restingOffset != .zero ? 1 : 0)
             .gesture(gesture, including: isInteractive ? .all : .none)
             .onChange(of: isGestureActive) { _, active in
@@ -93,7 +99,7 @@ struct DraggableWordTile: View {
                 guard !ignoresCurrentGesture else { return }
                 if isDragging {
                     isDragging = false
-                    let dropped = BuildInteractionState.isOver(slot: slotFrame, tileFrame: frame, translation: value.translation)
+                    let dropped = BuildInteractionState.isOver(dropFrame, tileFrame: frame, translation: displacement(value.translation))
                     isTargeting = false
                     let animation = onDragEnded(dropped)
                     withAnimation(animation) { translation = .zero }
@@ -104,11 +110,16 @@ struct DraggableWordTile: View {
     }
 
     private func updateTarget(_ current: CGSize) {
-        let hit = BuildInteractionState.isOver(slot: slotFrame, tileFrame: frame, translation: current)
+        let hit = BuildInteractionState.isOver(dropFrame, tileFrame: frame, translation: displacement(current))
         if hit != isTargeting {
             isTargeting = hit
             onTargetChanged(hit)
         }
+    }
+
+    /// Where the tile is drawn relative to its layout frame (a placed tile starts on the slot).
+    private func displacement(_ translation: CGSize) -> CGSize {
+        CGSize(width: restingOffset.width + translation.width, height: restingOffset.height + translation.height)
     }
 
     private func cancel(notify: Bool) {
@@ -122,7 +133,8 @@ struct DraggableWordTile: View {
     }
 
     private var accessibilityValue: Text {
-        switch visualState {
+        if isPlaced, visualState == .idle { return Text("In the answer slot") }
+        return switch visualState {
         case .selected: Text("Selected")
         case .correct: Text("Correct, placed in the answer slot")
         case .incorrect: Text("Incorrect")

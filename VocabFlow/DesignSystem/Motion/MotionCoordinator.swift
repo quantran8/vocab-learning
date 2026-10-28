@@ -16,6 +16,16 @@ struct MotionCoordinator {
             )
     }
 
+    /// Step-to-step content inside the flow: new content slides in from the right, old exits left.
+    var stepTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+    }
+
     var popTransition: AnyTransition {
         reduceMotion ? .opacity : .scale(scale: 0.88).combined(with: .opacity)
     }

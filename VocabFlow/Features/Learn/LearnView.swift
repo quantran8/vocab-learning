@@ -1,66 +1,62 @@
 import SwiftUI
 
+/// Animated Learn: an animated English-spelling hero, then static Meaning, Pronunciation and
+/// Definition / In context sections. Only the hero animates; Next is never gated by motion.
 struct LearnView: View {
     let index: Int
     @Environment(SessionStore.self) private var store
-    @Environment(\.motion) private var motion
+    /// Demo motion selector. Local and per word, so a redraw never changes the recipe.
+    @State private var selectedTemplate: IntroductionTemplateID?
 
     var body: some View {
         let word = store.content.words[index]
-        let isLast = index + 1 >= store.totalWords
+        let presentation = selectedTemplate.map { word.introPresentation.switched(to: $0, for: word.term) }
+            ?? word.introPresentation
 
-        FlowScaffold(stage: "Learn", stageCurrent: index + 1, stageTotal: store.totalWords) {
-            VStack(spacing: Spacing.xl) {
-                StageIntro(
-                    number: 1,
-                    label: "Meet the words",
-                    title: String(localized: "Word \(index + 1) of \(store.totalWords)"),
-                    subtitle: "Read the meaning and example before you practise.",
-                    systemImage: "book.fill"
-                )
+        VStack(spacing: Spacing.l) {
+            StageIntro(
+                number: 1,
+                label: "Meet the words",
+                title: String(localized: "Meet your next word."),
+                subtitle: "Word \(index + 1) of \(store.totalWords)",
+                systemImage: "book.fill"
+            )
 
-                VStack(spacing: Spacing.m) {
-                    Eyebrow(text: "New word")
-                    Text(verbatim: word.term)
-                        .font(Typography.display)
-                        .tracking(Typography.tightTracking)
-                        .foregroundStyle(Color.ink)
-                        .multilineTextAlignment(.center)
-                    Text(verbatim: word.meaningVi)
-                        .font(Typography.emphasis)
-                        .foregroundStyle(Color.primarySoftInk)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.m)
-                        .padding(.vertical, Spacing.xs)
-                        .background(Color.primarySoft, in: Capsule())
-                        .accessibilityLabel(Text("Vietnamese meaning: \(word.meaningVi)"))
-
-                    Divider().padding(.vertical, Spacing.xs)
-
-                    Eyebrow(text: "Example")
-                    Text(Self.highlight(word.term, in: word.example))
-                        .font(Typography.body)
-                        .foregroundStyle(Color.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .padding(.horizontal, Spacing.l)
-                .padding(.top, Spacing.xl + 4)
-                .padding(.bottom, Spacing.xl)
-                .cardSurface(accent: .primarySoft)
-            }
-        } action: {
-            PrimaryButton(title: isLast ? "Start practice" : "Next word") {
-                motion.perform(MotionTokens.transition) { store.finishLearning() }
+            WordIntroContent(word: word, presentation: presentation) {
+                motionMenu(current: presentation.templateID)
             }
         }
+    }
+
+    private func motionMenu(current: IntroductionTemplateID) -> some View {
+        Menu {
+            Picker(selection: Binding(get: { current }, set: { selectedTemplate = $0 })) {
+                ForEach(IntroductionTemplateID.allCases) { id in
+                    Text(id.title).tag(id)
+                }
+            } label: {
+                Text("Intro motion")
+            }
+        } label: {
+            HStack(spacing: Spacing.xxs) {
+                Text(current.title)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption.weight(.bold))
+                    .accessibilityHidden(true)
+            }
+            .font(Typography.micro.weight(.bold))
+            .foregroundStyle(Color.mutedInk)
+            .padding(.horizontal, Spacing.s)
+            .frame(minHeight: Spacing.minTouchTarget)
+        }
+        .accessibilityLabel(Text("Intro motion: \(Text(current.title))"))
     }
 
     static func highlight(_ term: String, in sentence: String) -> AttributedString {
         var attributed = AttributedString(sentence)
         if let range = attributed.range(of: term, options: .caseInsensitive) {
             attributed[range].inlinePresentationIntent = .stronglyEmphasized
-            attributed[range].foregroundColor = Color.primarySoftInk
+            attributed[range].foregroundColor = Color.selectedInk
         }
         return attributed
     }

@@ -15,10 +15,10 @@ struct ResultsView: View {
                 hero
                     .padding(.top, Spacing.xl + Spacing.s)
 
-                Eyebrow(text: "Flow complete", color: .primarySoftInk)
+                Chip(text: "Flow complete", fill: .reward)
                     .padding(.top, Spacing.xl + Spacing.xs)
 
-                Text("Look at you go! 🎉")
+                Text("Nice work.")
                     .font(Typography.display)
                     .tracking(-1.4)
                     .foregroundStyle(Color.ink)
@@ -67,20 +67,21 @@ struct ResultsView: View {
 
     private var hero: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 38, style: .continuous)
-                .fill(Color.successSurface)
-                .frame(width: 128, height: 128)
-            Text(verbatim: "✦")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.mint)
-            Text(verbatim: "✳")
-                .font(.largeTitle)
-                .foregroundStyle(Color.coral)
-                .offset(x: 72, y: -48)
-            Text(verbatim: "✦")
-                .font(.title)
-                .foregroundStyle(Color.primaryAction)
-                .offset(x: -70, y: 46)
+            RoundedRectangle(cornerRadius: Radii.hero, style: .continuous)
+                .fill(Color.ink)
+                .frame(width: 120, height: 120)
+            Image(systemName: "checkmark")
+                .font(.system(size: 48, weight: .heavy))
+                .foregroundStyle(Color.success)
+            Circle()
+                .fill(Color.reward)
+                .frame(width: 26, height: 26)
+                .offset(x: 70, y: -50)
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(Color.interactive)
+                .frame(width: 22, height: 22)
+                .rotationEffect(.degrees(18))
+                .offset(x: -72, y: 46)
         }
         .scaleEffect(hasAppeared ? 1 : 0.6)
         .opacity(hasAppeared ? 1 : 0)
@@ -90,7 +91,7 @@ struct ResultsView: View {
     private func stats(_ result: SessionResult) -> some View {
         let total = result.totalWords
         var items: [(LocalizedStringKey, String, Color)] = [
-            ("Recalled without hints", "\(result.unaidedCount)/\(total)", .primaryAction),
+            ("Recalled without hints", "\(result.unaidedCount)/\(total)", .selectedInk),
             ("Recalled with hints", "\(result.hintedCount)/\(total)", .successInk),
             ("Build completed", "\(result.recognizedCount)/\(total)", .ink),
             ("Total attempts", "\(result.totalAttempts)", .ink),
@@ -129,13 +130,13 @@ struct ResultsView: View {
         VStack(alignment: .leading, spacing: Spacing.s) {
             Text(result.wordsToReview.isEmpty ? LocalizedStringKey("Nothing to review") : LocalizedStringKey("Words to review"))
                 .font(Typography.emphasis)
-                .foregroundStyle(Color.primarySoftInk)
+                .foregroundStyle(Color.ink)
                 .accessibilityAddTraits(.isHeader)
 
             if result.wordsToReview.isEmpty {
                 Text("You recalled every word on the first try without hints.")
                     .font(Typography.secondary)
-                    .foregroundStyle(Color.primarySoftInk)
+                    .foregroundStyle(Color.mutedInk)
             }
 
             ForEach(result.wordsToReview) { word in
@@ -145,14 +146,14 @@ struct ResultsView: View {
                         .foregroundStyle(Color.ink)
                     Text("Recall \(outcomeText(word.recallOutcome)) · \(word.recallAttemptCount) tries · \(word.hintCount) hints")
                         .font(Typography.micro)
-                        .foregroundStyle(Color.primarySoftInk)
+                        .foregroundStyle(Color.mutedInk)
                 }
                 .accessibilityElement(children: .combine)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.m)
-        .background(Color.primarySoft, in: RoundedRectangle(cornerRadius: Radii.tile, style: .continuous))
+        .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.tile, style: .continuous))
     }
 
     private func outcomeText(_ outcome: RecallOutcome?) -> String {

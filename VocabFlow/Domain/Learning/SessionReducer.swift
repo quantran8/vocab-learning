@@ -31,6 +31,8 @@ enum SessionAction: Equatable {
     case recallSubmitted(String)
     case hintRequested
     case answerRevealed
+    /// "Try again" after a wrong answer: clears the feedback only. Attempts and hints stay recorded.
+    case feedbackDismissed
     case advance
     case restart
 }
@@ -89,6 +91,15 @@ enum SessionReducer {
             next.recallOutcomes[word.id] = .notRecalled
             next.feedback = .recallRevealed
             return SessionTransition(state: next, events: [.answerRevealed])
+
+        case (.feedbackDismissed, .build), (.feedbackDismissed, .recall):
+            switch state.feedback {
+            case .buildIncorrect, .recallIncorrect:
+                next.feedback = nil
+                return SessionTransition(state: next, events: [])
+            default:
+                return .unchanged(state)
+            }
 
         case (.advance, .build(let index)):
             guard isBuildCompleted(index: index, state: state, content: content) else { return .unchanged(state) }
