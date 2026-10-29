@@ -81,4 +81,14 @@ final class TodayStatusTests: XCTestCase {
         XCTAssertTrue(word.matches("nghi"))
         XCTAssertFalse(word.matches("sustain"))
     }
+
+    func testWeeklyCountsOnlyWordsFirstLearnedThisWeek() {
+        var progress = LearningProgress()
+        progress.recordLearned(words(2), at: date(day: 24, hour: 9), calendar: calendar)
+        progress.recordLearned(Array(words(5).dropFirst(2)), at: wednesday, calendar: calendar)
+        let weekly = WeeklyProgress.make(progress: progress, date: wednesday, calendar: calendar)
+        XCTAssertEqual(weekly.day, 4)
+        XCTAssertEqual(weekly.daysUntilOpen, 3)
+        XCTAssertEqual(weekly.wordsLearned, 3)
+    }
 }

@@ -32,6 +32,10 @@ final class ProgressStore {
         TodayStatus.make(preferences: preferences, progress: progress, date: date, calendar: calendar)
     }
 
+    func weekly(on date: Date) -> WeeklyProgress {
+        WeeklyProgress.make(progress: progress, date: date, calendar: calendar)
+    }
+
     func isDue(_ word: LearnedWord, on date: Date) -> Bool {
         word.lastPracticedAt < calendar.startOfDay(for: date)
     }

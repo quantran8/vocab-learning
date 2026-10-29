@@ -32,7 +32,6 @@ struct AudioTraceView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: canCheck,
-                requirement: "Type the word you heard.",
                 onCheck: check
             )
         }

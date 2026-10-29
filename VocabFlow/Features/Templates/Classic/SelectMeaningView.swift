@@ -23,8 +23,6 @@ struct SelectMeaningView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.l)
-                .padding(.horizontal, Spacing.m)
-                .cardSurface()
 
                 VStack(spacing: Spacing.s) {
                     ForEach(run.exercise.choices ?? []) { choice in
@@ -39,7 +37,6 @@ struct SelectMeaningView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: selectedID != nil && selectedID != run.incorrectChoiceID,
-                requirement: "Choose a meaning to check.",
                 onCheck: {
                     guard let selectedID else { return }
                     sandbox.submitChoice(selectedID)

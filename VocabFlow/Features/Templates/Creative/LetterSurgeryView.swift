@@ -19,8 +19,6 @@ struct LetterSurgeryView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.l)
-                .padding(.horizontal, Spacing.s)
-                .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
 
                 if run.locatedLetterIndex != nil {
                     VStack(spacing: Spacing.s) {
@@ -40,7 +38,6 @@ struct LetterSurgeryView: View {
                     run: run,
                     checkTitle: "Check letter",
                     canCheck: selectedIndex != nil && run.feedback != .wrongLetter(index: selectedIndex ?? -1),
-                    requirement: "Tap the letter you think is wrong.",
                     onCheck: {
                         guard let selectedIndex else { return }
                         sandbox.locateLetter(at: selectedIndex)
@@ -52,7 +49,6 @@ struct LetterSurgeryView: View {
                     run: run,
                     checkTitle: "Check fix",
                     canCheck: selectedReplacement != nil && run.feedback != .wrongRepair(selectedReplacement ?? ""),
-                    requirement: "Pick a replacement letter.",
                     onCheck: {
                         guard let selectedReplacement else { return }
                         sandbox.repairLetter(with: selectedReplacement)

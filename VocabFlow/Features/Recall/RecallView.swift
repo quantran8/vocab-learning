@@ -25,12 +25,7 @@ struct RecallView: View {
         let hintsUsed = store.hintsUsed(wordID: word.id)
 
         return VStack(spacing: Spacing.l) {
-            StageIntro(
-                number: 3,
-                label: "Recall time",
-                title: String(localized: "You’ve got this."),
-                subtitle: "Can you remember it without hints?"
-            )
+            ExerciseHeading("Type the word", subtitle: "Recall the English word from its meaning.")
 
             questionCard(prompt: prompt, word: word, resolved: resolved)
 
@@ -63,33 +58,29 @@ struct RecallView: View {
     }
 
     private func questionCard(prompt: RecallPrompt, word: VocabularyItem, resolved: Bool) -> some View {
-        VStack(spacing: Spacing.m) {
-            Eyebrow(text: "What’s the word?")
+        VStack(alignment: .leading, spacing: Spacing.s) {
             Text(verbatim: word.meaningVi)
-                .font(Typography.screenTitle)
+                .font(Typography.challengeTerm)
                 .tracking(-0.7)
                 .foregroundStyle(Color.ink)
-                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(Text("Meaning: \(word.meaningVi)"))
             Text(sentence(prompt, word: word, resolved: resolved))
                 .font(Typography.body)
                 .foregroundStyle(Color.mutedInk)
-                .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(Text(prompt.sentence.replacingOccurrences(of: BuildChallenge.blank, with: resolved ? word.term : String(localized: "blank"))))
         }
-        .padding(.horizontal, Spacing.l)
-        .padding(.top, Spacing.xl + 4)
-        .padding(.bottom, Spacing.xl)
-        .cardSurface(accent: .interactive)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.s)
     }
 
     private func sentence(_ prompt: RecallPrompt, word: VocabularyItem, resolved: Bool) -> AttributedString {
         let parts = prompt.sentence.components(separatedBy: BuildChallenge.blank)
         var result = AttributedString(parts.first ?? "")
         var middle = AttributedString(resolved ? word.term : "_____")
-        middle.foregroundColor = resolved ? Color.selectedInk : Color.mutedInk
-        middle.inlinePresentationIntent = resolved ? .stronglyEmphasized : nil
+        middle.foregroundColor = resolved ? Color.selectedInk : Color.ink
+        middle.inlinePresentationIntent = .stronglyEmphasized
         result += middle
         result += AttributedString(parts.dropFirst().joined(separator: BuildChallenge.blank))
         return result

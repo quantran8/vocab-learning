@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PrimaryButton: View {
     let title: LocalizedStringKey
-    var systemImage: String? = "arrow.right"
+    var systemImage: String?
     var requirement: LocalizedStringKey?
     var isEnabled = true
     let action: () -> Void
@@ -26,7 +26,7 @@ struct PrimaryButton: View {
                 }
                 .font(Typography.action)
                 .frame(maxWidth: .infinity, minHeight: Spacing.minTouchTarget)
-                .padding(.vertical, Spacing.xs)
+                .padding(.vertical, Spacing.xxs)
             }
             .buttonStyle(ChunkyButtonStyle())
             .disabled(!isEnabled)

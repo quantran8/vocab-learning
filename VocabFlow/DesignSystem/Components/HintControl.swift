@@ -13,7 +13,8 @@ struct HintControl: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             HStack {
                 Button(action: onHint) {
-                    Label("Reveal a hint (\(hintsUsed)/\(maxHints))", systemImage: "lightbulb")
+                    Text("Reveal hint \(hintsUsed)/\(maxHints)")
+                        .font(Typography.micro.weight(.heavy))
                         .frame(minHeight: Spacing.minTouchTarget)
                 }
                 .foregroundStyle(Color.selectedInk)
@@ -24,13 +25,13 @@ struct HintControl: View {
 
                 Button(action: onReveal) {
                     Text("Show answer")
+                        .font(Typography.micro.weight(.semibold))
                         .frame(minHeight: Spacing.minTouchTarget)
                 }
                 .foregroundStyle(Color.mutedInk)
                 .disabled(!isEnabled)
                 .opacity(isEnabled ? 1 : 0.4)
             }
-            .font(Typography.secondary.weight(.bold))
 
             ForEach(Array(hints.enumerated()), id: \.offset) { _, hint in
                 Text(verbatim: hint)

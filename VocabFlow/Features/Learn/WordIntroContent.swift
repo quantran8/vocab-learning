@@ -1,105 +1,92 @@
 import SwiftUI
 
-/// The word introduction body: spelling hero, then static Meaning, Pronunciation and
-/// Definition / In context sections. Shared by Learn and the My Words detail sheet.
-/// With a presentation the hero animates (Learn); without one it shows the word at rest.
-struct WordIntroContent<Accessory: View>: View {
+/// The Learn word introduction: animated spelling hero with IPA and audio, then flat
+/// Meaning, Definition and In context sections separated by hairlines.
+struct WordIntroContent: View {
     let word: VocabularyItem
-    let presentation: IntroductionPresentation?
-    @ViewBuilder let accessory: Accessory
+    let presentation: IntroductionPresentation
     @Environment(SpeechPlayer.self) private var speech
-    @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 48
 
     var body: some View {
-        VStack(spacing: Spacing.l) {
-            hero
-                .cardSurface()
+        VStack(spacing: 0) {
+            VStack(spacing: Spacing.xs) {
+                IntroMotionHost(word: word.term, presentation: presentation)
+                pronunciation
+            }
+            .padding(.bottom, Spacing.l)
 
             section("Meaning") {
                 Text(verbatim: word.meaningVi)
                     .font(Typography.headerTitle)
                     .foregroundStyle(Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(Text("Vietnamese meaning: \(word.meaningVi)"))
             }
 
-            if let ipa = word.ipa {
-                section("Pronunciation") {
-                    HStack(spacing: Spacing.m) {
-                        Text(verbatim: ipa)
-                            .font(Typography.emphasis)
-                            .foregroundStyle(Color.ink)
-                            .accessibilityLabel(Text("IPA: \(ipa)"))
-                        Spacer(minLength: 0)
-                        AudioPlayButton(isSpeaking: speech.isSpeaking, isAvailable: speech.isAvailable) {
-                            _ = speech.speak(word.term)
-                        }
-                    }
+            if let definition = word.definitionEN {
+                section("Definition") {
+                    Text(verbatim: definition)
+                        .font(Typography.body)
+                        .foregroundStyle(Color.ink)
                 }
             }
 
-            if word.definitionEN != nil || !word.example.isEmpty {
-                section("Definition") {
-                    VStack(alignment: .leading, spacing: Spacing.s) {
-                        if let definition = word.definitionEN {
-                            Text(verbatim: definition)
-                                .font(Typography.body)
-                                .foregroundStyle(Color.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        if !word.example.isEmpty {
-                            Eyebrow(text: "In context")
-                            Text(LearnView.highlight(word.term, in: word.example))
-                                .font(Typography.body)
-                                .foregroundStyle(Color.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
+            if !word.example.isEmpty {
+                section("In context") {
+                    Text(LearnView.highlight(word.term, in: word.example))
+                        .font(Typography.body)
+                        .foregroundStyle(Color.ink)
                 }
             }
         }
         .onDisappear { speech.stop() }
     }
 
-    @ViewBuilder
-    private var hero: some View {
-        if let presentation {
-            IntroMotionHost(word: word.term, presentation: presentation) {
-                accessory
+    private var pronunciation: some View {
+        HStack(spacing: Spacing.xs) {
+            if let ipa = word.ipa {
+                Text(verbatim: ipa)
+                    .font(Typography.secondary)
+                    .foregroundStyle(Color.mutedInk)
+                    .accessibilityLabel(Text("IPA: \(ipa)"))
             }
-            .padding(.horizontal, Spacing.m)
-            .padding(.top, Spacing.l)
-            .padding(.bottom, Spacing.xs)
-        } else {
-            // Same type treatment as the settled IntroMotionHost stage.
-            Text(verbatim: word.term)
-                .font(.system(size: heroFontSize, weight: .heavy))
-                .tracking(-0.5)
-                .foregroundStyle(Color.ink)
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .frame(maxWidth: .infinity, minHeight: heroFontSize * 2.2)
-                .padding(.horizontal, Spacing.m)
-                .padding(.vertical, Spacing.m)
-                .accessibilityAddTraits(.isHeader)
+            Button {
+                _ = speech.speak(word.term)
+            } label: {
+                Image(systemName: speech.isAvailable ? "speaker.wave.2" : "speaker.slash")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(speech.isAvailable ? Color.selectedInk : Color.disabledInk)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        speech.isAvailable ? Color.selectedSurface : Color.disabledSurface,
+                        in: RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+                            .strokeBorder(speech.isSpeaking ? Color.interactive : Color.clear, lineWidth: 1.5)
+                    )
+                    .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .disabled(!speech.isAvailable)
+            .padding(.horizontal, -Spacing.xs)
+            .accessibilityLabel(Text(speech.isAvailable ? "Play pronunciation" : "Audio unavailable"))
+            .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
         }
     }
 
     private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
+            Rectangle()
+                .fill(Color.stroke)
+                .frame(height: 1)
+                .padding(.bottom, Spacing.m)
             Eyebrow(text: title)
                 .accessibilityAddTraits(.isHeader)
             content()
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.m)
-        .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
-    }
-}
-
-extension WordIntroContent where Accessory == EmptyView {
-    /// Static hero: the word without its intro motion.
-    init(word: VocabularyItem) {
-        self.init(word: word, presentation: nil) { EmptyView() }
+        .padding(.bottom, Spacing.l)
     }
 }

@@ -37,7 +37,6 @@ struct RecallTypingView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: canCheck,
-                requirement: "Type a word to check.",
                 onCheck: check
             )
         }

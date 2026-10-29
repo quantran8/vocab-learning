@@ -53,7 +53,7 @@ struct SessionFlowView: View {
         }
         .safeAreaInset(edge: .top) {
             FlowHeader(
-                title: progress.stage == .learn ? "Meet the words" : "Practice",
+                style: progress.stage == .learn ? .segmented : .continuous,
                 stage: stage.label,
                 stageCurrent: stage.current,
                 stageTotal: stage.total,
@@ -141,7 +141,6 @@ private struct FlowActionBar: View {
             let selected = draft.selectedTileID
             PrimaryButton(
                 title: "Check answer",
-                requirement: "Tap a word or drag it into the sentence.",
                 isEnabled: selected != nil
             ) {
                 guard let selected else { return }
@@ -166,7 +165,6 @@ private struct FlowActionBar: View {
         } else {
             PrimaryButton(
                 title: "Check answer",
-                requirement: "Type a word to check.",
                 isEnabled: !AnswerEvaluator.normalize(draft.recallText).isEmpty
             ) {
                 store.submitRecall(text: draft.recallText)
@@ -177,7 +175,7 @@ private struct FlowActionBar: View {
     /// After a wrong answer: clears the step's input and feedback so it can be answered fresh.
     /// Attempts and hints already used stay recorded in the session.
     private func tryAgain(reset: @escaping () -> Void) -> some View {
-        PrimaryButton(title: "Try again", systemImage: "arrow.counterclockwise") {
+        PrimaryButton(title: "Try again") {
             withAnimation(motion.travel(MotionTokens.returnToOrigin)) {
                 reset()
                 store.dismissFeedback()

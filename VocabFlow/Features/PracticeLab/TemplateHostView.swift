@@ -27,7 +27,7 @@ struct TemplateHostView: View {
     }
 }
 
-/// Practice scaffold: back + context → instruction → one central object → feedback → pinned action.
+/// Practice scaffold: close + progress → instruction → one central object → feedback → pinned action.
 struct TemplateFrame<Content: View, Action: View>: View {
     let run: TemplateRun
     /// Overrides the exercise prompt as heading when the prompt itself is the sentence being solved.
@@ -42,22 +42,7 @@ struct TemplateFrame<Content: View, Action: View>: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.l) {
-                VStack(spacing: Spacing.s) {
-                    HStack(spacing: Spacing.xs) {
-                        Chip(text: run.kind.category.title)
-                        if let variant = run.exercise.variant?.chipTitle {
-                            Chip(text: variant, fill: .reward)
-                        }
-                    }
-                    heading
-                        .font(Typography.screenTitle)
-                        .tracking(Typography.tightTracking)
-                        .foregroundStyle(Color.ink)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityAddTraits(.isHeader)
-                }
-                .frame(maxWidth: .infinity)
+                ExerciseHeading(title: heading, subtitle: subtitle)
 
                 // While a wrong answer is shown, the exercise waits for "Try again".
                 content
@@ -70,21 +55,17 @@ struct TemplateFrame<Content: View, Action: View>: View {
         .scrollDisabled(isScrollDisabled)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .top) {
-            HStack(spacing: Spacing.s) {
-                BackButton(label: "Lab") {
-                    motion.perform(MotionTokens.transition) { sandbox.closeTemplate() }
-                }
-                Spacer()
-                Text(verbatim: sandbox.activeDefinition?.title ?? "")
-                    .font(Typography.secondary.weight(.bold))
-                    .foregroundStyle(Color.ink)
-                Spacer()
-                Text(exampleLabel)
-                    .font(Typography.micro.weight(.bold).monospacedDigit())
-                    .foregroundStyle(Color.mutedInk)
-                    .frame(minWidth: 64, alignment: .trailing)
-            }
-            .padding(.horizontal, Spacing.screenGutter - Spacing.xs)
+            FlowHeader(
+                stage: "Practice Lab",
+                stageCurrent: sandbox.exerciseIndex + 1,
+                stageTotal: exerciseCount,
+                step: sandbox.exerciseIndex + 1,
+                totalSteps: exerciseCount,
+                closeLabel: "Back to Lab",
+                onClose: { motion.perform(MotionTokens.transition) { sandbox.closeTemplate() } }
+            )
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.vertical, Spacing.xs)
             .background(Color.canvas)
         }
         .safeAreaInset(edge: .bottom) {
@@ -97,9 +78,15 @@ struct TemplateFrame<Content: View, Action: View>: View {
         instruction.map { Text($0) } ?? Text(verbatim: run.exercise.prompt)
     }
 
-    private var exampleLabel: LocalizedStringKey {
-        let total = sandbox.activeDefinition?.exercises.count ?? 1
-        return "\(sandbox.exerciseIndex + 1) of \(total)"
+    /// Template name, plus the variant when it isn't the base framing.
+    private var subtitle: Text? {
+        guard let title = sandbox.activeDefinition?.title else { return nil }
+        guard let variant = run.exercise.variant?.chipTitle else { return Text(verbatim: title) }
+        return Text(verbatim: "\(title) · ") + Text(variant)
+    }
+
+    private var exerciseCount: Int {
+        sandbox.activeDefinition?.exercises.count ?? 1
     }
 }
 
@@ -108,6 +95,7 @@ struct TemplateActionBar: View {
     let run: TemplateRun
     var checkTitle: LocalizedStringKey = "Check"
     var canCheck = false
+    /// Status line shown in place of the button when there is no Check (e.g. Matching Pairs).
     var requirement: LocalizedStringKey?
     var onCheck: (() -> Void)?
 
@@ -122,7 +110,7 @@ struct TemplateActionBar: View {
                         motion.perform(MotionTokens.transition) { sandbox.nextExercise() }
                     }
                 } else {
-                    PrimaryButton(title: "Back to Lab", systemImage: nil) {
+                    PrimaryButton(title: "Back to Lab") {
                         motion.perform(MotionTokens.transition) { sandbox.closeTemplate() }
                     }
                 }
@@ -131,12 +119,11 @@ struct TemplateActionBar: View {
                 }
             }
         } else if run.phase == .incorrect {
-            PrimaryButton(title: "Try again", systemImage: "arrow.counterclockwise") {
+            PrimaryButton(title: "Try again") {
                 withAnimation(motion.animation(MotionTokens.feedback)) { sandbox.tryAgain() }
             }
         } else if let onCheck {
-            // While an explanation is shown in the panel, it already says what to do next.
-            PrimaryButton(title: checkTitle, systemImage: nil, requirement: run.feedback == nil ? requirement : nil, isEnabled: canCheck, action: onCheck)
+            PrimaryButton(title: checkTitle, isEnabled: canCheck, action: onCheck)
         } else if let requirement {
             Text(requirement)
                 .font(Typography.secondary)

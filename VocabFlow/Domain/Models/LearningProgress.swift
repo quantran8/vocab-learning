@@ -110,6 +110,27 @@ struct TodayStatus: Equatable {
     }
 }
 
+/// Home's Weekly Challenge card. Placeholder semantics — see memory home-weekly-challenge.
+struct WeeklyProgress: Equatable {
+    /// 1-based day within the locale's week.
+    let day: Int
+    let wordsLearned: Int
+
+    static let length = 7
+
+    var daysUntilOpen: Int { Self.length - day }
+    var fraction: Double { Double(day) / Double(Self.length) }
+
+    static func make(progress: LearningProgress, date: Date, calendar: Calendar) -> WeeklyProgress {
+        guard let week = calendar.dateInterval(of: .weekOfYear, for: date) else {
+            return WeeklyProgress(day: 1, wordsLearned: 0)
+        }
+        let elapsed = calendar.dateComponents([.day], from: week.start, to: calendar.startOfDay(for: date)).day ?? 0
+        let learned = progress.learnedWords.filter { week.contains($0.learnedAt) }.count
+        return WeeklyProgress(day: min(max(elapsed + 1, 1), length), wordsLearned: learned)
+    }
+}
+
 extension LearnedWord {
     /// Case- and diacritic-insensitive match on the English term or the Vietnamese meaning.
     func matches(_ query: String) -> Bool {

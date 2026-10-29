@@ -60,8 +60,6 @@ struct ContextNote: View {
         .font(Typography.secondary)
         .foregroundStyle(Color.mutedInk)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.s)
-        .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.tile, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text("Context: \(text)"))
     }
@@ -116,9 +114,7 @@ struct AudioCuePanel: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.l)
-        .padding(.horizontal, Spacing.m)
-        .cardSurface()
+        .padding(.vertical, Spacing.m)
         .onAppear {
             if !sandbox.speech.isAvailable { sandbox.useAudioFallback() }
         }
@@ -181,8 +177,6 @@ struct SentenceCard: View {
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.xl)
-            .padding(.horizontal, Spacing.m)
-            .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
             .accessibilityLabel(Text(sentence.replacingOccurrences(of: BuildChallenge.blank, with: answer ?? String(localized: "blank"))))
     }
 

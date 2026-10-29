@@ -20,7 +20,6 @@ struct WordStackView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: placedTileID != nil && placedTileID != run.incorrectChoiceID,
-                requirement: "Tap a word or drag it into the sentence.",
                 onCheck: {
                     guard let placedTileID else { return }
                     sandbox.submitChoice(placedTileID)

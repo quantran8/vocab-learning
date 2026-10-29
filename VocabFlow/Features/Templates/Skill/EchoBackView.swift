@@ -38,7 +38,6 @@ struct EchoBackView: View {
                 run: run,
                 checkTitle: "I said it out loud",
                 canCheck: run.canSelfCheck,
-                requirement: "Listen first (or use the written clue).",
                 onCheck: { sandbox.selfCheck() }
             )
         }

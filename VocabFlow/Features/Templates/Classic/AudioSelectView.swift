@@ -23,7 +23,6 @@ struct AudioSelectView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: selectedID != nil && selectedID != run.incorrectChoiceID,
-                requirement: "Choose the word you heard.",
                 onCheck: {
                     guard let selectedID else { return }
                     sandbox.submitChoice(selectedID)

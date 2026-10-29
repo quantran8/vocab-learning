@@ -6,46 +6,42 @@ enum IntroMotionState: Equatable {
     case revealing, settled, skipped
 }
 
-/// Renders only the English spelling with one of six motion recipes, plus Replay / Show word now.
+/// Renders only the English spelling with one of six motion recipes; tapping it skips or replays.
 /// Owns presentation state only — never attempts, scores or session advancement.
-struct IntroMotionHost<Accessory: View>: View {
+struct IntroMotionHost: View {
     let word: String
     let presentation: IntroductionPresentation
-    @ViewBuilder let accessory: Accessory
 
     @Environment(\.motion) private var motion
-    @ScaledMetric(relativeTo: .largeTitle) private var fontSize: CGFloat = 48
+    @ScaledMetric(relativeTo: .largeTitle) private var fontSize: CGFloat = 36
     @State private var generation = 0
     @State private var state: IntroMotionState = .waiting
     @State private var naturalWidth: CGFloat = 0
     @State private var availableWidth: CGFloat = 0
 
     var body: some View {
-        VStack(spacing: Spacing.m) {
-            stage
-                .frame(maxWidth: .infinity, minHeight: fontSize * 2.2)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
-
-            HStack(spacing: Spacing.s) {
-                if !motion.reduceMotion { replayControl }
-                Spacer(minLength: 0)
-                accessory
+        stage
+            .frame(maxWidth: .infinity, minHeight: fontSize * 1.6)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
+            .contentShape(Rectangle())
+            .onTapGesture { if !motion.reduceMotion { skipOrReplay() } }
+            .accessibilityAction(named: Text(isAnimating ? "Show word now" : "Replay")) {
+                if !motion.reduceMotion { skipOrReplay() }
             }
-        }
-        .onChange(of: presentation) { replay() }
-        // Decorative timing only (never gates Next). Cancelled on replay/disappear, so stale runs are ignored.
-        .task(id: generation) {
-            guard !motion.reduceMotion else { return }
-            if state == .waiting {
-                try? await Task.sleep(for: .seconds(MotionTokens.transitionDuration))
-                guard !Task.isCancelled, state == .waiting else { return }
-                state = .revealing
+            .onChange(of: presentation) { replay() }
+            // Decorative timing only (never gates Next). Cancelled on replay/disappear, so stale runs are ignored.
+            .task(id: generation) {
+                guard !motion.reduceMotion else { return }
+                if state == .waiting {
+                    try? await Task.sleep(for: .seconds(MotionTokens.transitionDuration))
+                    guard !Task.isCancelled, state == .waiting else { return }
+                    state = .revealing
+                }
+                guard state == .revealing else { return }
+                try? await Task.sleep(for: .seconds(presentation.revealDuration(for: word)))
+                guard !Task.isCancelled, state == .revealing else { return }
+                state = .settled
             }
-            guard state == .revealing else { return }
-            try? await Task.sleep(for: .seconds(presentation.revealDuration(for: word)))
-            guard !Task.isCancelled, state == .revealing else { return }
-            state = .settled
-        }
     }
 
     /// A static, hidden copy of the word sizes the stage; the animation draws on top of it.
@@ -89,24 +85,10 @@ struct IntroMotionHost<Accessory: View>: View {
         }
     }
 
-    @ViewBuilder
-    private var replayControl: some View {
-        if state == .waiting || state == .revealing {
-            Button("Show word now") { state = .skipped }
-                .font(Typography.secondary.weight(.bold))
-                .foregroundStyle(Color.mutedInk)
-                .frame(minHeight: Spacing.minTouchTarget)
-        } else {
-            Button {
-                replay()
-            } label: {
-                Label("Replay", systemImage: "arrow.counterclockwise")
-            }
-            .font(Typography.secondary.weight(.bold))
-            .foregroundStyle(Color.selectedInk)
-            .frame(minHeight: Spacing.minTouchTarget)
-            .accessibilityHint(Text("Replays the word animation only."))
-        }
+    private var isAnimating: Bool { state == .waiting || state == .revealing }
+
+    private func skipOrReplay() {
+        if isAnimating { state = .skipped } else { replay() }
     }
 
     private func replay() {

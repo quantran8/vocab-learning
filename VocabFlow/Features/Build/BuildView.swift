@@ -17,13 +17,7 @@ struct BuildView: View {
         let completed = store.isBuildCompleted(index: index)
 
         return VStack(spacing: Spacing.l) {
-            StageIntro(
-                number: 2,
-                label: "Build the sentence",
-                title: challenge.context,
-                subtitle: "Pick the word that fits naturally.",
-                systemImage: "square.stack.3d.up.fill"
-            )
+            ExerciseHeading("Complete the sentence", subtitle: "Choose the word that fits naturally.")
 
             WordStackBoard(
                 prompt: challenge.prompt,

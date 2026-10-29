@@ -77,7 +77,7 @@ struct WordStackBoard: View {
         .padding(.horizontal, Spacing.m)
         .padding(.vertical, Spacing.xl)
         .frame(maxWidth: .infinity, minHeight: 175)
-        .background(interaction.isPanelTargeted ? Color.selectedSurface : Color.neutralSurface, in: shape)
+        .background(interaction.isPanelTargeted ? Color.selectedSurface : Color.clear, in: shape)
         .overlay(shape.strokeBorder(interaction.isPanelTargeted ? Color.interactive : .clear, lineWidth: 2))
         .animation(motion.animation(MotionTokens.lift), value: interaction.isPanelTargeted)
         .onGeometryChange(for: CGRect.self) { proxy in

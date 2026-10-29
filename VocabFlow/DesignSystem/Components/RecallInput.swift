@@ -10,10 +10,10 @@ struct RecallInput: View {
         let shape = RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
         VStack(alignment: .leading, spacing: Spacing.s) {
             Text("Your answer")
-                .font(Typography.micro.weight(.bold))
-                .foregroundStyle(Color.mutedInk)
-            TextField("Type the English word…", text: $text)
-                .font(Typography.tile)
+                .font(Typography.secondary.weight(.semibold))
+                .foregroundStyle(Color.ink)
+            TextField("Type the English word", text: $text)
+                .font(Typography.body)
                 .foregroundStyle(Color.ink)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -22,10 +22,11 @@ struct RecallInput: View {
                 .focused(isFocused)
                 .onSubmit(onSubmit)
                 .disabled(!isEnabled)
-                .padding(.horizontal, Spacing.l - 4)
-                .frame(minHeight: Spacing.tileMinHeight)
+                .padding(.horizontal, Spacing.m + 2)
+                .frame(minHeight: Spacing.tileMinHeight + 6)
                 .background(Color.surface, in: shape)
-                .overlay(shape.strokeBorder(isFocused.wrappedValue ? Color.focusRing : Color.stroke, lineWidth: 2))
+                .overlay(shape.strokeBorder(isFocused.wrappedValue ? Color.focusRing : Color.stroke,
+                                            lineWidth: isFocused.wrappedValue ? 2 : 1))
                 .accessibilityLabel(Text("Your answer"))
         }
     }

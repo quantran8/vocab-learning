@@ -31,7 +31,6 @@ struct SoundSplitView: View {
             TemplateActionBar(
                 run: run,
                 canCheck: selectedIndex != nil && run.feedback != .wrongStress(index: selectedIndex ?? -1),
-                requirement: "Tap the syllable you think is stressed.",
                 onCheck: {
                     guard let selectedIndex else { return }
                     sandbox.submitStress(selectedIndex)

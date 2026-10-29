@@ -1,13 +1,18 @@
 import SwiftUI
 
+/// ✕ plus progress. `.segmented` shows one segment per step and a "1 / 5" count (word intro);
+/// `.continuous` is a single bar (exercises).
 struct FlowHeader: View {
-    /// Visible name of the current stage (e.g. "Meet the words", "Practice").
-    let title: LocalizedStringKey
+    enum Style { case segmented, continuous }
+
+    var style: Style = .continuous
+    /// Accessibility name of the progress (e.g. "Learn", "Build").
     let stage: LocalizedStringKey
     let stageCurrent: Int
     let stageTotal: Int
     let step: Int
     let totalSteps: Int
+    var closeLabel: LocalizedStringKey = "Exit flow"
     let onClose: () -> Void
     @Environment(\.motion) private var motion
 
@@ -20,26 +25,39 @@ struct FlowHeader: View {
             }
             .foregroundStyle(Color.mutedInk)
             .padding(.leading, -Spacing.s)
-            .accessibilityLabel(Text("Exit flow"))
+            .accessibilityLabel(Text(closeLabel))
 
-            VStack(alignment: .leading, spacing: Spacing.xxs + 2) {
-                Text(title)
-                    .font(Typography.eyebrow)
-                    .tracking(Typography.eyebrowTracking)
-                    .textCase(.uppercase)
-                    .foregroundStyle(Color.mutedInk)
-                    .accessibilityAddTraits(.isHeader)
-                progressBar
+            Group {
+                switch style {
+                case .segmented: segmentedBar
+                case .continuous: continuousBar
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text(stage))
+            .accessibilityValue(Text("Question \(stageCurrent) of \(stageTotal)"))
 
-            Text(verbatim: "\(step) / \(totalSteps)")
-                .font(Typography.micro.weight(.bold).monospacedDigit())
-                .foregroundStyle(Color.mutedInk)
-                .accessibilityHidden(true)
+            if style == .segmented {
+                Text(verbatim: "\(step) / \(totalSteps)")
+                    .font(Typography.micro.weight(.bold).monospacedDigit())
+                    .foregroundStyle(Color.mutedInk)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
-    private var progressBar: some View {
+    private var segmentedBar: some View {
+        HStack(spacing: Spacing.xxs) {
+            ForEach(0..<max(totalSteps, 1), id: \.self) { index in
+                Capsule()
+                    .fill(index < step ? Color.interactive : Color.track)
+                    .frame(height: 6)
+            }
+        }
+        .animation(motion.animation(MotionTokens.progress), value: step)
+    }
+
+    private var continuousBar: some View {
         Capsule()
             .fill(Color.track)
             .frame(height: 8)
@@ -52,9 +70,6 @@ struct FlowHeader: View {
             }
             .clipShape(Capsule())
             .animation(motion.animation(MotionTokens.progress), value: fraction)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text(stage))
-            .accessibilityValue(Text("Question \(stageCurrent) of \(stageTotal)"))
     }
 
     private var fraction: CGFloat {
