@@ -1,16 +1,14 @@
 import SwiftUI
 
-/// Sheet editing only the topic selection; the routine is untouched. Dismissing discards the draft.
+/// Sheet editing the collection and its topics; the routine is untouched. Dismissing discards the draft.
 struct EditFocusView: View {
     let onSave: (LearningPreferences) -> Void
     @Environment(AppSettingsStore.self) private var settings
     @State private var draft: LearningPreferences
-    @State private var browser: TopicBrowserState
 
     init(initial: LearningPreferences, onSave: @escaping (LearningPreferences) -> Void) {
         self.onSave = onSave
         _draft = State(initialValue: initial)
-        _browser = State(initialValue: TopicBrowserState(selected: initial.topicIDs))
     }
 
     var body: some View {
@@ -26,16 +24,31 @@ struct EditFocusView: View {
                     .padding(.top, Spacing.xs)
                     .padding(.bottom, Spacing.l - 4)
 
-                TopicPicker(browser: $browser, selectedIDs: draft.topicIDs) { id in
-                    draft.toggleTopic(id)
-                    settings.feedback.selectionChanged()
+                VStack(alignment: .leading, spacing: Spacing.l) {
+                    VStack(alignment: .leading, spacing: Spacing.s) {
+                        PlanSectionTitle(text: "Collection")
+                        collectionChips
+                    }
+                    if let collection = draft.collection {
+                        TopicPicker(
+                            collection: collection,
+                            selectedIDs: draft.topicIDs,
+                            onToggleTopic: { id in
+                                draft.toggleTopic(id)
+                                settings.feedback.selectionChanged()
+                            },
+                            onToggleAll: {
+                                draft.toggleAllTopics()
+                                settings.feedback.selectionChanged()
+                            }
+                        )
+                    }
                 }
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.l)
             .padding(.bottom, Spacing.l)
         }
-        .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
                 VStack(spacing: Spacing.s) {
@@ -53,6 +66,23 @@ struct EditFocusView: View {
                         settings.feedback.success()
                         onSave(draft)
                     }
+                }
+            }
+        }
+    }
+
+    /// Switching collection clears the topics, since each collection has its own.
+    private var collectionChips: some View {
+        FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
+            ForEach(TopicCatalog.collections) { collection in
+                TopicChip(
+                    title: collection.name,
+                    systemImage: collection.systemImage,
+                    isSelected: collection.id == draft.collectionID
+                ) {
+                    guard collection.id != draft.collectionID else { return }
+                    draft.selectCollection(collection.id)
+                    settings.feedback.selectionChanged()
                 }
             }
         }

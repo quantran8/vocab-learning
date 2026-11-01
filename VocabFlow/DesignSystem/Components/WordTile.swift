@@ -85,7 +85,7 @@ struct WordTile: View {
 
     private var border: Color {
         switch visualState {
-        case .selected, .dragging: .interactive
+        case .pressed, .selected, .dragging: .interactive
         case .correct: .success
         case .incorrect: .error
         default: .stroke
@@ -94,7 +94,7 @@ struct WordTile: View {
 
     private var borderWidth: CGFloat {
         switch visualState {
-        case .selected, .dragging, .correct, .incorrect: 2
+        case .pressed, .selected, .dragging, .correct, .incorrect: 2
         default: 1.5
         }
     }

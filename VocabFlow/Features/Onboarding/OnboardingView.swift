@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Welcome → Topics → Routine → Ready. One step is mounted at a time and slides in like the session flow.
+/// Welcome → Level → Collection → Topics → Routine → Ready. One step is mounted at a time and slides in like the session flow.
 struct OnboardingView: View {
     @Environment(OnboardingStore.self) private var store
     @Environment(\.motion) private var motion
@@ -18,6 +18,8 @@ struct OnboardingView: View {
     private var screen: some View {
         switch store.step {
         case .welcome: WelcomeScreen()
+        case .level: LevelScreen()
+        case .collection: CollectionScreen()
         case .topics: TopicsScreen()
         case .routine: RoutineScreen()
         case .ready: ReadyScreen()
@@ -51,7 +53,6 @@ private struct WelcomeScreen: View {
             .padding(.top, Spacing.s)
             .padding(.bottom, Spacing.l)
         }
-        .scrollBounceBehavior(.basedOnSize)
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
                 PrimaryButton(title: "Get started") {
@@ -119,6 +120,116 @@ private struct FlowHero: View {
     }
 }
 
+// MARK: - Level
+
+private struct LevelScreen: View {
+    @Environment(OnboardingStore.self) private var store
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                StepHeader(step: 1, totalSteps: setupStepCount, backLabel: "Back to welcome") {
+                    motion.perform(MotionTokens.transition) { store.back() }
+                }
+
+                PunctuatedTitle(text: "What’s your English level", mark: "?", font: questionFont)
+                    .padding(.top, Spacing.l + 6)
+                    .padding(.bottom, Spacing.l)
+
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.s), GridItem(.flexible())], spacing: Spacing.s) {
+                    ForEach(CEFRLevel.allCases) { level in
+                        Button {
+                            motion.perform(MotionTokens.snap) { store.selectLevel(level) }
+                        } label: {
+                            WordTile(text: level.rawValue, visualState: store.level == level ? .selected : .idle)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(store.level == level ? .isSelected : [])
+                    }
+                }
+
+                SaveErrorText(message: store.errorMessage)
+            }
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.top, Spacing.xs)
+            .padding(.bottom, Spacing.l)
+        }
+        .safeAreaInset(edge: .bottom) {
+            PinnedActionBar {
+                PrimaryButton(
+                    title: "Continue",
+                    requirement: "Choose your level",
+                    isEnabled: store.level != nil && !store.isSaving
+                ) {
+                    Task {
+                        await store.continueToCollection()
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct SaveErrorText: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            Text(verbatim: message)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.errorInk)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, Spacing.m)
+        }
+    }
+}
+
+// MARK: - Collection
+
+/// Steps counted by the header indicator: Level, Collection, Topics, Routine.
+private let setupStepCount = 4
+
+/// Question-style step titles run longer than the one-word ones, so they sit a size down.
+private let questionFont = Font.system(.title, weight: .heavy)
+
+private struct CollectionScreen: View {
+    @Environment(OnboardingStore.self) private var store
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                StepHeader(step: 2, totalSteps: setupStepCount, backLabel: "Back to level") {
+                    motion.perform(MotionTokens.transition) { store.back() }
+                }
+
+                PunctuatedTitle(text: "What kind of vocabulary would you like to learn", mark: "?", font: questionFont)
+                    .padding(.top, Spacing.l + 6)
+                    .padding(.bottom, Spacing.l)
+
+                CollectionPicker(selectedID: store.draft.collectionID) { id in
+                    motion.perform(MotionTokens.snap) { store.selectCollection(id) }
+                }
+            }
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.top, Spacing.xs)
+            .padding(.bottom, Spacing.l)
+        }
+        .safeAreaInset(edge: .bottom) {
+            PinnedActionBar {
+                PrimaryButton(
+                    title: "Continue",
+                    requirement: "Choose a collection",
+                    isEnabled: store.canContinueFromCollection
+                ) {
+                    motion.perform(MotionTokens.transition) { store.continueToTopics() }
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Topics
 
 private struct TopicsScreen: View {
@@ -126,27 +237,29 @@ private struct TopicsScreen: View {
     @Environment(\.motion) private var motion
 
     var body: some View {
-        @Bindable var store = store
-
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 1, backLabel: "Back to welcome") {
+                StepHeader(step: 3, totalSteps: setupStepCount, backLabel: "Back to collections") {
                     motion.perform(MotionTokens.transition) { store.back() }
                 }
 
-                PunctuatedTitle(text: "Your interests")
+                PunctuatedTitle(text: "What topics are you interested in", mark: "?", font: questionFont)
                     .padding(.top, Spacing.l + 6)
                     .padding(.bottom, Spacing.l)
 
-                TopicPicker(browser: $store.topics, selectedIDs: store.draft.topicIDs) { id in
-                    store.toggleTopic(id)
+                if let collection = store.draft.collection {
+                    TopicPicker(
+                        collection: collection,
+                        selectedIDs: store.draft.topicIDs,
+                        onToggleTopic: { store.toggleTopic($0) },
+                        onToggleAll: { store.toggleAllTopics() }
+                    )
                 }
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.xs)
             .padding(.bottom, Spacing.l)
         }
-        .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
                 VStack(spacing: Spacing.s) {
@@ -180,7 +293,7 @@ private struct RoutineScreen: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 2, backLabel: "Back to topics") {
+                StepHeader(step: 4, totalSteps: setupStepCount, backLabel: "Back to topics") {
                     motion.perform(MotionTokens.transition) { store.back() }
                 }
 
@@ -200,6 +313,8 @@ private struct RoutineScreen: View {
                     )
                     ReminderPicker(preferences: $store.draft)
                 }
+
+                SaveErrorText(message: store.errorMessage)
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.xs)
@@ -210,9 +325,11 @@ private struct RoutineScreen: View {
                 PrimaryButton(
                     title: "Create my flow",
                     requirement: "Choose at least one learning day",
-                    isEnabled: store.draft.isComplete
+                    isEnabled: store.draft.isComplete && !store.isSaving
                 ) {
-                    motion.perform(MotionTokens.transition) { store.createFlow() }
+                    Task {
+                        await store.createFlow()
+                    }
                 }
             }
         }
@@ -251,7 +368,10 @@ private struct ReadyScreen: View {
                         .padding(.bottom, Spacing.l - 2)
 
                     FlowLayout(spacing: Spacing.xs - 1, lineSpacing: Spacing.xs - 1) {
-                        summaryTag(Text("\(store.draft.topicIDs.count) topics"), highlighted: true)
+                        if let collection = store.draft.collection {
+                            summaryTag(Text(verbatim: collection.name), highlighted: true)
+                        }
+                        summaryTag(Text("\(store.draft.topicIDs.count) topics"))
                         summaryTag(Text("\(store.draft.wordsPerDay) words/day"))
                         summaryTag(Text("\(store.draft.learningDays.count) days/week"))
                         summaryTag(reminderText)
@@ -263,7 +383,6 @@ private struct ReadyScreen: View {
                 .padding(.vertical, Spacing.xl)
             }
             .defaultScrollAnchor(.center)
-            .scrollBounceBehavior(.basedOnSize)
         }
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {

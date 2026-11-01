@@ -3,6 +3,7 @@ import SwiftUI
 struct AppSettingsView: View {
     @Environment(AppSettingsStore.self) private var settings
     @Environment(TemplateSandboxStore.self) private var sandbox
+    @Environment(AuthStore.self) private var auth
     @Environment(\.motion) private var motion
 
     var body: some View {
@@ -41,6 +42,17 @@ struct AppSettingsView: View {
                     SettingRow(systemImage: "info.circle", title: "About Vocab Flow", subtitle: "Color Pop concept") {
                         Text(verbatim: "v\(appVersion)")
                     }
+                }
+
+                group("Account") {
+                    Button {
+                        Task { await auth.signOut() }
+                    } label: {
+                        SettingRow(systemImage: "rectangle.portrait.and.arrow.right", title: "Log out", subtitle: "Your progress stays on your account") {
+                            EmptyView()
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, Spacing.screenGutter)

@@ -8,23 +8,41 @@ final class OnboardingStoreTests: XCTestCase {
         return (OnboardingStore(plan: plan, haptics: NoOpFeedback()), plan)
     }
 
-    func testWalksForwardAndBack() {
+    func testWalksForwardAndBack() async {
         let (store, _) = makeStore()
         XCTAssertEqual(store.step, .welcome)
         store.begin()
+        XCTAssertEqual(store.step, .level)
+        store.selectLevel(.b1)
+        await store.continueToCollection()
+        XCTAssertEqual(store.step, .collection)
+        store.continueToTopics()
         XCTAssertEqual(store.step, .topics)
         store.continueToRoutine()
         XCTAssertEqual(store.step, .routine)
         store.back()
         XCTAssertEqual(store.step, .topics)
         store.back()
+        XCTAssertEqual(store.step, .collection)
+        store.back()
+        XCTAssertEqual(store.step, .level)
         store.back()
         XCTAssertEqual(store.step, .welcome)
     }
 
-    func testCannotLeaveTopicsWithoutASelection() {
+    func testCannotLeaveLevelWithoutAChoice() async {
         let (store, _) = makeStore()
         store.begin()
+        await store.continueToCollection()
+        XCTAssertEqual(store.step, .level)
+    }
+
+    func testCannotLeaveTopicsWithoutASelection() async {
+        let (store, _) = makeStore()
+        store.begin()
+        store.selectLevel(.a2)
+        await store.continueToCollection()
+        store.continueToTopics()
         for id in store.draft.topicIDs { store.toggleTopic(id) }
         XCTAssertFalse(store.canContinueFromTopics)
         store.continueToRoutine()
@@ -36,9 +54,9 @@ final class OnboardingStoreTests: XCTestCase {
         preferences.wordsPerDay = 1
         preferences.adjustWordsPerDay(by: -1)
         XCTAssertEqual(preferences.wordsPerDay, 1)
-        preferences.wordsPerDay = 50
+        preferences.wordsPerDay = 30
         preferences.adjustWordsPerDay(by: 1)
-        XCTAssertEqual(preferences.wordsPerDay, 50)
+        XCTAssertEqual(preferences.wordsPerDay, 30)
     }
 
     func testEveryDayTogglesBetweenAllAndNone() {
@@ -50,13 +68,16 @@ final class OnboardingStoreTests: XCTestCase {
         XCTAssertFalse(preferences.isComplete)
     }
 
-    func testCreateFlowSavesThenFinishCompletes() {
+    func testCreateFlowSavesThenFinishCompletes() async {
         let storage = InMemoryPreferencesStore()
         let (store, plan) = makeStore(storage)
         store.begin()
+        store.selectLevel(.b2)
+        await store.continueToCollection()
+        store.continueToTopics()
         store.continueToRoutine()
         store.toggleDay(1)
-        store.createFlow()
+        await store.createFlow()
         XCTAssertEqual(store.step, .ready)
         XCTAssertEqual(storage.preferences?.learningDays.contains(1), true)
         XCTAssertFalse(plan.hasCompletedOnboarding)
@@ -66,11 +87,11 @@ final class OnboardingStoreTests: XCTestCase {
         XCTAssertTrue(storage.hasCompletedOnboarding)
     }
 
-    func testCreateFlowRequiresALearningDay() {
+    func testCreateFlowRequiresALearningDay() async {
         let storage = InMemoryPreferencesStore()
         let (store, plan) = makeStore(storage)
         store.draft.learningDays = []
-        store.createFlow()
+        await store.createFlow()
         XCTAssertNil(storage.preferences)
         XCTAssertNotEqual(store.step, .ready)
         store.finish()
@@ -79,9 +100,11 @@ final class OnboardingStoreTests: XCTestCase {
 
     func testResumesFromSavedPreferences() {
         var saved = LearningPreferences.default
-        saved.topicIDs = ["travel"]
+        saved.selectCollection("ielts")
+        saved.toggleTopic("ielts-science")
         let (store, _) = makeStore(InMemoryPreferencesStore(preferences: saved))
-        XCTAssertEqual(store.draft.topicIDs, ["travel"])
+        XCTAssertEqual(store.draft.collectionID, "ielts")
+        XCTAssertEqual(store.draft.topicIDs, ["ielts-science"])
     }
 
     func testPlanIgnoresIncompleteSaves() {
@@ -94,43 +117,67 @@ final class OnboardingStoreTests: XCTestCase {
         XCTAssertEqual(storage.preferences, .default)
     }
 
-    func testSearchMatchesTopicOrGroupName() {
-        let byTopic = TopicCatalog.filtered(by: "trav")
-        XCTAssertEqual(byTopic.flatMap(\.topics).map(\.id), ["travel"])
+    func testSwitchingCollectionClearsTopics() {
+        let (store, _) = makeStore()
+        store.selectCollection("toeic")
+        XCTAssertEqual(store.draft.collectionID, "toeic")
+        XCTAssertTrue(store.draft.topicIDs.isEmpty)
+        XCTAssertFalse(store.canContinueFromTopics)
 
-        let byGroup = TopicCatalog.filtered(by: "career")
-        XCTAssertEqual(byGroup.map(\.id), ["work-career"])
-        XCTAssertEqual(byGroup.first?.topics.count, 6)
-
-        XCTAssertTrue(TopicCatalog.filtered(by: "zzz").isEmpty)
-        XCTAssertEqual(TopicCatalog.filtered(by: "  ").count, TopicCatalog.groups.count)
+        store.toggleTopic("toeic-office")
+        store.selectCollection("toeic")
+        XCTAssertEqual(store.draft.topicIDs, ["toeic-office"], "Re-selecting the same collection keeps topics")
     }
 
-    func testGroupsStartFoldedExceptFirstAndThoseWithPicks() {
-        let browser = TopicBrowserState(selected: LearningPreferences.default.topicIDs)
-        let groups = TopicCatalog.groups
-        XCTAssertTrue(browser.isExpanded(groups[0]))
-        XCTAssertTrue(browser.isExpanded(groups[1]), "Work & career holds the default Business pick")
-        XCTAssertFalse(browser.isExpanded(groups[2]))
+    func testUnknownCollectionIsIgnored() {
+        var preferences = LearningPreferences.default
+        preferences.selectCollection("klingon")
+        XCTAssertEqual(preferences, .default)
     }
 
-    func testToggleGroupAndSearchAlwaysExpands() {
-        var browser = TopicBrowserState(selected: [])
-        let study = TopicCatalog.groups[2]
-        browser.toggleGroup(study.id)
-        XCTAssertTrue(browser.isExpanded(study))
-        browser.toggleGroup(study.id)
-        XCTAssertFalse(browser.isExpanded(study))
-
-        browser.query = "science"
-        XCTAssertTrue(browser.isExpanded(study))
-        browser.toggleGroup(study.id)
-        browser.query = ""
-        XCTAssertFalse(browser.isExpanded(study), "Toggling is ignored while searching")
+    func testTopicsOutsideTheCollectionAreIgnored() {
+        var preferences = LearningPreferences.default
+        preferences.toggleTopic("ielts-science")
+        XCTAssertEqual(preferences.topicIDs, LearningPreferences.default.topicIDs)
     }
 
-    func testDefaultTopicsExistInCatalog() {
-        let ids = Set(TopicCatalog.groups.flatMap(\.topics).map(\.id))
-        XCTAssertTrue(LearningPreferences.default.topicIDs.isSubset(of: ids))
+    func testSelectAllTogglesBetweenAllAndNone() {
+        var preferences = LearningPreferences.default
+        preferences.selectCollection("business")
+        preferences.toggleAllTopics()
+        XCTAssertEqual(preferences.topicIDs, TopicCatalog.collection(id: "business")?.topicIDs)
+        XCTAssertTrue(preferences.hasAllTopics)
+        preferences.toggleAllTopics()
+        XCTAssertTrue(preferences.topicIDs.isEmpty)
+    }
+
+    func testTopicIDsAreUniqueAcrossCollections() {
+        let ids = TopicCatalog.collections.flatMap(\.topics).map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count)
+    }
+
+    func testDefaultTopicsExistInDefaultCollection() {
+        let preferences = LearningPreferences.default
+        XCTAssertNotNil(preferences.collection)
+        XCTAssertTrue(preferences.topicIDs.isSubset(of: preferences.collection?.topicIDs ?? []))
+    }
+
+    func testRoundTripsThroughJSON() throws {
+        var preferences = LearningPreferences.default
+        preferences.selectCollection("ielts")
+        preferences.toggleTopic("ielts-education")
+        let data = try JSONEncoder().encode(preferences)
+        XCTAssertEqual(try JSONDecoder().decode(LearningPreferences.self, from: data), preferences)
+    }
+
+    func testDecodesPlansSavedBeforeCollections() throws {
+        let json = """
+        {"topicIDs":["business","marketing","travel"],"wordsPerDay":8,"learningDays":[2],
+         "reminderEnabled":false,"reminderHour":9,"reminderMinute":30}
+        """
+        let decoded = try JSONDecoder().decode(LearningPreferences.self, from: Data(json.utf8))
+        XCTAssertEqual(decoded.collectionID, "everyday", "First collection holding a saved topic wins")
+        XCTAssertEqual(decoded.topicIDs, ["travel"])
+        XCTAssertEqual(decoded.wordsPerDay, 8)
     }
 }

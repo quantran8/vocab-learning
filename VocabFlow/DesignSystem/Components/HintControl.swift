@@ -5,6 +5,8 @@ struct HintControl: View {
     let maxHints: Int
     let hints: [String]
     let isEnabled: Bool
+    /// Off where the answer can't be shown yet, while hints stay available.
+    var canReveal = true
     let onHint: () -> Void
     let onReveal: () -> Void
     @Environment(\.motion) private var motion
@@ -29,8 +31,8 @@ struct HintControl: View {
                         .frame(minHeight: Spacing.minTouchTarget)
                 }
                 .foregroundStyle(Color.mutedInk)
-                .disabled(!isEnabled)
-                .opacity(isEnabled ? 1 : 0.4)
+                .disabled(!isEnabled || !canReveal)
+                .opacity(isEnabled && canReveal ? 1 : 0.4)
             }
 
             ForEach(Array(hints.enumerated()), id: \.offset) { _, hint in

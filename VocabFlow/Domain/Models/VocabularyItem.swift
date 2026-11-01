@@ -14,9 +14,13 @@ struct VocabularyItem: Codable, Identifiable, Equatable {
 
     var allAcceptedForms: [String] { [term] + acceptedForms }
 
-    /// Stable, content-authored intro recipe; defaults to Letter Cascade.
+    /// Content-authored intro recipe. Words without one get a recipe picked from the spelling,
+    /// so words vary but a given word always opens the same way (String.hashValue is seeded per launch).
     var introPresentation: IntroductionPresentation {
-        (intro ?? IntroductionPresentation(templateID: .letterCascade)).resolved(for: term)
+        if let intro { return intro.resolved(for: term) }
+        let pool = IntroductionTemplateID.allCases.filter { $0 != .chunkMerge }
+        let pick = term.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0x7fffffff }
+        return IntroductionPresentation(templateID: pool[pick % pool.count])
     }
 }
 

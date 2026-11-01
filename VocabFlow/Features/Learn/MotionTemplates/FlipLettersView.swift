@@ -12,14 +12,6 @@ struct FlipLettersView: View {
             hidden: { _, _ in IntroGlyphStyle(opacity: 0, rotationX: -90) },
             animation: { index in MotionTokens.introLetter.delay(Double(index) * 0.06) }
         )
-        .overlay(alignment: .bottomTrailing) {
-            Circle()
-                .fill(Color.interactive)
-                .frame(width: 8, height: 8)
-                .scaleEffect(isRevealed ? 1 : 0)
-                .offset(x: 12, y: -6)
-                .animation(MotionTokens.introAccent.delay(0.5), value: isRevealed)
-        }
         .onAppear { isRevealed = true }
     }
 }

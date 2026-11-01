@@ -1,15 +1,13 @@
 import SwiftUI
 
 struct HomeView: View {
-    let onShowWords: () -> Void
-    @Environment(SessionStore.self) private var session
-    @Environment(ProgressStore.self) private var progress
+    @Environment(PracticeSessionStore.self) private var practice
+    @Environment(LearnerStore.self) private var learner
     @Environment(LearningPlanStore.self) private var plan
     @Environment(\.motion) private var motion
-    @State private var today = Date()
 
     var body: some View {
-        let status = progress.status(for: plan.current, on: today)
+        let due = learner.home?.dueCount ?? 0
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -25,7 +23,7 @@ struct HomeView: View {
                     .foregroundStyle(Color.mutedInk)
                     .padding(.top, Spacing.xl)
 
-                Text(heading(status))
+                Text(heading(due: due))
                     .font(Typography.display)
                     .tracking(-1.2)
                     .foregroundStyle(Color.ink)
@@ -33,7 +31,7 @@ struct HomeView: View {
                     .accessibilityAddTraits(.isHeader)
                     .padding(.top, Spacing.xs)
 
-                sessionCard(status)
+                sessionCard(due: due)
                     .padding(.top, Spacing.m + 2)
 
                 Rectangle()
@@ -42,69 +40,45 @@ struct HomeView: View {
                     .padding(.vertical, Spacing.l + 4)
                     .accessibilityHidden(true)
 
-                Text("Weekly Challenge")
+                Text("Checkpoint Challenge")
                     .font(Typography.screenTitle)
                     .tracking(Typography.tightTracking)
                     .foregroundStyle(Color.ink)
                     .accessibilityAddTraits(.isHeader)
 
-                WeeklyChallengeCard(weekly: progress.weekly(on: today))
-                    .padding(.top, Spacing.m)
+                CheckpointChallengeCard(home: learner.home, challenge: learner.challenges.first) {
+                    start(.checkpointChallenge, challengeID: learner.challenges.first?.id)
+                }
+                .padding(.top, Spacing.m)
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
-        .onAppear { today = progress.today }
+        .refreshable { await learner.refresh() }
     }
 
-    private func heading(_ status: TodayStatus) -> LocalizedStringKey {
-        switch status.mode {
-        case .rest: "Take it easy"
-        case .reviewFocus: "Time to revisit"
-        case .completed: "Nice flow"
-        case .learning: status.introduced > 0 ? "Keep it going" : "Ready to learn?"
-        }
+    private func heading(due: Int) -> LocalizedStringKey {
+        let weekday = Calendar.current.component(.weekday, from: .now)
+        if !plan.current.learningDays.contains(weekday) { return "Take it easy" }
+        return due > 0 ? "Time to revisit" : "Ready to learn?"
     }
 
-    private func sessionCard(_ status: TodayStatus) -> some View {
+    private func sessionCard(due: Int) -> some View {
         VStack(alignment: .leading, spacing: Spacing.l) {
             HStack(spacing: Spacing.xs) {
-                StatChip(value: status.due, label: "to review")
-                StatChip(value: status.remaining, label: "new words")
+                StatChip(value: due, label: "to review")
+                StatChip(value: plan.current.wordsPerDay, label: "new words / day")
             }
-            primaryAction(status)
+            PrimaryButton(title: due > 0 ? "Continue flow" : "Start Flow") { start(.daily) }
         }
         .padding(Spacing.l - 4)
         .cardSurface()
         .shadow(color: Color.ink.opacity(0.06), radius: 6, y: 4)
     }
 
-    // MARK: Actions
-
-    @ViewBuilder
-    private func primaryAction(_ status: TodayStatus) -> some View {
-        switch status.mode {
-        case .rest:
-            if status.due > 0 {
-                PrimaryButton(title: "Review words") { start(.review) }
-            }
-        case .reviewFocus:
-            PrimaryButton(title: "Start review") { start(.review) }
-        case .completed:
-            if status.due > 0 {
-                PrimaryButton(title: "Review words") { start(.review) }
-            } else {
-                PrimaryButton(title: "My Words", action: onShowWords)
-            }
-        case .learning:
-            PrimaryButton(title: status.introduced > 0 ? "Continue flow" : "Start Flow") { start(.learn) }
-        }
-    }
-
-    private func start(_ kind: ProgressStore.RunKind) {
-        progress.beginRun(kind)
-        motion.perform(MotionTokens.transition) { session.start() }
+    private func start(_ mode: SessionMode, challengeID: String? = nil) {
+        Task { await practice.start(mode, challengeID: challengeID) }
     }
 }
 
@@ -130,61 +104,49 @@ private struct StatChip: View {
     }
 }
 
-// MARK: - Weekly challenge
+// MARK: - Checkpoint challenge
 
-private struct WeeklyChallengeCard: View {
-    let weekly: WeeklyProgress
-    @Environment(\.motion) private var motion
+private struct CheckpointChallengeCard: View {
+    let home: LearnHome?
+    /// Nil if the challenge list has not loaded; starting without an ID takes the oldest open one.
+    let challenge: CheckpointChallenge?
+    let onStart: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            HStack {
-                Text("This week’s words")
-                    .font(Typography.emphasis)
-                    .foregroundStyle(Color.ink)
-                Spacer()
-                Text("Day \(weekly.day) / \(WeeklyProgress.length)")
-                    .font(Typography.micro.weight(.bold).monospacedDigit())
-                    .foregroundStyle(Color.ink)
-                    .padding(.horizontal, Spacing.xs + 1)
-                    .padding(.vertical, Spacing.xxs + 2)
-                    .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.chip - 2, style: .continuous))
-            }
+            Text("Your recent words")
+                .font(Typography.emphasis)
+                .foregroundStyle(Color.ink)
 
-            progressBar
-
-            HStack {
-                Text("^[\(weekly.wordsLearned) word](inflect: true) this week")
-                Spacer()
-                opensText
+            if let home, home.checkpointAvailable > 0 {
+                if let challenge {
+                    Text("^[\(challenge.meaningCount) word](inflect: true) to recall")
+                        .font(Typography.micro)
+                        .foregroundStyle(Color.mutedInk)
+                }
+                PrimaryButton(title: "Start challenge", action: onStart)
+            } else {
+                if let home {
+                    sessionProgress(home)
+                }
+                Text("Keep learning new words to open your next challenge.")
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
             }
-            .font(Typography.micro)
-            .foregroundStyle(Color.mutedInk)
         }
         .padding(Spacing.m + 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
+    }
+
+    private func sessionProgress(_ home: LearnHome) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            ProgressTrack(fraction: home.checkpointProgress)
+            Text("\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions")
+                .font(Typography.micro.weight(.semibold).monospacedDigit())
+                .foregroundStyle(Color.ink)
+        }
         .accessibilityElement(children: .combine)
-    }
-
-    private var opensText: Text {
-        weekly.daysUntilOpen > 0
-            ? Text("Opens in ^[\(weekly.daysUntilOpen) day](inflect: true)")
-            : Text("Opens today")
-    }
-
-    private var progressBar: some View {
-        Capsule()
-            .fill(Color.track)
-            .frame(height: 8)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(Color.interactive)
-                        .frame(width: proxy.size.width * min(1, weekly.fraction))
-                }
-            }
-            .clipShape(Capsule())
-            .animation(motion.animation(MotionTokens.progress), value: weekly.fraction)
-            .accessibilityHidden(true)
+        .accessibilityLabel(Text("Progress to your next challenge"))
     }
 }

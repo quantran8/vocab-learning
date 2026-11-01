@@ -5,6 +5,9 @@ struct AppRootView: View {
     @Environment(TemplateSandboxStore.self) private var sandbox
     @Environment(LearningPlanStore.self) private var plan
     @Environment(AppSettingsStore.self) private var settings
+    @Environment(AuthStore.self) private var auth
+    @Environment(LearnerStore.self) private var learner
+    @Environment(PracticeSessionStore.self) private var practice
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -16,12 +19,26 @@ struct AppRootView: View {
                 .transition(motion.routeTransition)
         }
         .environment(\.motion, motion)
+        .scrollBounceBehavior(.basedOnSize)
         .preferredColorScheme(.light)
+        .task { await auth.restore() }
+        .task(id: auth.phase) {
+            if auth.phase == .signedIn { await learner.load() }
+        }
     }
 
     private var route: RouteID {
+        guard auth.phase == .signedIn else {
+            return auth.phase == .launching ? .loading : .auth
+        }
+        guard learner.phase == .ready else {
+            return .loading
+        }
         if !plan.hasCompletedOnboarding {
             return .onboarding
+        }
+        if practice.isActive {
+            return .practice(token: practice.sessionToken)
         }
         if sandbox.isOpen {
             return .lab(template: sandbox.activeTemplate)
@@ -36,11 +53,28 @@ struct AppRootView: View {
 
     @ViewBuilder
     private var screen: some View {
-        if !plan.hasCompletedOnboarding {
+        if auth.phase == .launching {
+            StatusScreen(title: "Vocab Flow", isBusy: true)
+        } else if auth.phase == .signedOut {
+            AuthView()
+        } else if case .failed(let message) = learner.phase {
+            StatusScreen(title: "Couldn’t load your account", message: Text(verbatim: message)) {
+                PrimaryButton(title: "Try again") {
+                    Task { await learner.load() }
+                }
+                SecondaryButton(title: "Log out") {
+                    Task { await auth.signOut() }
+                }
+            }
+        } else if learner.phase == .loading {
+            StatusScreen(title: "Vocab Flow", isBusy: true)
+        } else if !plan.hasCompletedOnboarding {
             OnboardingView()
+        } else if practice.isActive {
+            PracticeSessionView()
         } else if sandbox.isOpen {
             if sandbox.activeTemplate != nil {
-                TemplateHostView()
+                LabTaskView()
             } else {
                 PracticeLabView()
             }
@@ -55,11 +89,14 @@ struct AppRootView: View {
 }
 
 private enum RouteID: Hashable {
+    case loading
+    case auth
     case onboarding
+    case practice(token: UUID)
     case home(token: UUID)
     case flow(token: UUID)
     case results(token: UUID)
-    case lab(template: TemplateKind?)
+    case lab(template: TaskTemplate?)
 }
 
 #Preview {
@@ -71,14 +108,20 @@ private enum RouteID: Hashable {
     AppRootView()
         .environment(SessionStore(content: content, haptics: NoOpFeedback()))
         .environment(TemplateSandboxStore(
-            library: DemoContentRepository().loadTemplatesOrFail(words: content.words),
-            words: content.words,
-            haptics: NoOpFeedback(),
-            speech: SilentSpeech()
+            templates: DemoContentRepository().loadLabOrFail().templates,
+            session: PracticeSessionStore(api: OfflineVocabAPI(), audio: SilentAudioClips(), recorder: NoVoiceRecorder(), haptics: NoOpFeedback())
         ))
         .environment(SpeechPlayer())
         .environment(AppSettingsStore(feedback: SettingsAwareFeedback(base: NoOpFeedback()), defaults: nil))
         .environment(plan)
         .environment(ProgressStore(defaults: nil))
         .environment(OnboardingStore(plan: plan, haptics: NoOpFeedback()))
+        .environment(AuthStore(api: OfflineVocabAPI()))
+        .environment(LearnerStore(api: OfflineVocabAPI(), plan: plan))
+        .environment(PracticeSessionStore(
+            api: OfflineVocabAPI(),
+            audio: SilentAudioClips(),
+            recorder: NoVoiceRecorder(),
+            haptics: NoOpFeedback()
+        ))
 }

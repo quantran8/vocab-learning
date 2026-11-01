@@ -28,7 +28,7 @@ enum ShellPage: Hashable {
 
 /// Plan editors Profile presents as bottom sheets.
 enum PlanSheet: String, Identifiable {
-    case focus, routine
+    case level, focus, routine
 
     var id: String { rawValue }
 }
@@ -37,6 +37,7 @@ enum PlanSheet: String, Identifiable {
 /// Liquid Glass on iOS 26+, the classic bar before that. Session screens live outside this shell.
 struct MainShellView: View {
     @Environment(LearningPlanStore.self) private var plan
+    @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
     @State private var tab: MainTab = .home
     @State private var profilePath: [ShellPage] = []
@@ -46,7 +47,7 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            HomeView(onShowWords: { tab = .words })
+            HomeView()
                 .background(Color.canvas)
                 .tabItem { Label(MainTab.home.title, systemImage: MainTab.home.systemImage) }
                 .tag(MainTab.home)
@@ -62,11 +63,13 @@ struct MainShellView: View {
         }
         .tint(Color.interactive)
         .minimizingTabBarOnScroll()
+        .task { await learner.refresh() }
     }
 
     private var profileStack: some View {
         NavigationStack(path: $profilePath) {
             ProfileView(
+                onEditLevel: { planSheet = .level },
                 onEditFocus: { planSheet = .focus },
                 onEditRoutine: { planSheet = .routine },
                 onOpenSettings: { profilePath.append(.settings) }
@@ -106,6 +109,10 @@ struct MainShellView: View {
     @ViewBuilder
     private func planEditor(_ sheet: PlanSheet) -> some View {
         switch sheet {
+        case .level:
+            EditLevelView(initial: learner.profile?.proficiencyLevel) { level in
+                saveLevel(level)
+            }
         case .focus:
             EditFocusView(initial: plan.current) { preferences in
                 save(preferences, toast: String(localized: "Focus updated"))
@@ -118,9 +125,27 @@ struct MainShellView: View {
     }
 
     private func save(_ preferences: LearningPreferences, toast text: String) {
-        plan.save(preferences)
         planSheet = nil
-        showToast(text)
+        Task {
+            do {
+                try await learner.savePlan(preferences)
+                showToast(text)
+            } catch {
+                showToast(error.asAPIError.userMessage)
+            }
+        }
+    }
+
+    private func saveLevel(_ level: CEFRLevel) {
+        planSheet = nil
+        Task {
+            do {
+                try await learner.updateLevel(level)
+                showToast(String(localized: "Level updated"))
+            } catch {
+                showToast(error.asAPIError.userMessage)
+            }
+        }
     }
 
     private func showToast(_ text: String) {

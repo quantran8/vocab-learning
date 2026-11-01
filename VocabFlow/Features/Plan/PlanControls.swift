@@ -2,91 +2,103 @@ import SwiftUI
 
 /// Learning-plan inputs shared by onboarding and the Profile plan editor.
 
-/// Searchable, collapsible topic groups.
-struct TopicPicker: View {
-    @Binding var browser: TopicBrowserState
-    let selectedIDs: Set<String>
-    let onToggleTopic: (String) -> Void
+/// One card per collection; exactly one is selected.
+struct CollectionPicker: View {
+    let selectedID: String
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        VStack(spacing: Spacing.s - 2) {
+            ForEach(TopicCatalog.collections) { collection in
+                CollectionCard(collection: collection, isSelected: collection.id == selectedID) {
+                    onSelect(collection.id)
+                }
+            }
+        }
+    }
+}
+
+private struct CollectionCard: View {
+    let collection: VocabCollection
+    let isSelected: Bool
+    let action: () -> Void
     @Environment(\.motion) private var motion
 
     var body: some View {
-        let groups = browser.visibleGroups
-        VStack(alignment: .leading, spacing: 0) {
-            SearchField(placeholder: "Search topics", text: $browser.query)
+        let shape = RoundedRectangle(cornerRadius: Radii.card - 2, style: .continuous)
+        Button(action: action) {
+            HStack(spacing: Spacing.s) {
+                Image(systemName: collection.systemImage)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.white : Color.ink)
+                    .frame(width: 48, height: 48)
+                    .background(
+                        isSelected ? Color.interactive : Color.neutralSurface,
+                        in: RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
+                    )
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.xxs - 2) {
+                    Text(verbatim: collection.name)
+                        .font(Typography.emphasis)
+                        .foregroundStyle(isSelected ? Color.selectedInk : Color.ink)
+                    Text(verbatim: collection.summary)
+                        .font(Typography.micro)
+                        .foregroundStyle(Color.mutedInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                Text("\(collection.topics.count) topics")
+                    .font(Typography.micro.weight(.bold).monospacedDigit())
+                    .foregroundStyle(isSelected ? Color.selectedInk : Color.mutedInk)
+            }
+            .padding(Spacing.s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(isSelected ? Color.selectedSurface : Color.surface, in: shape)
+            .overlay(shape.strokeBorder(isSelected ? Color.interactive : Color.stroke, lineWidth: isSelected ? 2 : 1.5))
+            .contentShape(shape)
+            .animation(motion.animation(MotionTokens.press), value: isSelected)
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
 
-            if groups.isEmpty {
-                Text("No topics found")
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.mutedInk)
-                    .padding(.vertical, Spacing.l - 2)
-            } else {
-                ForEach(groups) { group in
-                    groupSection(group)
-                        .padding(.top, Spacing.s)
+/// The topics of one collection, with a "Select all / Clear all" shortcut.
+struct TopicPicker: View {
+    let collection: VocabCollection
+    let selectedIDs: Set<String>
+    let onToggleTopic: (String) -> Void
+    let onToggleAll: () -> Void
+
+    var body: some View {
+        let hasAll = selectedIDs == collection.topicIDs
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            HStack {
+                Eyebrow(text: LocalizedStringKey(collection.name))
+                Spacer()
+                Button(action: onToggleAll) {
+                    Text(hasAll ? "Clear all" : "Select all")
+                        .font(Typography.micro.weight(.heavy))
+                        .foregroundStyle(Color.selectedInk)
+                        .frame(minHeight: Spacing.minTouchTarget)
                 }
             }
-        }
-    }
+            .padding(.bottom, -Spacing.xs)
 
-    private func groupSection(_ group: TopicGroup) -> some View {
-        let isExpanded = browser.isExpanded(group)
-        return VStack(alignment: .leading, spacing: Spacing.s - 1) {
-            groupHeader(group, isExpanded: isExpanded)
-            if isExpanded {
-                FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
-                    ForEach(group.topics) { topic in
-                        TopicChip(
-                            title: topic.name,
-                            systemImage: topic.systemImage,
-                            isSelected: selectedIDs.contains(topic.id)
-                        ) {
-                            onToggleTopic(topic.id)
-                        }
+            FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
+                ForEach(collection.topics) { topic in
+                    TopicChip(
+                        title: topic.name,
+                        systemImage: topic.systemImage,
+                        isSelected: selectedIDs.contains(topic.id)
+                    ) {
+                        onToggleTopic(topic.id)
                     }
                 }
-                .transition(.opacity)
             }
         }
-    }
-
-    private func groupHeader(_ group: TopicGroup, isExpanded: Bool) -> some View {
-        let selected = group.topics.filter { selectedIDs.contains($0.id) }.count
-        return Button {
-            motion.perform(MotionTokens.snap) { browser.toggleGroup(group.id) }
-        } label: {
-            HStack(spacing: Spacing.xs) {
-                Eyebrow(text: LocalizedStringKey(group.name))
-                    .fixedSize()
-                if selected > 0 {
-                    Text(verbatim: "\(selected)")
-                        .font(Typography.micro.weight(.heavy).monospacedDigit())
-                        .foregroundStyle(Color.selectedInk)
-                        .frame(minWidth: 20, minHeight: 20)
-                        .padding(.horizontal, Spacing.xxs)
-                        .background(Color.selectedSurface, in: Capsule())
-                        .contentTransition(.numericText(value: Double(selected)))
-                        .transition(motion.popTransition)
-                }
-                Rectangle()
-                    .fill(Color.neutralSurface)
-                    .frame(height: 1)
-                if !browser.isSearching {
-                    Image(systemName: "chevron.down")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(Color.mutedInk)
-                        .rotationEffect(.degrees(isExpanded ? 0 : -90))
-                }
-            }
-            .frame(minHeight: Spacing.minTouchTarget)
-            .contentShape(Rectangle())
-            .animation(motion.animation(MotionTokens.snap), value: selected)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: group.name))
-        .accessibilityValue(Text("\(selected) selected"))
-        .accessibilityHint(Text(isExpanded ? "Collapse" : "Expand"))
-        .accessibilityAddTraits(.isHeader)
     }
 }
 

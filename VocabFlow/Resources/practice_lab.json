@@ -1,0 +1,501 @@
+{
+  "templates": [
+    {
+      "id": "select",
+      "title": "Select",
+      "action": "Pick the right meaning or word from a short list.",
+      "systemImage": "checklist",
+      "tasks": [
+        {
+          "id": "lab-select-gloss",
+          "template": "select",
+          "variant": "gloss",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "appreciate"
+          },
+          "question": "What does this word mean?",
+          "options": [
+            {
+              "id": 1,
+              "text": "trân trọng, đánh giá cao"
+            },
+            {
+              "id": 2,
+              "text": "xin lỗi"
+            },
+            {
+              "id": 3,
+              "text": "chấp nhận"
+            }
+          ],
+          "evaluation": {
+            "correctOptionId": 1
+          }
+        },
+        {
+          "id": "lab-select-reverse",
+          "template": "select",
+          "variant": "reverse_gloss",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "xin lỗi"
+          },
+          "question": "Which English word means this?",
+          "options": [
+            {
+              "id": 1,
+              "text": "apologize"
+            },
+            {
+              "id": 2,
+              "text": "appreciate"
+            },
+            {
+              "id": 3,
+              "text": "accept"
+            }
+          ],
+          "evaluation": {
+            "correctOptionId": 1
+          }
+        },
+        {
+          "id": "lab-select-clash",
+          "template": "select",
+          "variant": "meaning_clash",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "Please consider the options first.",
+            "highlight": {
+              "start": 7,
+              "end": 15
+            }
+          },
+          "question": "What does the highlighted word mean here?",
+          "options": [
+            {
+              "id": 1,
+              "text": "cân nhắc"
+            },
+            {
+              "id": 2,
+              "text": "quyết định"
+            },
+            {
+              "id": 3,
+              "text": "bỏ qua"
+            }
+          ],
+          "evaluation": {
+            "correctOptionId": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "cloze_select",
+      "title": "Fill the Blank",
+      "action": "Choose the word that completes the sentence.",
+      "systemImage": "text.insert",
+      "tasks": [
+        {
+          "id": "lab-cloze-blank",
+          "template": "cloze_select",
+          "variant": "single_blank",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "Tôi rất trân trọng sự giúp đỡ của bạn."
+          },
+          "question": "Choose the word that completes the sentence.",
+          "sentenceParts": {
+            "before": "I really ",
+            "after": " your help."
+          },
+          "options": [
+            {
+              "id": 1,
+              "text": "appreciate"
+            },
+            {
+              "id": 2,
+              "text": "apologize"
+            },
+            {
+              "id": 3,
+              "text": "accept"
+            }
+          ],
+          "evaluation": {
+            "correctOptionId": 1
+          }
+        },
+        {
+          "id": "lab-cloze-context",
+          "template": "cloze_select",
+          "variant": "context_meaning",
+          "maxRetries": 1,
+          "question": "Choose the word that fits the sentence.",
+          "sentenceParts": {
+            "before": "She needs more time to ",
+            "after": " the offer before Friday."
+          },
+          "options": [
+            {
+              "id": 1,
+              "text": "consider"
+            },
+            {
+              "id": 2,
+              "text": "apologize"
+            },
+            {
+              "id": 3,
+              "text": "arrive"
+            }
+          ],
+          "evaluation": {
+            "correctOptionId": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "typing",
+      "title": "Typing",
+      "action": "Recall the English word and type it.",
+      "systemImage": "keyboard",
+      "tasks": [
+        {
+          "id": "lab-typing-1",
+          "template": "typing",
+          "variant": "meaning_recall",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "trân trọng, đánh giá cao"
+          },
+          "question": "Type the English word.",
+          "evaluation": {
+            "acceptedResponses": [
+              "appreciate"
+            ]
+          }
+        },
+        {
+          "id": "lab-typing-2",
+          "template": "typing",
+          "variant": "meaning_recall",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "xin lỗi"
+          },
+          "question": "Type the English word.",
+          "evaluation": {
+            "acceptedResponses": [
+              "apologize",
+              "apologise"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "fly_reorder",
+      "title": "Letter Reorder",
+      "action": "Tap or drag letters onto the lines to spell the word.",
+      "systemImage": "character.cursor.ibeam",
+      "tasks": [
+        {
+          "id": "lab-reorder-1",
+          "template": "fly_reorder",
+          "variant": "spelling_recall",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "cân nhắc"
+          },
+          "question": "Spell the English word.",
+          "tiles": [
+            {
+              "id": 8,
+              "text": "r"
+            },
+            {
+              "id": 7,
+              "text": "e"
+            },
+            {
+              "id": 1,
+              "text": "c"
+            },
+            {
+              "id": 3,
+              "text": "n"
+            },
+            {
+              "id": 5,
+              "text": "i"
+            },
+            {
+              "id": 2,
+              "text": "o"
+            },
+            {
+              "id": 4,
+              "text": "s"
+            },
+            {
+              "id": 6,
+              "text": "d"
+            }
+          ],
+          "evaluation": {
+            "acceptedResponses": [
+              "consider"
+            ]
+          }
+        },
+        {
+          "id": "lab-reorder-2",
+          "template": "fly_reorder",
+          "variant": "spelling_recall",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "xin lỗi"
+          },
+          "question": "Spell the English word.",
+          "tiles": [
+            {
+              "id": 9,
+              "text": "e"
+            },
+            {
+              "id": 3,
+              "text": "o"
+            },
+            {
+              "id": 1,
+              "text": "a"
+            },
+            {
+              "id": 7,
+              "text": "i"
+            },
+            {
+              "id": 2,
+              "text": "p"
+            },
+            {
+              "id": 8,
+              "text": "z"
+            },
+            {
+              "id": 5,
+              "text": "o"
+            },
+            {
+              "id": 4,
+              "text": "l"
+            },
+            {
+              "id": 6,
+              "text": "g"
+            }
+          ],
+          "evaluation": {
+            "acceptedResponses": [
+              "apologize"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "match",
+      "title": "Match",
+      "action": "Pair each word with its meaning.",
+      "systemImage": "arrow.left.arrow.right",
+      "tasks": [
+        {
+          "id": "lab-match-meaning",
+          "template": "match",
+          "variant": "meaning_pairs",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "Match each word with its meaning."
+          },
+          "pairs": {
+            "left": [
+              {
+                "id": 1,
+                "text": "appreciate"
+              },
+              {
+                "id": 2,
+                "text": "consider"
+              },
+              {
+                "id": 3,
+                "text": "accept"
+              }
+            ],
+            "right": [
+              {
+                "id": 6,
+                "text": "cân nhắc"
+              },
+              {
+                "id": 7,
+                "text": "chấp nhận"
+              },
+              {
+                "id": 5,
+                "text": "trân trọng"
+              }
+            ]
+          },
+          "evaluation": {
+            "correctPairs": [
+              {
+                "leftId": 1,
+                "rightId": 5
+              },
+              {
+                "leftId": 2,
+                "rightId": 6
+              },
+              {
+                "leftId": 3,
+                "rightId": 7
+              }
+            ]
+          }
+        },
+        {
+          "id": "lab-match-word",
+          "template": "match",
+          "variant": "word_pairs",
+          "maxRetries": 1,
+          "prompt": {
+            "type": "text",
+            "text": "Match each meaning with its word."
+          },
+          "pairs": {
+            "left": [
+              {
+                "id": 1,
+                "text": "cân nhắc"
+              },
+              {
+                "id": 2,
+                "text": "chấp nhận"
+              },
+              {
+                "id": 3,
+                "text": "trân trọng"
+              }
+            ],
+            "right": [
+              {
+                "id": 7,
+                "text": "appreciate"
+              },
+              {
+                "id": 5,
+                "text": "consider"
+              },
+              {
+                "id": 6,
+                "text": "accept"
+              }
+            ]
+          },
+          "evaluation": {
+            "correctPairs": [
+              {
+                "leftId": 1,
+                "rightId": 5
+              },
+              {
+                "leftId": 2,
+                "rightId": 6
+              },
+              {
+                "leftId": 3,
+                "rightId": 7
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "surgery",
+      "title": "Spelling Surgery",
+      "action": "Find the wrong letter and fix it.",
+      "systemImage": "scissors",
+      "tasks": [
+        {
+          "id": "lab-surgery-1",
+          "template": "surgery",
+          "variant": "fix_spelling",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "Find and fix the spelling mistake."
+          },
+          "word": "seperate",
+          "evaluation": {
+            "wrongGraphemeIndex": 3,
+            "replacement": "a"
+          }
+        },
+        {
+          "id": "lab-surgery-2",
+          "template": "surgery",
+          "variant": "fix_spelling",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "Find and fix the spelling mistake."
+          },
+          "word": "clarrify",
+          "evaluation": {
+            "wrongGraphemeIndex": 4,
+            "replacement": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "recording",
+      "title": "Read Aloud",
+      "action": "Read the word aloud. Nothing is scored in the Lab.",
+      "systemImage": "mic.fill",
+      "tasks": [
+        {
+          "id": "lab-recording-1",
+          "template": "recording",
+          "variant": "scripted_pronunciation",
+          "maxRetries": 2,
+          "prompt": {
+            "type": "text",
+            "text": "appreciate"
+          },
+          "question": "Read this word aloud.",
+          "assessment": {
+            "kind": "azurePronunciation"
+          }
+        }
+      ]
+    }
+  ]
+}

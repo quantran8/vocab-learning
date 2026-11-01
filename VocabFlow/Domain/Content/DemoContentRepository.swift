@@ -3,20 +3,19 @@ import Foundation
 enum DemoContentError: Error {
     case missingResource
     case invalid([ContentIssue])
-    case invalidTemplates([TemplateContentIssue])
 }
 
 struct DemoContentRepository {
     var bundle: Bundle = .main
     var resourceName = "demo_words"
-    var templatesResourceName = "demo_templates"
+    var labResourceName = "practice_lab"
 
     func load() throws -> DemoContent {
         try Self.decode(Data(contentsOf: url(resourceName)))
     }
 
-    func loadTemplates(words: [VocabularyItem]) throws -> TemplateLibrary {
-        try Self.decodeTemplates(Data(contentsOf: url(templatesResourceName)), words: words)
+    func loadLab() throws -> LabLibrary {
+        try Self.decodeLab(Data(contentsOf: url(labResourceName)))
     }
 
     static func decode(_ data: Data) throws -> DemoContent {
@@ -28,13 +27,10 @@ struct DemoContentRepository {
         return raw.withShuffledOptions(seed: raw.seed ?? DemoSeed.defaultSeed)
     }
 
-    static func decodeTemplates(_ data: Data, words: [VocabularyItem]) throws -> TemplateLibrary {
-        let raw = try JSONDecoder().decode(TemplateLibrary.self, from: data)
-        let issues = TemplateContentValidator.validate(raw, words: words)
-        guard issues.isEmpty else {
-            throw DemoContentError.invalidTemplates(issues)
-        }
-        return raw.withShuffledChoices(seed: raw.seed ?? DemoSeed.defaultSeed)
+    static func decodeLab(_ data: Data) throws -> LabLibrary {
+        let library = try JSONDecoder().decode(LabLibrary.self, from: data)
+        try library.validate()
+        return library
     }
 
     func loadOrFail() -> DemoContent {
@@ -45,11 +41,11 @@ struct DemoContentRepository {
         }
     }
 
-    func loadTemplatesOrFail(words: [VocabularyItem]) -> TemplateLibrary {
+    func loadLabOrFail() -> LabLibrary {
         do {
-            return try loadTemplates(words: words)
+            return try loadLab()
         } catch {
-            fatalError("Template content failed to load: \(error)")
+            fatalError("Practice Lab content failed to load: \(error)")
         }
     }
 

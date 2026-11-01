@@ -1,10 +1,12 @@
 import SwiftUI
 
 struct ProfileView: View {
+    let onEditLevel: () -> Void
     let onEditFocus: () -> Void
     let onEditRoutine: () -> Void
     let onOpenSettings: () -> Void
     @Environment(LearningPlanStore.self) private var plan
+    @Environment(LearnerStore.self) private var learner
 
     var body: some View {
         let preferences = plan.current
@@ -36,6 +38,9 @@ struct ProfileView: View {
                     .fill(Color.neutralSurface)
                     .frame(height: 1)
                     .padding(.vertical, Spacing.l - 2)
+
+                levelSection
+                    .padding(.bottom, Spacing.l - 1)
 
                 focusSection(preferences)
 
@@ -73,6 +78,18 @@ struct ProfileView: View {
         }
     }
 
+    private var levelSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            sectionHeader("Your level", editLabel: "Edit level", action: onEditLevel)
+            VStack(spacing: 0) {
+                dataRow("chart.bar", label: "English level", value: learner.profile?.proficiencyLevel.map { Text(verbatim: $0.rawValue) } ?? Text("Not set"))
+            }
+            .padding(.horizontal, Spacing.m)
+            .padding(.vertical, Spacing.xxs)
+            .cardSurface(radius: Radii.card - 2)
+        }
+    }
+
     /// Topics shown before collapsing the rest into "+N more".
     private static let visibleTopicLimit = 4
 
@@ -81,6 +98,9 @@ struct ProfileView: View {
         let hidden = max(0, topics.count - Self.visibleTopicLimit)
         return VStack(alignment: .leading, spacing: Spacing.s) {
             sectionHeader("Your focus", editLabel: "Edit focus", action: onEditFocus)
+            if let collection = preferences.collection {
+                Eyebrow(text: LocalizedStringKey(collection.name))
+            }
             FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
                 ForEach(topics.prefix(Self.visibleTopicLimit)) { topic in
                     Label {

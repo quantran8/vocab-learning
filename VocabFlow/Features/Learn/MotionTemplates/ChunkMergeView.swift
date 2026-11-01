@@ -10,13 +10,8 @@ struct ChunkMergeView: View {
         HStack(spacing: isMerged ? 0 : Spacing.s) {
             ForEach(Array(chunks.enumerated()), id: \.offset) { index, chunk in
                 Text(verbatim: chunk)
-                    .foregroundStyle(index == 0 && !isMerged ? Color.interactive : Color.ink)
+                    .foregroundStyle(Color.ink)
                     .padding(.horizontal, isMerged ? 0 : Spacing.xs)
-                    .background {
-                        RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                            .strokeBorder(Color.stroke, lineWidth: 1.5)
-                            .opacity(isMerged ? 0 : 1)
-                    }
                     .opacity(isRevealed ? 1 : 0)
                     .offset(y: isRevealed ? 0 : 18)
                     .animation(MotionTokens.introAccent.delay(Double(index) * MotionTokens.introChunkStagger), value: isRevealed)

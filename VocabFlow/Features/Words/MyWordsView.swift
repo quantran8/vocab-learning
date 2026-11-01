@@ -1,15 +1,14 @@
 import SwiftUI
 
 struct MyWordsView: View {
-    @Environment(ProgressStore.self) private var progress
-    @Environment(SessionStore.self) private var session
-    @Environment(\.motion) private var motion
+    @Environment(LearnerStore.self) private var learner
+    @Environment(PracticeSessionStore.self) private var practice
     @State private var today = Date()
     @State private var query = ""
-    @State private var selected: VocabularyItem?
+    @State private var selected: WordProgress?
 
     var body: some View {
-        let allWords = progress.progress.learnedWords.sorted { $0.learnedAt > $1.learnedAt }
+        let allWords = learner.words
         let words = allWords.filter { $0.matches(query) }
 
         ScrollView {
@@ -24,13 +23,12 @@ struct MyWordsView: View {
                     emptyState
                         .padding(.top, Spacing.xl)
                 } else {
-                    LibraryStats(learned: allWords.count, needPractice: progress.oftenMissedCount(on: today))
+                    LibraryStats(learned: allWords.count, needPractice: allWords.filter(\.needsPractice).count)
                         .padding(.top, Spacing.l - 4)
 
                     SectionHeading(text: "Practice")
                         .padding(.top, Spacing.l + 4)
 
-                    // Both rows run the same session for now — see memory my-words-practice-rows.
                     VStack(spacing: Spacing.s) {
                         PracticeRow(
                             systemImage: "shuffle",
@@ -38,7 +36,7 @@ struct MyWordsView: View {
                             fill: .selectedSurface,
                             title: "Random Practice",
                             subtitle: "Words you haven’t practiced recently",
-                            action: startPractice
+                            action: { startPractice(.randomPractice) }
                         )
                         PracticeRow(
                             systemImage: "exclamationmark.triangle",
@@ -46,7 +44,7 @@ struct MyWordsView: View {
                             fill: .errorSurface,
                             title: "Weak Words Practice",
                             subtitle: "Focus on words you often get wrong",
-                            action: startPractice
+                            action: { startPractice(.weakWordsPractice) }
                         )
                     }
                     .padding(.top, Spacing.s)
@@ -71,7 +69,7 @@ struct MyWordsView: View {
                     } else {
                         LazyVStack(spacing: 0) {
                             ForEach(words) { word in
-                                row(word, isDue: progress.isDue(word, on: today))
+                                row(word, isDue: word.isDue(on: today))
                             }
                         }
                         .padding(.top, Spacing.xs)
@@ -83,27 +81,27 @@ struct MyWordsView: View {
             .padding(.bottom, Spacing.l)
         }
         .scrollDismissesKeyboard(.interactively)
-        .onAppear { today = progress.today }
+        .onAppear { today = .now }
+        .refreshable { await learner.refresh() }
         .sheet(item: $selected) { word in
-            WordDetailSheet(word: word, learnedAt: progress.progress.learnedWords.first { $0.id == word.id }?.learnedAt)
+            WordDetailSheet(word: vocabulary(for: word), learnedAt: word.learnedAt, skills: word.meanings.first?.skills)
         }
     }
 
-    private func startPractice() {
-        progress.beginRun(.review)
-        motion.perform(MotionTokens.transition) { session.start() }
+    private func startPractice(_ mode: SessionMode) {
+        Task { await practice.start(mode) }
     }
 
-    private func row(_ word: LearnedWord, isDue: Bool) -> some View {
+    private func row(_ word: WordProgress, isDue: Bool) -> some View {
         Button {
-            selected = vocabulary(for: word)
+            selected = word
         } label: {
             HStack(spacing: Spacing.s) {
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(verbatim: word.term)
+                    Text(verbatim: word.lemma)
                         .font(Typography.emphasis)
                         .foregroundStyle(Color.ink)
-                    Text(verbatim: word.meaning)
+                    Text(verbatim: word.meaningText)
                         .font(Typography.micro)
                         .foregroundStyle(Color.mutedInk)
                         .multilineTextAlignment(.leading)
@@ -127,10 +125,14 @@ struct MyWordsView: View {
         .accessibilityHint(Text("Shows the word introduction"))
     }
 
-    /// Full content when the word is still in the library; otherwise what was saved when it was learned.
-    private func vocabulary(for word: LearnedWord) -> VocabularyItem {
-        session.word(id: word.id)
-            ?? VocabularyItem(id: word.id, term: word.term, meaningVi: word.meaning, example: "")
+    private func vocabulary(for word: WordProgress) -> VocabularyItem {
+        VocabularyItem(
+            id: word.id,
+            term: word.lemma,
+            meaningVi: word.meaningText,
+            example: "",
+            ipa: word.meanings.compactMap(\.meaning.ipa).first
+        )
     }
 
     private var emptyState: some View {
@@ -253,6 +255,7 @@ private struct PracticeRow: View {
 private struct WordDetailSheet: View {
     let word: VocabularyItem
     let learnedAt: Date?
+    let skills: MeaningSkills?
     @Environment(SpeechPlayer.self) private var speech
     @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 48
 
@@ -293,6 +296,22 @@ private struct WordDetailSheet: View {
                     }
                 }
 
+                if let skills {
+                    divider
+                    section("Skills") {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            skillRow("Reading", skills.reading)
+                            skillRow("Writing", skills.writing)
+                            if let listening = skills.listening {
+                                skillRow("Listening", listening)
+                            }
+                            if let speaking = skills.speaking {
+                                skillRow("Speaking", speaking)
+                            }
+                        }
+                    }
+                }
+
                 if let learnedAt {
                     divider
                     Text("Learned \(learnedAt.formatted(date: .abbreviated, time: .omitted))")
@@ -304,7 +323,6 @@ private struct WordDetailSheet: View {
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
-        .scrollBounceBehavior(.basedOnSize)
         .onDisappear { speech.stop() }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
@@ -356,6 +374,27 @@ private struct WordDetailSheet: View {
         .disabled(!speech.isAvailable)
         .accessibilityLabel(Text(speech.isAvailable ? "Play pronunciation" : "Audio unavailable"))
         .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
+    }
+
+    private func skillRow(_ name: LocalizedStringKey, _ skill: SkillState) -> some View {
+        HStack {
+            Text(name)
+                .font(Typography.body)
+                .foregroundStyle(Color.ink)
+            Spacer()
+            Text(skillStatus(skill.status))
+                .font(Typography.micro.weight(.semibold))
+                .foregroundStyle(skill.needsPractice ? Color.errorInk : Color.mutedInk)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func skillStatus(_ status: SkillStatus) -> LocalizedStringKey {
+        switch status {
+        case .notVerified: "Not verified"
+        case .demonstrated: "Demonstrated"
+        case .verified: "Verified"
+        }
     }
 
     private var divider: some View {

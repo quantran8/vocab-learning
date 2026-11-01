@@ -58,18 +58,7 @@ struct FlowHeader: View {
     }
 
     private var continuousBar: some View {
-        Capsule()
-            .fill(Color.track)
-            .frame(height: 8)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(Color.interactive)
-                        .frame(width: proxy.size.width * fraction)
-                }
-            }
-            .clipShape(Capsule())
-            .animation(motion.animation(MotionTokens.progress), value: fraction)
+        ProgressTrack(fraction: fraction)
     }
 
     private var fraction: CGFloat {

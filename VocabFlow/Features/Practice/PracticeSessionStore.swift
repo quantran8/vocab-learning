@@ -1,0 +1,391 @@
+import Foundation
+import Observation
+
+/// Runs one planned session: renders steps in order, scores instantly with each task's answer key,
+/// and commits the recorded events at the end. Nothing counts until the commit succeeds.
+@Observable
+@MainActor
+final class PracticeSessionStore {
+    enum Stage: Equatable {
+        case idle
+        case planning
+        /// Nothing to learn or review right now.
+        case empty
+        case running
+        case committing
+        case finished(CommitSummary)
+        case failed(Failure)
+    }
+
+    enum Failure: Equatable {
+        case planning(String)
+        /// Unknown outcome or a passing outage: retrying resends the same bytes.
+        case commit(String)
+        /// The session can't be saved any more; only a new plan helps.
+        case sessionLost(String)
+    }
+
+    enum RecordingStage: Equatable {
+        case idle
+        case recording
+        case uploading
+        case assessed(RecordingAssessment)
+        /// Can retry the same audio; a persistent failure ends in `unavailable`.
+        case uploadFailed
+        /// Can't record at all. The reason goes into the `unavailable` event.
+        case blocked(reason: String)
+    }
+
+    enum UnavailableReason {
+        static let micDenied = "micPermissionDenied"
+        static let recorderFailed = "recorderFailed"
+        static let assessmentFailed = "assessmentFailed"
+        static let speechUnavailable = "speechProviderUnavailable"
+        static let skipped = "userSkipped"
+    }
+
+    private(set) var stage: Stage = .idle
+    private(set) var steps: [PlanStep] = []
+    private(set) var stepIndex = 0
+    private(set) var attempts: [String: TaskAttempt] = [:]
+    private(set) var recording: RecordingStage = .idle
+    /// New for every session; keys the route so screens never carry over.
+    private(set) var sessionToken = UUID()
+    private(set) var audioFailed = false
+    /// Practice Lab: tasks are scored locally and nothing is planned, assessed or committed.
+    private(set) var isSandbox = false
+    var onSandboxEnd: (() -> Void)?
+
+    let audio: AudioClipPlaying
+    let haptics: FeedbackProviding
+
+    private let api: VocabAPI
+    private let recorder: VoiceRecording
+    private var sessionID: String?
+    private var lastRequest: (mode: SessionMode, challengeID: String?)?
+    private var completedLearnIDs: Set<String> = []
+    /// Encoded once: a retried commit must be byte-identical or the backend reports a conflict.
+    private var commitBody: Data?
+    private var pendingAudio: RecordedAudio?
+    private var latestReceiptID: String?
+
+    init(api: VocabAPI, audio: AudioClipPlaying, recorder: VoiceRecording, haptics: FeedbackProviding) {
+        self.api = api
+        self.audio = audio
+        self.recorder = recorder
+        self.haptics = haptics
+        recorder.onLimitReached = { [weak self] in
+            Task { await self?.stopRecording() }
+        }
+    }
+
+    var isActive: Bool { stage != .idle }
+    var currentStep: PlanStep? { steps.indices.contains(stepIndex) ? steps[stepIndex] : nil }
+
+    var currentAttempt: TaskAttempt? {
+        guard case .practice(_, let task) = currentStep else { return nil }
+        return attempts[task.id]
+    }
+
+    /// Tasks answered right on the first try without help. A local display figure, not a score.
+    var firstTryCount: Int {
+        attempts.values.filter { $0.status == .solved && $0.submitCount <= 1 && $0.hintsUsed == 0 }.count
+    }
+
+    // MARK: Lifecycle
+
+    func start(_ mode: SessionMode, challengeID: String? = nil) async {
+        guard stage == .idle else { return }
+        lastRequest = (mode, challengeID)
+        await plan(mode, challengeID: challengeID)
+    }
+
+    func retry() async {
+        switch stage {
+        case .failed(.planning):
+            guard let lastRequest else { return }
+            await plan(lastRequest.mode, challengeID: lastRequest.challengeID)
+        case .failed(.commit):
+            await commit()
+        default:
+            break
+        }
+    }
+
+    /// Plays bundled tasks with no backend. Ends through `onSandboxEnd` instead of committing.
+    func startSandbox(_ tasks: [PracticeTask]) {
+        guard stage == .idle, !tasks.isEmpty else { return }
+        isSandbox = true
+        sessionID = "sandbox"
+        steps = tasks.map { .practice(phase: .randomPractice, task: $0) }
+        stepIndex = 0
+        completedLearnIDs = []
+        commitBody = nil
+        attempts = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, TaskAttempt(task: $0, phase: .randomPractice)) })
+        resetStepState()
+        stage = .running
+    }
+
+    /// Nothing is written: words stay unlearned until a session commits.
+    func close() {
+        audio.stop()
+        recorder.cancel()
+        steps = []
+        attempts = [:]
+        stepIndex = 0
+        completedLearnIDs = []
+        sessionID = nil
+        commitBody = nil
+        isSandbox = false
+        resetStepState()
+        stage = .idle
+        sessionToken = UUID()
+    }
+
+    func advance() {
+        guard stage == .running, let step = currentStep else { return }
+        switch step {
+        case .learn(let id, _):
+            completedLearnIDs.insert(id)
+        case .practice(_, let task):
+            guard attempts[task.id]?.isFinished == true else { return }
+        }
+        audio.stop()
+        resetStepState()
+        if stepIndex + 1 < steps.count {
+            stepIndex += 1
+        } else if isSandbox {
+            onSandboxEnd?()
+        } else {
+            Task { await commit() }
+        }
+    }
+
+    // MARK: Answers
+
+    func submitOption(_ id: Int) { score { $0.submitOption(id) } }
+    func submitText(_ text: String) { score { $0.submitText(text) } }
+    func submitTiles() { score { $0.submitTiles() } }
+
+    func submitRepair(graphemeIndex: Int, replacement: String) {
+        score { $0.submitRepair(graphemeIndex: graphemeIndex, replacement: replacement) }
+    }
+
+    func submitPair(leftID: Int, rightID: Int) {
+        score { $0.submitPair(leftID: leftID, rightID: rightID) }
+    }
+
+    func tapTile(_ id: Int) { update { $0.tapTile(id) } }
+    func removeTile(_ id: Int) { update { $0.removeTile(id) } }
+    func moveTile(_ id: Int, to index: Int) { update { $0.moveTile(id, to: index) } }
+    func useHint() { update { $0.useHint() } }
+    func reveal() { update { $0.reveal() } }
+    func tryAgain() { mutate { $0.tryAgain() } }
+
+    // MARK: Audio
+
+    func playPromptAudio() async {
+        guard let attempt = currentAttempt, case .audio(let clip)? = attempt.task.prompt else { return }
+        let succeeded = await audio.play(clip.url)
+        attempts[attempt.task.id]?.recordAudioPlayback(succeeded: succeeded)
+        if currentAttempt?.task.id == attempt.task.id {
+            audioFailed = !succeeded
+        }
+    }
+
+    func playClip(_ clip: AudioClip) {
+        Task { _ = await audio.play(clip.url) }
+    }
+
+    // MARK: Recording
+
+    func startRecording() async {
+        guard recording != .recording, currentAttempt?.canRecordAgain == true else { return }
+        audio.stop()
+        guard await recorder.requestAccess() else {
+            recording = .blocked(reason: UnavailableReason.micDenied)
+            return
+        }
+        do {
+            try recorder.start()
+            recording = .recording
+        } catch {
+            recording = .blocked(reason: UnavailableReason.recorderFailed)
+        }
+    }
+
+    func stopRecording() async {
+        guard recording == .recording else { return }
+        guard let captured = recorder.stop() else {
+            recording = .blocked(reason: UnavailableReason.recorderFailed)
+            return
+        }
+        pendingAudio = captured
+        await upload()
+    }
+
+    func retryUpload() async {
+        await upload()
+    }
+
+    /// Ends the task with the last assessment. An invalid one still counts as this task's attempt.
+    func acceptRecording() {
+        if let latestReceiptID {
+            mutate { $0.finishRecording(receiptID: latestReceiptID) }
+        } else {
+            let reason: String
+            switch recording {
+            case .blocked(let blocked): reason = blocked
+            case .uploadFailed: reason = UnavailableReason.speechUnavailable
+            default: reason = UnavailableReason.skipped
+            }
+            mutate { $0.markRecordingUnavailable(reason: reason) }
+        }
+        advance()
+    }
+
+    private func upload() async {
+        guard let pendingAudio, let sessionID, let taskID = currentAttempt?.task.id else { return }
+        recording = .uploading
+        if isSandbox {
+            // No speech scoring in the Lab; any take counts as a pass so the flow can be tried end to end.
+            latestReceiptID = "sandbox"
+            mutate { $0.countAssessment() }
+            recording = .assessed(RecordingAssessment(assessmentReceiptId: "sandbox", validity: "valid", passed: true, accuracyScore: nil))
+            haptics.success()
+            return
+        }
+        do {
+            let assessment = try await api.assessRecording(sessionID: sessionID, taskID: taskID, audio: pendingAudio)
+            guard currentAttempt?.task.id == taskID else { return }
+            latestReceiptID = assessment.assessmentReceiptId
+            mutate { $0.countAssessment() }
+            recording = .assessed(assessment)
+            if assessment.passed == true {
+                haptics.success()
+            } else {
+                haptics.error()
+            }
+        } catch {
+            guard currentAttempt?.task.id == taskID else { return }
+            let failure = error.asAPIError
+            if Self.endsSession(failure) {
+                stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.")))
+            } else if failure.isRetryable || failure.code == "PAYLOAD_TOO_LARGE" {
+                recording = .uploadFailed
+            } else {
+                recording = .blocked(reason: UnavailableReason.assessmentFailed)
+            }
+        }
+    }
+
+    // MARK: Private
+
+    private func plan(_ mode: SessionMode, challengeID: String?) async {
+        stage = .planning
+        let capabilities = PlanRequest.Capabilities(audioPlayback: audio.canPlay, microphone: recorder.canRecord)
+        do {
+            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID))
+            guard stage == .planning else { return }
+            guard let id = plan.sessionID, !plan.steps.isEmpty else {
+                stage = .empty
+                return
+            }
+            sessionID = id
+            steps = plan.steps
+            stepIndex = 0
+            completedLearnIDs = []
+            commitBody = nil
+            attempts = [:]
+            for case .practice(let phase, let task) in plan.steps {
+                attempts[task.id] = TaskAttempt(task: task, phase: phase)
+            }
+            resetStepState()
+            stage = .running
+        } catch let error as APIError where error.code == "NOT_FOUND" {
+            // `checkpointChallenge` answers 404 when no challenge is open.
+            if stage == .planning { stage = .empty }
+        } catch {
+            if stage == .planning { stage = .failed(.planning(error.asAPIError.userMessage)) }
+        }
+    }
+
+    private func commit() async {
+        guard let sessionID else { return }
+        do {
+            let body = try commitBody ?? JSONEncoder().encode(makeCommitBody())
+            commitBody = body
+            stage = .committing
+            let response = try await api.commitSession(sessionID: sessionID, body: body)
+            guard stage == .committing else { return }
+            finish(response.summary)
+        } catch {
+            guard stage == .committing else { return }
+            await handleCommitFailure(error.asAPIError, sessionID: sessionID)
+        }
+    }
+
+    private func makeCommitBody() -> CommitBody {
+        let results = steps.compactMap { step -> TaskResult? in
+            guard case .practice(_, let task) = step else { return nil }
+            return attempts[task.id]?.result
+        }
+        return CommitBody(learnStepsCompleted: steps.compactMap { step in
+            guard case .learn(let id, _) = step, completedLearnIDs.contains(id) else { return nil }
+            return id
+        }, taskResults: results)
+    }
+
+    private func handleCommitFailure(_ error: APIError, sessionID: String) async {
+        if error.code == "SESSION_PAYLOAD_CONFLICT" {
+            // Already committed with other data: the saved result is the one that stands.
+            if let status = try? await api.commitStatus(sessionID: sessionID), let response = status.response {
+                finish(response.summary)
+                return
+            }
+        }
+        if error.isRetryable {
+            stage = .failed(.commit(error.userMessage))
+        } else if Self.endsSession(error) || error.code == "SESSION_PAYLOAD_CONFLICT" {
+            stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.")))
+        } else {
+            stage = .failed(.sessionLost(error.userMessage))
+        }
+    }
+
+    private func finish(_ summary: CommitSummary) {
+        stage = .finished(summary)
+        haptics.success()
+    }
+
+    private static func endsSession(_ error: APIError) -> Bool {
+        ["SESSION_STALE", "SESSION_EXPIRED", "SESSION_NOT_OWNED", "TASK_DATA_INVALID"].contains(error.code)
+    }
+
+    private func resetStepState() {
+        recording = .idle
+        pendingAudio = nil
+        latestReceiptID = nil
+        audioFailed = false
+    }
+
+    @discardableResult
+    private func mutate<Result>(_ body: (inout TaskAttempt) -> Result) -> Result? {
+        guard stage == .running, let id = currentAttempt?.task.id, attempts[id] != nil else { return nil }
+        return body(&attempts[id]!)
+    }
+
+    private func update(_ body: (inout TaskAttempt) -> Void) {
+        let before = currentAttempt?.events.count
+        mutate(body)
+        if currentAttempt?.events.count != before { haptics.selectionChanged() }
+    }
+
+    private func score(_ body: (inout TaskAttempt) -> Bool?) {
+        switch mutate(body) ?? nil {
+        case true?: haptics.success()
+        case false?: haptics.error()
+        default: break
+        }
+    }
+}

@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// Large title ending in the brand's blue full stop ("Your routine.").
+/// Large title ending in the brand's blue full stop ("Your routine.") or another blue mark ("…learn?").
 struct PunctuatedTitle: View {
     let text: LocalizedStringKey
+    var mark = "."
     var font: Font = Typography.display
 
     var body: some View {
-        (Text(text) + Text(verbatim: ".").foregroundStyle(Color.interactive))
+        (Text(text) + Text(verbatim: mark).foregroundStyle(Color.interactive))
             .font(font)
             .tracking(-1.2)
             .foregroundStyle(Color.ink)
