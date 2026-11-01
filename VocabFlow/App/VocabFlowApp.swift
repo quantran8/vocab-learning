@@ -12,6 +12,7 @@ struct VocabFlowApp: App {
     @State private var auth: AuthStore
     @State private var learner: LearnerStore
     @State private var practice: PracticeSessionStore
+    @State private var customWords: CustomWordStore
 
     init() {
         let repository = DemoContentRepository()
@@ -27,10 +28,13 @@ struct VocabFlowApp: App {
         let learner = LearnerStore(api: api, plan: plan)
         let practice = PracticeSessionStore(api: api, audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics)
         let onboarding = OnboardingStore(plan: plan, api: api, haptics: haptics)
-        auth.onSignedOut = { [learner, practice, onboarding] in
+        let customWords = CustomWordStore(api: api, audio: AudioClipPlayer())
+        customWords.onRoadmapChanged = { [learner] in await learner.refresh() }
+        auth.onSignedOut = { [learner, practice, onboarding, customWords] in
             practice.close()
             learner.reset()
             onboarding.reset()
+            customWords.reset()
         }
         Task { [auth] in
             await client.setSessionEndedHandler { auth.sessionEnded() }
@@ -48,6 +52,7 @@ struct VocabFlowApp: App {
         _auth = State(initialValue: auth)
         _learner = State(initialValue: learner)
         _practice = State(initialValue: practice)
+        _customWords = State(initialValue: customWords)
         _store = State(initialValue: store)
         _sandbox = State(initialValue: TemplateSandboxStore(
             templates: repository.loadLabOrFail().templates,
@@ -69,6 +74,7 @@ struct VocabFlowApp: App {
                 .environment(auth)
                 .environment(learner)
                 .environment(practice)
+                .environment(customWords)
         }
     }
 }

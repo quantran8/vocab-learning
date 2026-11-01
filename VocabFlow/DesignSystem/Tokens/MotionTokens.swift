@@ -22,6 +22,16 @@ enum MotionTokens {
     static let introChunkStagger: Double = 0.22
     static let introChunkHold: Double = 0.45
 
+    // Review list before a session (visual only — never a navigation gate)
+    static let reviewTileLanding = Animation.spring(response: 0.78, dampingFraction: 0.76)
+    static let reviewTileStagger: Double = 0.11
+    static let reviewTrainLanding = Animation.spring(response: 0.42, dampingFraction: 0.9)
+    static let reviewTrainStagger: Double = 0.2
+    /// Time for the last word to come to rest after its entrance starts.
+    static let reviewSettle: Double = 0.9
+    static let reviewWigglePause: ClosedRange<Double> = 1.1...2.4
+    static let streamCharacter: Double = 0.022
+
     static let pressedScale: CGFloat = 0.97
     static let liftedScale: CGFloat = 1.04
     static let pulseScale: CGFloat = 1.03

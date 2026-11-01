@@ -9,8 +9,6 @@ final class LearnerStore {
         case loading, ready, failed(String)
     }
 
-    private static let wordsPageSize = 100
-
     private(set) var phase: Phase = .loading
     private(set) var profile: UserProfile?
     private(set) var home: LearnHome?
@@ -50,7 +48,7 @@ final class LearnerStore {
     func refresh() async {
         async let home = try? api.learnHome()
         async let challenges = try? api.checkpointChallenges()
-        async let words = allWords()
+        async let words = try? api.allWords()
         if let home = await home { self.home = home }
         if let challenges = await challenges { self.challenges = challenges }
         if let words = await words { self.words = words }
@@ -75,16 +73,6 @@ final class LearnerStore {
         home = nil
         challenges = []
         words = []
-    }
-
-    /// Search and the "need practice" figure cover the whole library, so every page is fetched.
-    private func allWords() async -> [WordProgress]? {
-        var result: [WordProgress] = []
-        while true {
-            guard let page = try? await api.words(limit: Self.wordsPageSize, offset: result.count) else { return nil }
-            result += page
-            if page.count < Self.wordsPageSize { return result }
-        }
     }
 
     /// `timeZone` defines the learner's "day" for the daily goal; `uiLocale` localizes the catalog.

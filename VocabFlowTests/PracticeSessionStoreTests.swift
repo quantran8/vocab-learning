@@ -39,6 +39,111 @@ final class PracticeSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.stage, .empty)
     }
 
+    func testDueReviewListsWordsUntilTheLearnerContinues() async {
+        let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
+        api.library = [
+            PracticeFixtures.word("later", nextReviewAt: .distantFuture),
+            PracticeFixtures.word("clarify", nextReviewAt: .distantPast),
+        ]
+        await store.start(.daily)
+        guard case .reviewPreview(let words) = store.stage else {
+            return XCTFail("Expected the review list, got \(store.stage)")
+        }
+        XCTAssertEqual(words.map(\.lemma), ["clarify"])
+
+        store.submitOption(3)
+        XCTAssertEqual(store.currentAttempt?.submitCount, 0)
+
+        store.continueToPractice()
+        XCTAssertEqual(store.stage, .running)
+    }
+
+    func testNoReviewListWithoutReviewTasks() async {
+        let store = makeStore(steps: learnAndChoice)
+        api.library = [PracticeFixtures.word("clarify", nextReviewAt: .distantPast)]
+        await store.start(.daily)
+        XCTAssertEqual(store.stage, .running)
+    }
+
+    func testFailedWordLookupGoesStraightToPractice() async {
+        let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
+        api.wordsError = .transport
+        await store.start(.daily)
+        XCTAssertEqual(store.stage, .running)
+    }
+
+    func testReviewWordsTakeTheLongestOverdueUpToTheCap() {
+        let now = Date()
+        let words = (1...(ReviewWord.sessionCap + 2)).map { day in
+            PracticeFixtures.word("w\(day)", nextReviewAt: now.addingTimeInterval(TimeInterval(-day * 86_400)))
+        }
+        let due = ReviewWord.due(in: words, on: now)
+        XCTAssertEqual(due.count, ReviewWord.sessionCap)
+        XCTAssertEqual(due.first?.lemma, "w\(ReviewWord.sessionCap + 2)")
+    }
+
+    func testReviewWordWithTwoDueMeaningsAppearsOnce() {
+        let now = Date()
+        let word = PracticeFixtures.word("order", nextReviewAt: .distantPast)
+        let twoMeanings = WordProgress(
+            wordId: word.wordId, lemma: word.lemma, meanings: word.meanings + word.meanings,
+            needsPractice: false, fullyVerified: false
+        )
+        XCTAssertEqual(ReviewWord.due(in: [twoMeanings], on: now).map(\.lemma), ["order"])
+    }
+
+    func testNewWordsWaitUntilTheLearnerLeavesTheReviewEnd() async {
+        let store = makeStore(steps: [
+            .practice(phase: .dueReview, task: PracticeFixtures.choice()),
+            .learn(id: "l1", card: PracticeFixtures.card),
+        ])
+        await store.start(.daily)
+        store.submitOption(3)
+        store.advance()
+        XCTAssertEqual(store.stage, .reviewFinished)
+
+        store.continueToPractice()
+        XCTAssertEqual(store.stage, .running)
+        XCTAssertEqual(store.stepIndex, 1)
+    }
+
+    func testReviewOnlyPlanCommitsWithoutTheReviewEnd() async {
+        let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
+        api.commitResults = [.success(committed)]
+        await store.start(.daily)
+        store.submitOption(3)
+        store.advance()
+        await waitForStage(store) { $0 != .running && $0 != .committing }
+        XCTAssertEqual(store.stage, .finished(summary))
+    }
+
+    func testReviewOnlyPlanContinuesToNewWordsAfterSaving() async {
+        let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
+        api.commitResults = [.success(committed)]
+        await store.start(.daily)
+        store.submitOption(3)
+        api.plan = .success(SessionPlan(sessionID: "s2", mode: .daily, steps: learnAndChoice))
+        store.advance()
+        await waitForStage(store) { $0 != .running && $0 != .committing }
+
+        XCTAssertEqual(store.stage, .reviewFinished)
+        XCTAssertEqual(api.commitBodies.count, 1)
+        store.continueToPractice()
+        XCTAssertEqual(store.stage, .running)
+        XCTAssertEqual(store.currentStep, learnAndChoice[0])
+    }
+
+    func testFailedNextPlanStillShowsTheReviewResults() async {
+        let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
+        api.commitResults = [.success(committed)]
+        await store.start(.daily)
+        store.submitOption(3)
+        api.plan = .failure(.transport)
+        store.advance()
+        await waitForStage(store) { $0 != .running && $0 != .committing }
+        XCTAssertEqual(store.stage, .finished(summary))
+    }
+
     func testMissingCheckpointChallengeIsEmptyNotAnError() async {
         let store = makeStore(steps: [])
         api.plan = .failure(.server(status: 404, code: "NOT_FOUND", message: "", retryable: false, requestID: nil))

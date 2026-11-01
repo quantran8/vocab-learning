@@ -48,6 +48,18 @@ enum PracticeFixtures {
 
     static let card = LearnCard(word: "clarify", meaning: "làm rõ", definition: nil, ipa: nil, audio: nil, examples: nil)
 
+    static func word(_ lemma: String, nextReviewAt: Date?) -> WordProgress {
+        let skill = SkillState(status: .notVerified, needsPractice: false)
+        let meaning = WordMeaning(
+            meaning: WordMeaning.Sense(partOfSpeech: "verb", text: "nghĩa của \(lemma)", ipa: nil),
+            learnedAt: nil,
+            nextReviewAt: nextReviewAt,
+            skills: MeaningSkills(reading: skill, writing: skill, listening: nil, speaking: nil),
+            needsPractice: false
+        )
+        return WordProgress(wordId: lemma, lemma: lemma, meanings: [meaning], needsPractice: false, fullyVerified: false)
+    }
+
     static func json(_ value: some Encodable) throws -> Any {
         try JSONSerialization.jsonObject(with: JSONEncoder().encode(value))
     }
@@ -61,6 +73,15 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     var status: CommitStatus?
     private(set) var commitBodies: [Data] = []
     private(set) var planRequests: [PlanRequest] = []
+    var library: [WordProgress] = []
+    var wordsError: APIError?
+    var lookupResults: [Result<CustomWordLookup, APIError>] = []
+    var addResults: [Result<CustomWordAdded, APIError>] = []
+    var customWordList: [CustomWord] = []
+    var removeError: APIError?
+    var onLookup: (() async -> Void)?
+    private(set) var lookups: [CustomWordQuery] = []
+    private(set) var removed: [String] = []
 
     func hasStoredSession() async -> Bool { true }
     func signUp(email: String, password: String) async throws -> SignupResult { SignupResult(session: nil, confirmationRequired: true) }
@@ -74,7 +95,30 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     func catalog() async throws -> [CatalogCollection] { [] }
     func learnHome() async throws -> LearnHome { LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0) }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
-    func words(limit: Int, offset: Int) async throws -> [WordProgress] { [] }
+    func words(limit: Int, offset: Int) async throws -> [WordProgress] {
+        if let wordsError { throw wordsError }
+        return Array(library.dropFirst(offset).prefix(limit))
+    }
+
+    func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup {
+        lookups.append(query)
+        await onLookup?()
+        return try lookupResults.removeFirst().get()
+    }
+
+    func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded {
+        try addResults.removeFirst().get()
+    }
+
+    func customWords() async throws -> [CustomWord] { customWordList }
+
+    func removeCustomWord(meaningID: String) async throws {
+        if let removeError { throw removeError }
+        removed.append(meaningID)
+    }
+
+    func overrideCustomWord(meaningID: String, edits: CustomWordEdits) async throws {}
+    func clearCustomWordOverride(meaningID: String) async throws {}
 
     func planSession(_ request: PlanRequest) async throws -> SessionPlan {
         planRequests.append(request)

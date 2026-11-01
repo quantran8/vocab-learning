@@ -38,6 +38,12 @@ enum APIError: Error, Equatable {
                 String(localized: "This email already has an account. Try logging in.")
             case "VALIDATION_FAILED":
                 message
+            case "CUSTOM_WORD_LIMIT_REACHED":
+                String(localized: "You can’t add more words right now. Please try again later.")
+            case "CUSTOM_WORD_UNAVAILABLE":
+                String(localized: "That meaning is no longer available.")
+            case "LEXICAL_PROVIDER_UNAVAILABLE":
+                String(localized: "We couldn’t prepare this word just now. Please try again.")
             default:
                 requestID.map { String(localized: "Something went wrong. Reference: \($0)") }
                     ?? String(localized: "Something went wrong. Please try again.")

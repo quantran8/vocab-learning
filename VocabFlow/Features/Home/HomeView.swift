@@ -17,34 +17,14 @@ struct HomeView: View {
                     .foregroundStyle(Color.ink)
                     .accessibilityLabel(Text(verbatim: "Vocab Flow"))
 
-                Text("DAILY SESSION")
-                    .font(Typography.eyebrow)
-                    .tracking(Typography.eyebrowTracking)
-                    .foregroundStyle(Color.mutedInk)
+                sectionTitle("Daily Lesson")
                     .padding(.top, Spacing.xl)
 
-                Text(heading(due: due))
-                    .font(Typography.display)
-                    .tracking(-1.2)
-                    .foregroundStyle(Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, Spacing.xs)
-
                 sessionCard(due: due)
-                    .padding(.top, Spacing.m + 2)
+                    .padding(.top, Spacing.m)
 
-                Rectangle()
-                    .fill(Color.stroke)
-                    .frame(height: 1)
-                    .padding(.vertical, Spacing.l + 4)
-                    .accessibilityHidden(true)
-
-                Text("Checkpoint Challenge")
-                    .font(Typography.screenTitle)
-                    .tracking(Typography.tightTracking)
-                    .foregroundStyle(Color.ink)
-                    .accessibilityAddTraits(.isHeader)
+                sectionTitle("Checkpoint Challenge")
+                    .padding(.top, Spacing.xl)
 
                 CheckpointChallengeCard(home: learner.home, challenge: learner.challenges.first) {
                     start(.checkpointChallenge, challengeID: learner.challenges.first?.id)
@@ -58,23 +38,24 @@ struct HomeView: View {
         .refreshable { await learner.refresh() }
     }
 
-    private func heading(due: Int) -> LocalizedStringKey {
-        let weekday = Calendar.current.component(.weekday, from: .now)
-        if !plan.current.learningDays.contains(weekday) { return "Take it easy" }
-        return due > 0 ? "Time to revisit" : "Ready to learn?"
+    private func sectionTitle(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(Typography.screenTitle)
+            .tracking(Typography.tightTracking)
+            .foregroundStyle(Color.ink)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func sessionCard(due: Int) -> some View {
         VStack(alignment: .leading, spacing: Spacing.l) {
-            HStack(spacing: Spacing.xs) {
-                StatChip(value: due, label: "to review")
-                StatChip(value: plan.current.wordsPerDay, label: "new words / day")
+            VStack(spacing: Spacing.m) {
+                StatRow(label: "Words to review", value: due)
+                StatRow(label: "New words / day", value: plan.current.wordsPerDay)
             }
             PrimaryButton(title: due > 0 ? "Continue flow" : "Start Flow") { start(.daily) }
         }
-        .padding(Spacing.l - 4)
+        .padding(Spacing.m + 2)
         .cardSurface()
-        .shadow(color: Color.ink.opacity(0.06), radius: 6, y: 4)
     }
 
     private func start(_ mode: SessionMode, challengeID: String? = nil) {
@@ -82,24 +63,23 @@ struct HomeView: View {
     }
 }
 
-// MARK: - Stat chip
+// MARK: - Stat row
 
-private struct StatChip: View {
-    let value: Int
+private struct StatRow: View {
     let label: LocalizedStringKey
+    let value: Int
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-            Text(verbatim: "\(value)")
-                .font(Typography.screenTitle.monospacedDigit())
-                .contentTransition(.numericText(value: Double(value)))
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
             Text(label)
-                .font(Typography.micro.weight(.semibold))
+                .font(Typography.body)
+                .foregroundStyle(Color.mutedInk)
+            Spacer(minLength: 0)
+            Text(verbatim: "\(value)")
+                .font(Typography.tile.monospacedDigit())
+                .foregroundStyle(Color.ink)
+                .contentTransition(.numericText(value: Double(value)))
         }
-        .foregroundStyle(Color.ink)
-        .padding(.horizontal, Spacing.s)
-        .padding(.vertical, Spacing.xs + 2)
-        .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.chip, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -114,14 +94,23 @@ private struct CheckpointChallengeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
-            Text("Your recent words")
-                .font(Typography.emphasis)
-                .foregroundStyle(Color.ink)
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
+                Text("Your recent words")
+                    .font(Typography.emphasis)
+                    .foregroundStyle(Color.ink)
+                Spacer(minLength: 0)
+                if let home, home.checkpointAvailable == 0 {
+                    Text(verbatim: "\(home.checkpointSessionsDone) / \(home.checkpointSessionsRequired)")
+                        .font(Typography.tile.monospacedDigit())
+                        .foregroundStyle(Color.ink)
+                        .accessibilityHidden(true)
+                }
+            }
 
             if let home, home.checkpointAvailable > 0 {
                 if let challenge {
                     Text("^[\(challenge.meaningCount) word](inflect: true) to recall")
-                        .font(Typography.micro)
+                        .font(Typography.secondary)
                         .foregroundStyle(Color.mutedInk)
                 }
                 PrimaryButton(title: "Start challenge", action: onStart)
@@ -129,9 +118,10 @@ private struct CheckpointChallengeCard: View {
                 if let home {
                     sessionProgress(home)
                 }
-                Text("Keep learning new words to open your next challenge.")
-                    .font(Typography.micro)
+                Text(lockedHint)
+                    .font(Typography.secondary)
                     .foregroundStyle(Color.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(Spacing.m + 2)
@@ -139,14 +129,18 @@ private struct CheckpointChallengeCard: View {
         .cardSurface()
     }
 
-    private func sessionProgress(_ home: LearnHome) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            ProgressTrack(fraction: home.checkpointProgress)
-            Text("\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions")
-                .font(Typography.micro.weight(.semibold).monospacedDigit())
-                .foregroundStyle(Color.ink)
+    private var lockedHint: LocalizedStringKey {
+        guard let home, home.checkpointSessionsDone < home.checkpointSessionsRequired else {
+            return "Keep learning new words to open your next challenge."
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("Progress to your next challenge"))
+        let remaining = home.checkpointSessionsRequired - home.checkpointSessionsDone
+        return "\(remaining) more sessions to unlock your next challenge."
+    }
+
+    private func sessionProgress(_ home: LearnHome) -> some View {
+        ProgressTrack(fraction: home.checkpointProgress)
+            .accessibilityElement()
+            .accessibilityLabel(Text("Progress to your next challenge"))
+            .accessibilityValue(Text("\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions"))
     }
 }

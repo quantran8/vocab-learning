@@ -124,4 +124,5 @@ private enum RouteID: Hashable {
             recorder: NoVoiceRecorder(),
             haptics: NoOpFeedback()
         ))
+        .environment(CustomWordStore(api: OfflineVocabAPI(), audio: SilentAudioClips()))
 }

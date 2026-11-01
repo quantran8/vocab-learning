@@ -154,6 +154,30 @@ struct WordProgress: Decodable, Equatable, Identifiable {
     }
 }
 
+/// One due word, shown before a session's review tasks.
+struct ReviewWord: Equatable, Identifiable {
+    let id: String
+    let lemma: String
+    let dueAt: Date
+
+    /// A daily plan reviews the longest-overdue meanings up to this many.
+    static let sessionCap = 10
+
+    /// Mirrors the planner's pick. Plans don't say which words their tasks test, so this is a best match:
+    /// the library also holds due meanings the planner skips, such as ones outside the active topics.
+    /// The cap counts meanings, so a word with two due meanings still appears once.
+    static func due(in words: [WordProgress], on date: Date) -> [ReviewWord] {
+        let due = words.flatMap { word in
+            word.meanings.compactMap { meaning -> ReviewWord? in
+                guard let dueAt = meaning.nextReviewAt, dueAt <= date else { return nil }
+                return ReviewWord(id: word.wordId, lemma: word.lemma, dueAt: dueAt)
+            }
+        }
+        var seen = Set<String>()
+        return due.sorted { $0.dueAt < $1.dueAt }.prefix(sessionCap).filter { seen.insert($0.id).inserted }
+    }
+}
+
 // MARK: - API surface
 
 /// Everything the app asks of the backend. Stores depend on this, so tests and previews can stub it.
@@ -174,6 +198,13 @@ protocol VocabAPI: Sendable {
     func checkpointChallenges() async throws -> [CheckpointChallenge]
     func words(limit: Int, offset: Int) async throws -> [WordProgress]
 
+    func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup
+    func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded
+    func customWords() async throws -> [CustomWord]
+    func removeCustomWord(meaningID: String) async throws
+    func overrideCustomWord(meaningID: String, edits: CustomWordEdits) async throws
+    func clearCustomWordOverride(meaningID: String) async throws
+
     func planSession(_ request: PlanRequest) async throws -> SessionPlan
     func assessRecording(sessionID: String, taskID: String, audio: RecordedAudio) async throws -> RecordingAssessment
     /// `body` is sent as is: a retried commit must repeat the first attempt's bytes.
@@ -181,11 +212,25 @@ protocol VocabAPI: Sendable {
     func commitStatus(sessionID: String) async throws -> CommitStatus
 }
 
+extension VocabAPI {
+    /// The library is ordered by last learned, so anything searching it needs every page.
+    func allWords(pageSize: Int = 100) async throws -> [WordProgress] {
+        var result: [WordProgress] = []
+        while true {
+            let page = try await words(limit: pageSize, offset: result.count)
+            result += page
+            if page.count < pageSize { return result }
+        }
+    }
+}
+
 struct LiveVocabAPI: VocabAPI {
     let client: APIClient
     /// The commit is idempotent, so it may retry harder than other requests.
     private static let commitRetries = 3
     private static let readRetries = 2
+    /// The backend may wait on AI or speech generation, and allows itself about a minute.
+    private static let customWordTimeout: TimeInterval = 70
 
     func hasStoredSession() async -> Bool { await client.hasStoredSession }
 
@@ -263,6 +308,38 @@ struct LiveVocabAPI: VocabAPI {
         return response.words
     }
 
+    /// Not retried here: every generation counts against the learner's daily allowance.
+    func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup {
+        var request = try post("custom-words/lookup", query)
+        request.timeout = Self.customWordTimeout
+        return try await client.send(request)
+    }
+
+    func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded {
+        var request = try post("custom-words", addition)
+        request.timeout = Self.customWordTimeout
+        return try await client.send(request)
+    }
+
+    func customWords() async throws -> [CustomWord] {
+        let response: CustomWordsResponse = try await client.send(get("custom-words"))
+        return response.words
+    }
+
+    func removeCustomWord(meaningID: String) async throws {
+        _ = try await client.sendRaw(APIRequest(method: .delete, path: "custom-words/\(meaningID)"))
+    }
+
+    func overrideCustomWord(meaningID: String, edits: CustomWordEdits) async throws {
+        var request = try post("custom-words/\(meaningID)/override", edits)
+        request.method = .put
+        _ = try await client.sendRaw(request)
+    }
+
+    func clearCustomWordOverride(meaningID: String) async throws {
+        _ = try await client.sendRaw(APIRequest(method: .delete, path: "custom-words/\(meaningID)/override"))
+    }
+
     func planSession(_ request: PlanRequest) async throws -> SessionPlan {
         try await client.send(try post("sessions/plan", request))
     }
@@ -323,6 +400,10 @@ struct LiveVocabAPI: VocabAPI {
     private struct WordsResponse: Decodable {
         let words: [WordProgress]
     }
+
+    private struct CustomWordsResponse: Decodable {
+        let words: [CustomWord]
+    }
 }
 
 /// Answers every call with nothing, for previews and tests that don't exercise the backend.
@@ -356,6 +437,13 @@ struct OfflineVocabAPI: VocabAPI {
     }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
     func words(limit: Int, offset: Int) async throws -> [WordProgress] { [] }
+
+    func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup { .invalid }
+    func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded { throw APIError.transport }
+    func customWords() async throws -> [CustomWord] { [] }
+    func removeCustomWord(meaningID: String) async throws {}
+    func overrideCustomWord(meaningID: String, edits: CustomWordEdits) async throws {}
+    func clearCustomWordOverride(meaningID: String) async throws {}
 
     func planSession(_ request: PlanRequest) async throws -> SessionPlan {
         SessionPlan(sessionID: nil, mode: request.mode, steps: [])

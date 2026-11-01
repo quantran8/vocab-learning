@@ -13,6 +13,7 @@ enum Typography {
     static let micro = Font.system(.caption)
     static let eyebrow = Font.system(.caption, weight: .bold)
     static let tile = Font.system(.body, weight: .semibold)
+    static let tileLarge = Font.system(.title3, weight: .semibold)
     static let action = Font.system(.headline, weight: .bold)
     static let wordmark = Font.system(.title3, weight: .heavy)
 

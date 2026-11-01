@@ -2,7 +2,7 @@ import Foundation
 
 struct APIRequest {
     enum Method: String {
-        case get = "GET", post = "POST", put = "PUT"
+        case get = "GET", post = "POST", put = "PUT", delete = "DELETE"
     }
 
     var method: Method
@@ -13,6 +13,8 @@ struct APIRequest {
     var requiresAuth = true
     /// Extra attempts after a retryable failure. Only for requests that are safe to repeat.
     var retries = 0
+    /// Overrides the session's timeout, for requests the backend answers slowly.
+    var timeout: TimeInterval?
 }
 
 /// HTTP transport: bearer auth, one refresh-and-retry on 401, backoff on retryable failures.
@@ -177,6 +179,9 @@ actor APIClient {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
+        if let timeout = request.timeout {
+            urlRequest.timeoutInterval = timeout
+        }
         if request.body != nil {
             urlRequest.setValue(request.contentType, forHTTPHeaderField: "Content-Type")
         }

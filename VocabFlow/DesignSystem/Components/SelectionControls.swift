@@ -155,8 +155,8 @@ struct SearchField: View {
         }
         .padding(.horizontal, Spacing.m - 2)
         .frame(minHeight: Spacing.minTouchTarget + 4)
-        .background(Color.surface, in: shape)
-        .overlay(shape.strokeBorder(isFocused ? Color.focusRing : Color.stroke, lineWidth: isFocused ? 2 : 1.5))
+        .background(Color.neutralSurface, in: shape)
+        .overlay(shape.strokeBorder(isFocused ? Color.focusRing : .clear, lineWidth: 2))
         .contentShape(shape)
         .onTapGesture { isFocused = true }
     }

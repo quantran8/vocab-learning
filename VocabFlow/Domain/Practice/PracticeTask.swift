@@ -74,6 +74,11 @@ enum PlanStep: Decodable, Equatable {
     case learn(id: String, card: LearnCard)
     case practice(phase: TaskPhase, task: PracticeTask)
 
+    var isDueReview: Bool {
+        if case .practice(.dueReview, _) = self { return true }
+        return false
+    }
+
     private enum CodingKeys: String, CodingKey {
         case type, id, card, phase, task
     }

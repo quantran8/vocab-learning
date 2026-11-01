@@ -6,6 +6,7 @@ struct MyWordsView: View {
     @State private var today = Date()
     @State private var query = ""
     @State private var selected: WordProgress?
+    @State private var customWordSheet: CustomWordSheet?
 
     var body: some View {
         let allWords = learner.words
@@ -13,48 +14,47 @@ struct MyWordsView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("My Words")
-                    .font(Typography.display)
-                    .tracking(-1.2)
-                    .foregroundStyle(Color.ink)
-                    .accessibilityAddTraits(.isHeader)
+                HStack(spacing: Spacing.s) {
+                    Text("My Words")
+                        .font(Typography.display)
+                        .tracking(-1.2)
+                        .foregroundStyle(Color.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: 0)
+                    addWordButton
+                }
 
                 if allWords.isEmpty {
                     emptyState
                         .padding(.top, Spacing.xl)
                 } else {
                     LibraryStats(learned: allWords.count, needPractice: allWords.filter(\.needsPractice).count)
-                        .padding(.top, Spacing.l - 4)
+                        .padding(.top, Spacing.m)
 
                     SectionHeading(text: "Practice")
-                        .padding(.top, Spacing.l + 4)
+                        .padding(.top, Spacing.l)
 
-                    VStack(spacing: Spacing.s) {
-                        PracticeRow(
+                    HStack(spacing: Spacing.s) {
+                        PracticeTile(
                             systemImage: "shuffle",
-                            tint: .selectedInk,
-                            fill: .selectedSurface,
                             title: "Random Practice",
-                            subtitle: "Words you haven’t practiced recently",
+                            subtitle: "Mixed review",
                             action: { startPractice(.randomPractice) }
                         )
-                        PracticeRow(
-                            systemImage: "exclamationmark.triangle",
-                            tint: .errorInk,
-                            fill: .errorSurface,
-                            title: "Weak Words Practice",
-                            subtitle: "Focus on words you often get wrong",
+                        PracticeTile(
+                            systemImage: "target",
+                            title: "Weak Words",
+                            subtitle: "Focus on mistakes",
                             action: { startPractice(.weakWordsPractice) }
                         )
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, Spacing.s)
 
                     HStack(alignment: .firstTextBaseline) {
                         SectionHeading(text: "All words")
                         Spacer()
-                        Text("Newest first")
-                            .font(Typography.micro)
-                            .foregroundStyle(Color.mutedInk)
+                        manageAddedButton
                     }
                     .padding(.top, Spacing.l)
 
@@ -69,7 +69,7 @@ struct MyWordsView: View {
                     } else {
                         LazyVStack(spacing: 0) {
                             ForEach(words) { word in
-                                row(word, isDue: word.isDue(on: today))
+                                row(word, isDue: word.isDue(on: today), isLast: word.id == words.last?.id)
                             }
                         }
                         .padding(.top, Spacing.xs)
@@ -86,13 +86,51 @@ struct MyWordsView: View {
         .sheet(item: $selected) { word in
             WordDetailSheet(word: vocabulary(for: word), learnedAt: word.learnedAt, skills: word.meanings.first?.skills)
         }
+        .sheet(item: $customWordSheet) { sheet in
+            switch sheet {
+            case .add: AddWordView()
+            case .list: CustomWordsView()
+            }
+        }
     }
 
     private func startPractice(_ mode: SessionMode) {
         Task { await practice.start(mode) }
     }
 
-    private func row(_ word: WordProgress, isDue: Bool) -> some View {
+    private var addWordButton: some View {
+        Button {
+            customWordSheet = .add
+        } label: {
+            Label("Add word", systemImage: "plus")
+                .font(Typography.tile)
+                .foregroundStyle(Color.ink)
+                .padding(.horizontal, Spacing.m)
+                .frame(minHeight: Spacing.minTouchTarget)
+                .background(Color.neutralSurface, in: Capsule())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+    }
+
+    private var manageAddedButton: some View {
+        Button {
+            customWordSheet = .list
+        } label: {
+            HStack(spacing: Spacing.xxs) {
+                Text("Manage added")
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .accessibilityHidden(true)
+            }
+            .font(Typography.secondary.weight(.semibold))
+            .foregroundStyle(Color.selectedInk)
+            .frame(minHeight: Spacing.minTouchTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+    }
+
+    private func row(_ word: WordProgress, isDue: Bool, isLast: Bool) -> some View {
         Button {
             selected = word
         } label: {
@@ -102,7 +140,7 @@ struct MyWordsView: View {
                         .font(Typography.emphasis)
                         .foregroundStyle(Color.ink)
                     Text(verbatim: word.meaningText)
-                        .font(Typography.micro)
+                        .font(Typography.secondary)
                         .foregroundStyle(Color.mutedInk)
                         .multilineTextAlignment(.leading)
                 }
@@ -111,13 +149,15 @@ struct MyWordsView: View {
                     Chip(text: "Review", fill: .selectedSurface, foreground: .selectedInk)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.bold))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.mutedInk)
                     .accessibilityHidden(true)
             }
             .padding(.vertical, Spacing.m)
             .overlay(alignment: .bottom) {
-                Rectangle().fill(Color.neutralSurface).frame(height: 1)
+                if !isLast {
+                    Rectangle().fill(Color.stroke).frame(height: 1)
+                }
             }
             .contentShape(Rectangle())
         }
@@ -155,9 +195,16 @@ struct MyWordsView: View {
                 .font(Typography.secondary)
                 .foregroundStyle(Color.mutedInk)
                 .multilineTextAlignment(.center)
+            manageAddedButton
         }
         .frame(maxWidth: .infinity)
     }
+}
+
+private enum CustomWordSheet: String, Identifiable {
+    case add, list
+
+    var id: String { rawValue }
 }
 
 private struct SectionHeading: View {
@@ -172,82 +219,70 @@ private struct SectionHeading: View {
     }
 }
 
-/// Two library figures side by side in one card, split by a hairline.
+/// Two library figures side by side in one strip, split by a hairline.
 private struct LibraryStats: View {
     let learned: Int
     let needPractice: Int
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: Spacing.s) {
             figure(learned, caption: "Words learned")
             Rectangle()
                 .fill(Color.stroke)
                 .frame(width: 1)
-                .padding(.vertical, Spacing.xxs)
                 .accessibilityHidden(true)
             figure(needPractice, caption: "Need practice")
-                .padding(.leading, Spacing.m + 2)
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(Spacing.m + 2)
-        .cardSurface(radius: Radii.card - 2)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s + 2)
+        .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
     }
 
     private func figure(_ value: Int, caption: LocalizedStringKey) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+            Text(caption)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.mutedInk)
+            Spacer(minLength: 0)
             Text(value, format: .number)
-                .font(Typography.challengeTerm.monospacedDigit())
-                .tracking(-1)
+                .font(Typography.screenTitle.monospacedDigit())
                 .foregroundStyle(Color.ink)
                 .contentTransition(.numericText())
-            Text(caption)
-                .font(Typography.micro)
-                .foregroundStyle(Color.mutedInk)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct PracticeRow: View {
+private struct PracticeTile: View {
     let systemImage: String
-    let tint: Color
-    let fill: Color
     let title: LocalizedStringKey
     let subtitle: LocalizedStringKey
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Spacing.s + 2) {
-                RoundedRectangle(cornerRadius: Radii.chip + 2, style: .continuous)
-                    .fill(fill)
-                    .frame(width: 42, height: 42)
-                    .overlay(
-                        Image(systemName: systemImage)
-                            .font(.system(size: 17, weight: .semibold))
-                            .foregroundStyle(tint)
-                    )
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Image(systemName: systemImage)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.interactive)
+                    .padding(.bottom, Spacing.s)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(title)
-                        .font(Typography.emphasis)
-                        .foregroundStyle(Color.ink)
-                    Text(subtitle)
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
-                        .multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.subheadline.weight(.bold))
+                Text(title)
+                    .font(Typography.emphasis)
+                    .foregroundStyle(Color.ink)
+                Text(subtitle)
+                    .font(Typography.secondary)
                     .foregroundStyle(Color.mutedInk)
-                    .accessibilityHidden(true)
             }
+            .multilineTextAlignment(.leading)
             .padding(Spacing.m)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .cardSurface()
+            .contentShape(RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
         }
-        .buttonStyle(ChunkyButtonStyle(kind: .secondary))
+        .buttonStyle(PressScaleButtonStyle())
     }
 }
 

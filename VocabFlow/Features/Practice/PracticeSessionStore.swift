@@ -11,6 +11,10 @@ final class PracticeSessionStore {
         case planning
         /// Nothing to learn or review right now.
         case empty
+        /// The words this session reviews, shown until the learner continues.
+        case reviewPreview([ReviewWord])
+        /// Between a daily session's review and its new words, whether those share the plan or got their own.
+        case reviewFinished
         case running
         case committing
         case finished(CommitSummary)
@@ -112,6 +116,13 @@ final class PracticeSessionStore {
         }
     }
 
+    func continueToPractice() {
+        switch stage {
+        case .reviewPreview, .reviewFinished: stage = .running
+        default: break
+        }
+    }
+
     /// Plays bundled tasks with no backend. Ends through `onSandboxEnd` instead of committing.
     func startSandbox(_ tasks: [PracticeTask]) {
         guard stage == .idle, !tasks.isEmpty else { return }
@@ -154,6 +165,10 @@ final class PracticeSessionStore {
         resetStepState()
         if stepIndex + 1 < steps.count {
             stepIndex += 1
+            if step.isDueReview, currentStep?.isDueReview == false {
+                stage = .reviewFinished
+                haptics.success()
+            }
         } else if isSandbox {
             onSandboxEnd?()
         } else {
@@ -283,7 +298,6 @@ final class PracticeSessionStore {
 
     private func plan(_ mode: SessionMode, challengeID: String?) async {
         stage = .planning
-        let capabilities = PlanRequest.Capabilities(audioPlayback: audio.canPlay, microphone: recorder.canRecord)
         do {
             let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID))
             guard stage == .planning else { return }
@@ -291,23 +305,39 @@ final class PracticeSessionStore {
                 stage = .empty
                 return
             }
-            sessionID = id
-            steps = plan.steps
-            stepIndex = 0
-            completedLearnIDs = []
-            commitBody = nil
-            attempts = [:]
-            for case .practice(let phase, let task) in plan.steps {
-                attempts[task.id] = TaskAttempt(task: task, phase: phase)
-            }
-            resetStepState()
-            stage = .running
+            let reviewWords = await loadReviewWords(for: plan)
+            guard stage == .planning else { return }
+            load(plan, id: id)
+            stage = reviewWords.isEmpty ? .running : .reviewPreview(reviewWords)
         } catch let error as APIError where error.code == "NOT_FOUND" {
             // `checkpointChallenge` answers 404 when no challenge is open.
             if stage == .planning { stage = .empty }
         } catch {
             if stage == .planning { stage = .failed(.planning(error.asAPIError.userMessage)) }
         }
+    }
+
+    private var capabilities: PlanRequest.Capabilities {
+        PlanRequest.Capabilities(audioPlayback: audio.canPlay, microphone: recorder.canRecord)
+    }
+
+    private func load(_ plan: SessionPlan, id: String) {
+        sessionID = id
+        steps = plan.steps
+        stepIndex = 0
+        completedLearnIDs = []
+        commitBody = nil
+        attempts = [:]
+        for case .practice(let phase, let task) in plan.steps {
+            attempts[task.id] = TaskAttempt(task: task, phase: phase)
+        }
+        resetStepState()
+    }
+
+    /// The preview is only informational, so a failed lookup goes straight to practice.
+    private func loadReviewWords(for plan: SessionPlan) async -> [ReviewWord] {
+        guard plan.steps.contains(where: \.isDueReview), let words = try? await api.allWords() else { return [] }
+        return ReviewWord.due(in: words, on: .now)
     }
 
     private func commit() async {
@@ -318,7 +348,7 @@ final class PracticeSessionStore {
             stage = .committing
             let response = try await api.commitSession(sessionID: sessionID, body: body)
             guard stage == .committing else { return }
-            finish(response.summary)
+            await finish(response.summary)
         } catch {
             guard stage == .committing else { return }
             await handleCommitFailure(error.asAPIError, sessionID: sessionID)
@@ -340,7 +370,7 @@ final class PracticeSessionStore {
         if error.code == "SESSION_PAYLOAD_CONFLICT" {
             // Already committed with other data: the saved result is the one that stands.
             if let status = try? await api.commitStatus(sessionID: sessionID), let response = status.response {
-                finish(response.summary)
+                await finish(response.summary)
                 return
             }
         }
@@ -353,9 +383,25 @@ final class PracticeSessionStore {
         }
     }
 
-    private func finish(_ summary: CommitSummary) {
+    private func finish(_ summary: CommitSummary) async {
+        let hasNewWords = await continueToNewWords()
+        guard !hasNewWords else { return }
         stage = .finished(summary)
         haptics.success()
+    }
+
+    /// A daily session goes straight from review to new words, even when the plan held only review.
+    /// The review is already saved; if this plan fails or is more review, the session just ends.
+    private func continueToNewWords() async -> Bool {
+        guard lastRequest?.mode == .daily, steps.allSatisfy(\.isDueReview),
+              let plan = try? await api.planSession(PlanRequest(mode: .daily, capabilities: capabilities)),
+              let id = plan.sessionID, plan.steps.first?.isDueReview == false,
+              stage == .committing
+        else { return false }
+        load(plan, id: id)
+        stage = .reviewFinished
+        haptics.success()
+        return true
     }
 
     private static func endsSession(_ error: APIError) -> Bool {

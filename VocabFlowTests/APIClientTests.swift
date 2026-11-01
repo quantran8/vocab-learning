@@ -129,6 +129,14 @@ final class APIClientTests: XCTestCase {
         }
     }
 
+    func testRequestTimeoutOverridesTheDefault() async throws {
+        StubURLProtocol.responses = [(200, Self.home)]
+        var request = homeRequest
+        request.timeout = 70
+        let _: LearnHome = try await makeClient().send(request)
+        XCTAssertEqual(StubURLProtocol.requests.first?.timeoutInterval, 70)
+    }
+
     func testMultipartBodyHasBothParts() {
         var form = MultipartForm()
         form.addField(name: "taskId", value: "t1")
