@@ -295,53 +295,25 @@ private struct PracticeTile: View {
     }
 }
 
-/// Bottom sheet with the word's details on one flat page; the word itself is shown at rest, without motion.
+/// Bottom sheet that opens with the same introduction the word got in its learn step, with the word
+/// at rest instead of animated, followed by the learner's skill progress.
 private struct WordDetailSheet: View {
     let word: VocabularyItem
     let learnedAt: Date?
     let skills: MeaningSkills?
-    @Environment(SpeechPlayer.self) private var speech
-    @ScaledMetric(relativeTo: .largeTitle) private var heroFontSize: CGFloat = 48
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Eyebrow(text: "Word detail")
                     Spacer()
                     SheetCloseButton()
                 }
 
-                hero
-                    .padding(.top, Spacing.l)
-
-                divider
-
-                VStack(alignment: .leading, spacing: Spacing.l) {
-                    section("Meaning") {
-                        Text(verbatim: word.meaningVi)
-                            .font(Typography.headerTitle)
-                            .foregroundStyle(Color.ink)
-                            .accessibilityLabel(Text("Vietnamese meaning: \(word.meaningVi)"))
-                    }
-                    if let definition = word.definitionEN {
-                        section("Definition") {
-                            Text(verbatim: definition)
-                                .font(Typography.body)
-                                .foregroundStyle(Color.ink)
-                        }
-                    }
-                    if !word.example.isEmpty {
-                        section("In context") {
-                            Text(LearnView.highlight(word.term, in: word.example))
-                                .font(Typography.body)
-                                .foregroundStyle(Color.ink)
-                        }
-                    }
-                }
+                WordIntroContent(word: word, presentation: word.introPresentation, animatesWord: false)
+                    .padding(.top, Spacing.s)
 
                 if let skills {
-                    divider
                     section("Skills") {
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             skillRow("Reading", skills.reading)
@@ -357,7 +329,6 @@ private struct WordDetailSheet: View {
                 }
 
                 if let learnedAt {
-                    divider
                     Text("Learned \(learnedAt.formatted(date: .abbreviated, time: .omitted))")
                         .font(Typography.micro)
                         .foregroundStyle(Color.mutedInk)
@@ -367,57 +338,9 @@ private struct WordDetailSheet: View {
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
-        .onDisappear { speech.stop() }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.canvas)
-    }
-
-    private var hero: some View {
-        HStack(alignment: .top, spacing: Spacing.s) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(verbatim: word.term)
-                    .font(.system(size: heroFontSize, weight: .heavy))
-                    .tracking(-1.5)
-                    .foregroundStyle(Color.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .accessibilityAddTraits(.isHeader)
-                if let ipa = word.ipa {
-                    Text(verbatim: ipa)
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.mutedInk)
-                        .accessibilityLabel(Text("IPA: \(ipa)"))
-                }
-            }
-            Spacer(minLength: 0)
-            speakButton
-                .padding(.top, Spacing.xs)
-        }
-    }
-
-    private var speakButton: some View {
-        Button {
-            _ = speech.speak(word.term)
-        } label: {
-            Image(systemName: speech.isAvailable ? "speaker.wave.2" : "speaker.slash")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(speech.isAvailable ? Color.selectedInk : Color.disabledInk)
-                .frame(width: 50, height: 50)
-                .background(
-                    speech.isAvailable ? Color.selectedSurface : Color.disabledSurface,
-                    in: RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
-                        .strokeBorder(speech.isSpeaking ? Color.interactive : Color.selectedDepth, lineWidth: 1)
-                )
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(PressScaleButtonStyle())
-        .disabled(!speech.isAvailable)
-        .accessibilityLabel(Text(speech.isAvailable ? "Play pronunciation" : "Audio unavailable"))
-        .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
     }
 
     private func skillRow(_ name: LocalizedStringKey, _ skill: SkillState) -> some View {
@@ -441,13 +364,6 @@ private struct WordDetailSheet: View {
         }
     }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.stroke)
-            .frame(height: 1)
-            .padding(.vertical, Spacing.l)
-    }
-
     private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             Eyebrow(text: title)
@@ -456,5 +372,6 @@ private struct WordDetailSheet: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, Spacing.xl)
     }
 }

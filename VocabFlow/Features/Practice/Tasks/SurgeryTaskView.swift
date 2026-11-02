@@ -146,7 +146,7 @@ struct SurgeryTaskView: View {
         let shape = RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
         return Button {
             selectedIndex = isSelected ? nil : index
-            store.haptics.selectionChanged()
+            store.answerPicked()
         } label: {
             Text(verbatim: isSwapped ? landed : letter)
                 .font(.system(.title2, design: .monospaced, weight: .bold))

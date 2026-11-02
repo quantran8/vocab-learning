@@ -69,6 +69,55 @@ final class SilentAudioClips: AudioClipPlaying {
 }
 
 @MainActor
+protocol SoundEffectsPlaying: AnyObject {
+    func playCorrect()
+    func playWrong()
+    func playClick()
+}
+
+/// Short UI cues bundled in `Resources/Sounds`. Loaded once so they play without delay.
+@MainActor
+final class SoundEffects: SoundEffectsPlaying {
+    private let correct = SoundEffects.load("vocab_correct")
+    private let wrong = SoundEffects.load("vocab_wrong")
+    private let click = SoundEffects.load("click1")
+
+    func playCorrect() { playAnswer(correct) }
+    func playWrong() { playAnswer(wrong) }
+
+    func playClick() {
+        click?.currentTime = 0
+        click?.play()
+    }
+
+    /// An answer cue replaces the previous one instead of overlapping it.
+    private func playAnswer(_ player: AVAudioPlayer?) {
+        guard let player else { return }
+        correct?.stop()
+        wrong?.stop()
+        player.currentTime = 0
+        player.play()
+    }
+
+    private static func load(_ name: String) -> AVAudioPlayer? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "wav"),
+              let player = try? AVAudioPlayer(contentsOf: url)
+        else { return nil }
+        player.prepareToPlay()
+        return player
+    }
+}
+
+final class SilentSoundEffects: SoundEffectsPlaying {
+    /// Nonisolated so it can be a default argument; conforming to the protocol makes the class main-actor.
+    nonisolated init() {}
+
+    func playCorrect() {}
+    func playWrong() {}
+    func playClick() {}
+}
+
+@MainActor
 protocol VoiceRecording: AnyObject {
     /// False once the learner has denied the microphone.
     var canRecord: Bool { get }

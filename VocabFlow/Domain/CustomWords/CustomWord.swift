@@ -69,11 +69,26 @@ struct ExistingMeaning: Decodable, Equatable, Identifiable {
     /// Only on `translationDraft`.
     let draftId: String?
     /// Absent on `unavailable`.
+    let ipa: String?
+    /// Absent on `unavailable`.
     let meaningText: String?
     let definitionText: String?
     let examples: [CustomWordExample]?
+    /// The learner already studied this meaning, from their own words or a shared topic. Absent from older servers.
+    var learned: Bool?
 
     var id: String { meaningId }
+
+    /// Why this meaning can't be added again; nil when it can.
+    var standing: Standing? {
+        if learned == true { return .learned }
+        if inRoadmap { return .onPath }
+        return nil
+    }
+
+    enum Standing {
+        case learned, onPath
+    }
 
     /// Nil when this meaning can't be added.
     var addition: CustomWordAddition? {
@@ -84,7 +99,7 @@ struct ExistingMeaning: Decodable, Equatable, Identifiable {
         }
     }
 
-    var canBeAdded: Bool { !inRoadmap && addition != nil }
+    var canBeAdded: Bool { standing == nil && addition != nil }
 }
 
 struct ExistingWord: Decodable, Equatable {

@@ -61,14 +61,14 @@ struct ClozeTaskView: View {
     private func remove() {
         guard attempt.status == .answering else { return }
         selectedID = nil
-        store.haptics.selectionChanged()
+        store.answerPicked()
     }
 
     private func bankTile(_ option: TaskOption) -> some View {
         let tileState: WordTileVisualState = attempt.isFinished ? .disabled : .idle
         return Button {
             selectedID = option.id
-            store.haptics.selectionChanged()
+            store.answerPicked()
         } label: {
             ClozeTile(text: option.text, state: tileState)
         }

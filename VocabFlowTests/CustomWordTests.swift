@@ -14,13 +14,14 @@ final class CustomWordDomainTests: XCTestCase {
     func testDecodesEveryLookupResultAndStatus() throws {
         let existing = try decode(#"""
         {"result":"existing","wordId":"w","lemma":"bank","meanings":[
-          {"meaningId":"a","status":"available","partOfSpeech":"noun","inRoadmap":false,"meaningText":"bờ","definitionText":"d"},
+          {"meaningId":"a","status":"available","partOfSpeech":"noun","inRoadmap":false,"ipa":"/bæŋk/","meaningText":"bờ","definitionText":"d"},
           {"meaningId":"b","status":"translation_draft","partOfSpeech":"verb","inRoadmap":false,"draftId":"t","meaningText":"m","definitionText":"d"},
           {"meaningId":"c","status":"unavailable","partOfSpeech":"noun","inRoadmap":false}
         ]}
         """#)
         guard case .existing(let word) = existing else { return XCTFail("Expected existing") }
         XCTAssertEqual(word.meanings.map(\.addition), [.meaning("a"), .translation(draftID: "t"), nil])
+        XCTAssertEqual(word.meanings.map(\.ipa), ["/bæŋk/", nil, nil])
 
         let draft = #"{"draftId":"d","lemma":"l","senses":[]}"#
         XCTAssertEqual(try decode(#"{"result":"draft","draftId":"d","lemma":"l","senses":[]}"#), .draft(try APIClient.decoder.decode(WordDraft.self, from: Data(draft.utf8))))
@@ -29,6 +30,19 @@ final class CustomWordDomainTests: XCTestCase {
         }
         XCTAssertEqual(try decode(#"{"result":"invalid"}"#), .invalid)
         XCTAssertThrowsError(try decode(#"{"result":"new_kind"}"#))
+    }
+
+    func testLearnedOrOnPathMeaningsCannotBeAddedAgain() throws {
+        let existing = try decode(#"""
+        {"result":"existing","wordId":"w","lemma":"bank","meanings":[
+          {"meaningId":"a","status":"available","partOfSpeech":"noun","inRoadmap":false,"learned":true,"meaningText":"bờ"},
+          {"meaningId":"b","status":"available","partOfSpeech":"noun","inRoadmap":true,"learned":false,"meaningText":"bờ"},
+          {"meaningId":"c","status":"available","partOfSpeech":"noun","inRoadmap":false,"meaningText":"bờ"}
+        ]}
+        """#)
+        guard case .existing(let word) = existing else { return XCTFail("Expected existing") }
+        XCTAssertEqual(word.meanings.map(\.standing), [.learned, .onPath, nil])
+        XCTAssertEqual(word.meanings.map(\.canBeAdded), [false, false, true])
     }
 
     func testAdditionBodiesHoldOnlyOneForm() throws {
@@ -126,7 +140,7 @@ final class CustomWordDomainTests: XCTestCase {
 
     func testExistingMeaningCarriesEdits() throws {
         let meaning = ExistingMeaning(
-            meaningId: "m", status: .available, partOfSpeech: "noun", inRoadmap: false, draftId: nil,
+            meaningId: "m", status: .available, partOfSpeech: "noun", inRoadmap: false, draftId: nil, ipa: nil,
             meaningText: "bờ", definitionText: "d", examples: nil
         )
         var draft = CustomWordEditDraft(lemma: "bank", meaning: meaning)

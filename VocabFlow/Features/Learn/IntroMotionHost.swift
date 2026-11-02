@@ -11,6 +11,8 @@ enum IntroMotionState: Equatable {
 struct IntroMotionHost: View {
     let word: String
     let presentation: IntroductionPresentation
+    /// Off shows the word at rest, as Reduce Motion does.
+    var animates = true
 
     @Environment(\.motion) private var motion
     @ScaledMetric(relativeTo: .largeTitle) private var fontSize: CGFloat = 46
@@ -24,14 +26,14 @@ struct IntroMotionHost: View {
             .frame(maxWidth: .infinity, minHeight: fontSize * 1.6)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { availableWidth = $0 }
             .contentShape(Rectangle())
-            .onTapGesture { if !motion.reduceMotion { skipOrReplay() } }
+            .onTapGesture { if !isStill { skipOrReplay() } }
             .accessibilityAction(named: Text(isAnimating ? "Show word now" : "Replay")) {
-                if !motion.reduceMotion { skipOrReplay() }
+                if !isStill { skipOrReplay() }
             }
             .onChange(of: presentation) { replay() }
             // Decorative timing only (never gates Next). Cancelled on replay/disappear, so stale runs are ignored.
             .task(id: generation) {
-                guard !motion.reduceMotion else { return }
+                guard !isStill else { return }
                 if state == .waiting {
                     try? await Task.sleep(for: .seconds(MotionTokens.transitionDuration))
                     guard !Task.isCancelled, state == .waiting else { return }
@@ -51,7 +53,7 @@ struct IntroMotionHost: View {
             .fixedSize()
             .hidden()
             .overlay {
-                if motion.reduceMotion || state == .skipped {
+                if isStill || state == .skipped {
                     Text(verbatim: word).fixedSize()
                 } else if state != .waiting {
                     animatedWord.id(generation)
@@ -84,6 +86,8 @@ struct IntroMotionHost: View {
         case .chunkMerge: ChunkMergeView(chunks: presentation.introChunks ?? [word])
         }
     }
+
+    private var isStill: Bool { !animates || motion.reduceMotion }
 
     private var isAnimating: Bool { state == .waiting || state == .revealing }
 

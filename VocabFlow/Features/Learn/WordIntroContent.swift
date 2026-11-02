@@ -1,12 +1,13 @@
 import SwiftUI
 
-/// The Learn word introduction: animated spelling hero with IPA and audio, then flat
+/// The Learn word introduction: spelling hero (animated unless turned off) with IPA and audio, then flat
 /// Meaning, Definition and In context sections separated by whitespace only.
 struct WordIntroContent: View {
     let word: VocabularyItem
     let presentation: IntroductionPresentation
     /// Plays recorded audio when there is some; otherwise the word is spoken by the device.
     var playAudio: (() -> Void)?
+    var animatesWord = true
     @Environment(SpeechPlayer.self) private var speech
     @ScaledMetric(relativeTo: .title3) private var ipaSize: CGFloat = 21
     @ScaledMetric(relativeTo: .body) private var audioIconSize: CGFloat = 19
@@ -14,7 +15,7 @@ struct WordIntroContent: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: Spacing.xs) {
-                IntroMotionHost(word: word.term, presentation: presentation)
+                IntroMotionHost(word: word.term, presentation: presentation, animates: animatesWord)
                 pronunciation
             }
             .padding(.bottom, Spacing.xl)

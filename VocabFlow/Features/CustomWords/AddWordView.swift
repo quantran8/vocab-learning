@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Sheet adding any word to the learning path: type it, review what the backend found, confirm.
+/// Sheet adding any word to the learning path: type it, then review what the backend found in a sheet over it.
+/// Editing a meaning or looking for another one opens one more sheet on top.
 struct AddWordView: View {
     @Environment(CustomWordStore.self) private var store
     @Environment(SpeechPlayer.self) private var speech
@@ -9,21 +10,51 @@ struct AddWordView: View {
 
     var body: some View {
         // The ZStack ties onDisappear to the sheet, not to each phase's view.
-        ZStack { content }
+        ZStack { entry }
             .onDisappear {
                 store.resetLookup()
                 speech.stop()
             }
-            .presentationDetents([.large])
-            .presentationDragIndicator(.visible)
-            .presentationBackground(Color.canvas)
+            .sheet(isPresented: isShowingResult) {
+                AddWordResultSheet()
+                    .environment(\.closeAddWord, { dismiss() })
+            }
+            .addWordSheetStyle()
+    }
+
+    /// Swiping the result away returns to the word entry, like its back button.
+    private var isShowingResult: Binding<Bool> {
+        Binding(get: { store.isReviewing }, set: { if !$0 { store.resetLookup() } })
+    }
+
+    @ViewBuilder
+    private var entry: some View {
+        switch store.phase {
+        case .loading where !store.isReviewing:
+            AddWordScaffold { LookupProgress() }
+        case .failed(let message, let canRetry) where !store.isReviewing:
+            WordEntry(text: $text, message: message, canRetry: canRetry)
+        default:
+            WordEntry(text: $text, message: nil, canRetry: false)
+        }
+    }
+}
+
+/// What a lookup found, in its own sheet. Later lookups and the add show here too, until it goes away.
+private struct AddWordResultSheet: View {
+    @Environment(CustomWordStore.self) private var store
+    @Environment(\.closeAddWord) private var closeAddWord
+
+    var body: some View {
+        ZStack { content }
+            .addWordSheetStyle()
     }
 
     @ViewBuilder
     private var content: some View {
         switch store.phase {
         case .idle:
-            WordEntry(text: $text, message: nil, canRetry: false)
+            EmptyView()
         case .loading:
             AddWordScaffold { LookupProgress() }
         case .failed(let message, let canRetry):
@@ -36,12 +67,19 @@ struct AddWordView: View {
                     onBack: store.goBack
                 )
             } else {
-                WordEntry(text: $text, message: message, canRetry: canRetry)
+                AddWordScaffold(onBack: store.goBack) {
+                    ErrorText(message: message)
+                    if canRetry {
+                        SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
+                            Task { await store.retryLookup() }
+                        }
+                    }
+                }
             }
         case .result(let result):
             lookupResult(result)
         case .added(let lemma, let isNew, let ipa):
-            AddedConfirmation(lemma: lemma, ipa: ipa, isNew: isNew) { dismiss() }
+            AddedConfirmation(lemma: lemma, ipa: ipa, isNew: isNew) { closeAddWord?() }
         }
     }
 
@@ -49,10 +87,11 @@ struct AddWordView: View {
     private func lookupResult(_ result: CustomWordLookup) -> some View {
         switch result {
         case .existing(let word):
+            let senses = ReviewSense.senses(of: word)
             WordReview(
                 lemma: word.lemma,
-                senses: ReviewSense.senses(of: word),
-                closed: word.meanings.filter { !$0.canBeAdded },
+                senses: senses,
+                closed: word.meanings.filter { meaning in !senses.contains { $0.id == meaning.id } },
                 search: .otherMeaning
             )
             .id(word.meanings.map(\.id))
@@ -82,24 +121,49 @@ struct AddWordView: View {
     }
 }
 
+private struct CloseAddWordKey: EnvironmentKey {
+    static var defaultValue: (() -> Void)? { nil }
+}
+
+private extension EnvironmentValues {
+    /// Closes every sheet of the flow. Unset, a sheet's close button closes just that sheet.
+    var closeAddWord: (() -> Void)? {
+        get { self[CloseAddWordKey.self] }
+        set { self[CloseAddWordKey.self] = newValue }
+    }
+}
+
+private extension View {
+    func addWordSheetStyle() -> some View {
+        presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+            .presentationBackground(Color.canvas)
+    }
+}
+
 /// One step of the sheet: a header, scrolling content, and an action bar pinned to the bottom.
 private struct AddWordScaffold<Content: View, Bar: View>: View {
-    var eyebrow: LocalizedStringKey?
     var onBack: (() -> Void)?
+    /// The step's secondary actions, behind a menu button.
+    var menu: [HeaderAction] = []
     @ViewBuilder let content: Content
     @ViewBuilder let bar: Bar
+    @Environment(\.closeAddWord) private var closeAddWord
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.l) {
-                HStack {
+                HStack(spacing: Spacing.xs) {
                     if let onBack {
                         SheetBackButton(action: onBack)
-                    } else if let eyebrow {
-                        Eyebrow(text: eyebrow)
+                    }
+                    if !menu.isEmpty {
+                        // Lines the circle up with the content edge, as the back button does.
+                        HeaderMenu(actions: menu)
+                            .padding(.leading, onBack == nil ? -Spacing.xs : 0)
                     }
                     Spacer()
-                    SheetCloseButton()
+                    SheetCloseButton(action: closeAddWord)
                 }
                 content
             }
@@ -113,8 +177,38 @@ private struct AddWordScaffold<Content: View, Bar: View>: View {
 }
 
 extension AddWordScaffold where Bar == EmptyView {
-    init(eyebrow: LocalizedStringKey? = nil, onBack: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
-        self.init(eyebrow: eyebrow, onBack: onBack, content: content, bar: { EmptyView() })
+    init(onBack: (() -> Void)? = nil, @ViewBuilder content: () -> Content) {
+        self.init(onBack: onBack, content: content, bar: { EmptyView() })
+    }
+}
+
+private struct HeaderAction: Identifiable {
+    let title: LocalizedStringKey
+    let systemImage: String
+    let action: () -> Void
+
+    var id: String { systemImage }
+}
+
+/// Round ⋯ matching the sheet's close button, opening the step's secondary actions.
+private struct HeaderMenu: View {
+    let actions: [HeaderAction]
+
+    var body: some View {
+        Menu {
+            ForEach(actions) { item in
+                Button(item.title, systemImage: item.systemImage, action: item.action)
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color.mutedInk)
+                .frame(width: 34, height: 34)
+                .background(Color.neutralSurface, in: Circle())
+                .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel(Text("More actions"))
     }
 }
 
@@ -127,7 +221,7 @@ private struct WordEntry: View {
 
     var body: some View {
         let issue = CustomWordInput.issue(in: text)
-        AddWordScaffold(eyebrow: "Add a word") {
+        AddWordScaffold {
             VStack(alignment: .leading, spacing: Spacing.m) {
                 ExerciseHeading("Which word do you want to learn?", subtitle: "We’ll find it or prepare it for you.")
 
@@ -163,7 +257,11 @@ private struct WordEntry: View {
                 PrimaryButton(title: "Look up", isEnabled: issue == nil) { search() }
             }
         }
-        .onAppear { isFocused = true }
+        // Not while a result sheet covers the entry, or the keyboard would rise over it.
+        .onAppear { isFocused = !store.isReviewing }
+        .onChange(of: store.isReviewing) { _, isReviewing in
+            if !isReviewing { isFocused = true }
+        }
     }
 
     private var entryShape: RoundedRectangle {
@@ -216,24 +314,27 @@ private struct ErrorText: View {
 
 // MARK: - Review
 
-/// A meaning the learner can add, whichever lookup result it came from.
+/// A meaning shown in full, whichever lookup result it came from: one to add, or one the learner already has.
 private struct ReviewSense: Identifiable {
     let id: String
     let partOfSpeech: String
     let ipa: String?
     let tag: LocalizedStringKey?
-    let addition: CustomWordAddition
+    /// Nil when the meaning is already learned or on the path.
+    let addition: CustomWordAddition?
+    let standing: ExistingMeaning.Standing?
     let draft: CustomWordEditDraft
 
     static func senses(of word: ExistingWord) -> [ReviewSense] {
         word.meanings.compactMap { meaning in
-            guard meaning.canBeAdded, let addition = meaning.addition else { return nil }
+            guard meaning.status != .unavailable, meaning.canBeAdded || meaning.standing != nil else { return nil }
             return ReviewSense(
                 id: meaning.id,
                 partOfSpeech: meaning.partOfSpeech,
-                ipa: nil,
+                ipa: meaning.ipa,
                 tag: meaning.status == .translationDraft ? "AI-translated" : nil,
-                addition: addition,
+                addition: meaning.canBeAdded ? meaning.addition : nil,
+                standing: meaning.standing,
                 draft: CustomWordEditDraft(lemma: word.lemma, meaning: meaning)
             )
         }
@@ -247,6 +348,7 @@ private struct ReviewSense: Identifiable {
                 ipa: sense.ipa,
                 tag: tag,
                 addition: .draft(draft.draftId, senseIndex: index, edits: nil),
+                standing: nil,
                 draft: CustomWordEditDraft(lemma: draft.lemma, sense: sense)
             )
         }
@@ -260,8 +362,10 @@ private struct WordReview: View {
         case otherMeaning, searchAgain
     }
 
-    private enum Stage {
-        case details, edit, otherMeaning
+    /// Opened over the result sheet.
+    private enum Sheet: Identifiable {
+        case edit, otherMeaning
+        var id: Self { self }
     }
 
     let lemma: String
@@ -269,7 +373,7 @@ private struct WordReview: View {
     let closed: [ExistingMeaning]
     let search: Search?
     @Environment(CustomWordStore.self) private var store
-    @State private var stage = Stage.details
+    @State private var sheet: Sheet?
     @State private var selectedID: String?
     /// One editable copy per meaning, so switching between them keeps the changes.
     @State private var drafts: [String: CustomWordEditDraft]
@@ -279,7 +383,8 @@ private struct WordReview: View {
         self.senses = senses
         self.closed = closed
         self.search = search
-        _selectedID = State(initialValue: senses.first?.id)
+        // Opens on a meaning that can still be added, when there is one.
+        _selectedID = State(initialValue: (senses.first { $0.addition != nil } ?? senses.first)?.id)
         _drafts = State(initialValue: Dictionary(uniqueKeysWithValues: senses.map { ($0.id, $0.draft) }))
     }
 
@@ -288,16 +393,23 @@ private struct WordReview: View {
     }
 
     var body: some View {
-        switch stage {
-        case .details:
-            details
+        details
+            .sheet(item: $sheet) { item in
+                ZStack { sheetContent(item) }
+                    .environment(\.closeAddWord, nil)
+                    .addWordSheetStyle()
+            }
+    }
+
+    @ViewBuilder
+    private func sheetContent(_ item: Sheet) -> some View {
+        switch item {
         case .edit:
             if let selected, let draft = drafts[selected.id] {
-                EditStage(ipa: selected.ipa, initial: draft) {
-                    stage = .details
-                } onSave: { edited in
+                EditStage(ipa: selected.ipa, initial: draft) { edited in
                     drafts[selected.id] = edited
-                    stage = .details
+                    sheet = nil
+                    add(selected, draft: edited)
                 }
             }
         case .otherMeaning:
@@ -305,15 +417,20 @@ private struct WordReview: View {
                 lemma: lemma,
                 context: search == .searchAgain ? store.lastContext : "",
                 message: nil,
-                canRetry: false
-            ) {
-                stage = .details
-            }
+                canRetry: false,
+                onFind: { sheet = nil }
+            )
         }
     }
 
+    /// Swiping the sheet away returns to the word entry, so back is only for an other-meaning result.
+    private var back: (() -> Void)? {
+        guard store.baseWord != nil else { return nil }
+        return { store.goBack() }
+    }
+
     private var details: some View {
-        AddWordScaffold(onBack: store.goBack) {
+        AddWordScaffold(onBack: back, menu: menu) {
             WordHero(lemma: lemma, ipa: selected?.ipa)
 
             if senses.count > 1 {
@@ -321,20 +438,6 @@ private struct WordReview: View {
             }
             if let selected, let draft = drafts[selected.id] {
                 SenseDetails(draft: draft, tag: selected.tag)
-            }
-
-            HStack(spacing: Spacing.s) {
-                if selected != nil {
-                    SecondaryButton(title: "Edit", systemImage: "pencil") { stage = .edit }
-                }
-                switch search {
-                case .otherMeaning:
-                    SecondaryButton(title: "Other meaning", systemImage: "plus") { stage = .otherMeaning }
-                case .searchAgain:
-                    SecondaryButton(title: "Search again", systemImage: "arrow.clockwise") { stage = .otherMeaning }
-                case nil:
-                    EmptyView()
-                }
             }
 
             ForEach(closed) { meaning in
@@ -347,13 +450,33 @@ private struct WordReview: View {
                         if let notice = store.notice {
                             ErrorText(message: notice)
                         }
-                        if let selected {
-                            PrimaryButton(title: "Add word", isEnabled: !store.isAdding) { add(selected) }
+                        if let standing = selected?.standing {
+                            StandingBadge(standing: standing)
+                        } else if let selected {
+                            PrimaryButton(title: "Add word", isEnabled: !store.isAdding) {
+                                add(selected, draft: drafts[selected.id])
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private var menu: [HeaderAction] {
+        var actions: [HeaderAction] = []
+        if selected?.addition != nil {
+            actions.append(HeaderAction(title: "Edit", systemImage: "pencil") { sheet = .edit })
+        }
+        switch search {
+        case .otherMeaning:
+            actions.append(HeaderAction(title: "Other meaning", systemImage: "plus") { sheet = .otherMeaning })
+        case .searchAgain:
+            actions.append(HeaderAction(title: "Search again", systemImage: "arrow.clockwise") { sheet = .otherMeaning })
+        case nil:
+            break
+        }
+        return actions
     }
 
     private var sensePicker: some View {
@@ -371,25 +494,55 @@ private struct WordReview: View {
         return Button {
             selectedID = sense.id
         } label: {
-            Text(verbatim: "\(sense.partOfSpeech) · \(drafts[sense.id]?.meaningText ?? "")")
-                .font(Typography.secondary.weight(.semibold))
-                .foregroundStyle(isSelected ? Color.selectedInk : Color.mutedInk)
-                .lineLimit(1)
-                .padding(.horizontal, Spacing.s)
-                .frame(minHeight: Spacing.minTouchTarget)
-                .background(
-                    isSelected ? Color.selectedSurface : Color.neutralSurface,
-                    in: RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                )
+            HStack(spacing: Spacing.xxs) {
+                if sense.standing != nil {
+                    Image(systemName: "checkmark")
+                        .font(Typography.micro.weight(.bold))
+                        .foregroundStyle(Color.successInk)
+                        .accessibilityHidden(true)
+                }
+                Text(verbatim: "\(sense.partOfSpeech) · \(drafts[sense.id]?.meaningText ?? "")")
+                    .lineLimit(1)
+            }
+            .font(Typography.secondary.weight(.semibold))
+            .foregroundStyle(isSelected ? Color.selectedInk : Color.mutedInk)
+            .padding(.horizontal, Spacing.s)
+            .frame(minHeight: Spacing.minTouchTarget)
+            .background(
+                isSelected ? Color.selectedSurface : Color.neutralSurface,
+                in: RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+            )
         }
         .buttonStyle(PressScaleButtonStyle())
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
-    private func add(_ sense: ReviewSense) {
-        var addition = sense.addition
-        addition.edits = drafts[sense.id]?.edits
+    private func add(_ sense: ReviewSense, draft: CustomWordEditDraft?) {
+        guard var addition = sense.addition else { return }
+        addition.edits = draft?.edits
         Task { await store.add(addition, lemma: lemma, ipa: sense.ipa) }
+    }
+}
+
+/// Takes the add button's place for a meaning the learner already has.
+private struct StandingBadge: View {
+    let standing: ExistingMeaning.Standing
+
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: standing == .learned ? "checkmark.seal.fill" : "bookmark.fill")
+                .accessibilityHidden(true)
+            Text(standing == .learned ? "Already learned" : "On your path")
+        }
+        .font(Typography.action)
+        .foregroundStyle(standing == .learned ? Color.successInk : Color.selectedInk)
+        .frame(maxWidth: .infinity, minHeight: Spacing.minTouchTarget)
+        .padding(.vertical, Spacing.xxs)
+        .background(
+            standing == .learned ? Color.successSurface : Color.selectedSurface,
+            in: RoundedRectangle(cornerRadius: Radii.primaryAction, style: .continuous)
+        )
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -529,36 +682,28 @@ private struct ClosedMeaningRow: View {
 
 // MARK: - Other steps
 
+/// Its sheet saves the changes and adds the word in one go.
 private struct EditStage: View {
     let ipa: String?
-    let initial: CustomWordEditDraft
-    let onBack: () -> Void
     let onSave: (CustomWordEditDraft) -> Void
     @State private var draft: CustomWordEditDraft
 
-    init(
-        ipa: String?,
-        initial: CustomWordEditDraft,
-        onBack: @escaping () -> Void,
-        onSave: @escaping (CustomWordEditDraft) -> Void
-    ) {
+    init(ipa: String?, initial: CustomWordEditDraft, onSave: @escaping (CustomWordEditDraft) -> Void) {
         self.ipa = ipa
-        self.initial = initial
-        self.onBack = onBack
         self.onSave = onSave
         _draft = State(initialValue: initial)
     }
 
     var body: some View {
-        AddWordScaffold(onBack: onBack) {
+        AddWordScaffold {
             WordHero(lemma: draft.lemma, ipa: ipa)
             CustomWordEditFields(draft: $draft)
         } bar: {
             PinnedActionBar {
                 PrimaryButton(
-                    title: "Save",
-                    requirement: "Change something and fill in every field",
-                    isEnabled: draft.isValid && draft != initial
+                    title: "Save and add to list",
+                    requirement: "Fill in every field",
+                    isEnabled: draft.isValid
                 ) {
                     onSave(draft)
                 }
@@ -567,19 +712,29 @@ private struct EditStage: View {
     }
 }
 
+/// In its own sheet it closes as the search starts; shown after a failed search, it has a back button instead.
 private struct OtherMeaningStage: View {
     let lemma: String
     let message: String?
     let canRetry: Bool
-    let onBack: () -> Void
+    let onBack: (() -> Void)?
+    let onFind: () -> Void
     @Environment(CustomWordStore.self) private var store
     @State private var context: String
 
-    init(lemma: String, context: String, message: String?, canRetry: Bool, onBack: @escaping () -> Void) {
+    init(
+        lemma: String,
+        context: String,
+        message: String?,
+        canRetry: Bool,
+        onBack: (() -> Void)? = nil,
+        onFind: @escaping () -> Void = {}
+    ) {
         self.lemma = lemma
         self.message = message
         self.canRetry = canRetry
         self.onBack = onBack
+        self.onFind = onFind
         _context = State(initialValue: context)
     }
 
@@ -609,6 +764,8 @@ private struct OtherMeaningStage: View {
             PinnedActionBar {
                 // The lemma, not the typed form: context only applies to a word the backend already has.
                 PrimaryButton(title: "Find meaning", isEnabled: isValid) {
+                    let context = context
+                    onFind()
                     Task { await store.lookup(lemma, context: context) }
                 }
             }

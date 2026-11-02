@@ -101,6 +101,7 @@ final class PracticeSessionStoreTests: XCTestCase {
         store.submitOption(3)
         store.advance()
         XCTAssertEqual(store.stage, .reviewFinished)
+        XCTAssertEqual(store.upcomingCards, [PracticeFixtures.card])
 
         store.continueToPractice()
         XCTAssertEqual(store.stage, .running)

@@ -20,11 +20,7 @@ struct PracticeSessionView: View {
         case .reviewPreview(let words):
             ReviewPreviewView(words: words)
         case .reviewFinished:
-            StatusScreen(title: "Review complete", message: Text("Next up: some new words to learn.")) {
-                PrimaryButton(title: "Learn new words") {
-                    motion.perform(MotionTokens.transition) { store.continueToPractice() }
-                }
-            }
+            ReviewFinishedView(cards: store.upcomingCards)
         case .running:
             PracticeFlowView()
         case .finished(let summary):
@@ -236,6 +232,70 @@ private struct ReviewPreviewView: View {
             .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
             .background(shape.fill(Color.tileDepth).offset(y: Spacing.tileDepth))
             .padding(.bottom, Spacing.tileDepth)
+    }
+}
+
+/// Between review and new words: lists the words coming up with their meanings.
+private struct ReviewFinishedView: View {
+    let cards: [LearnCard]
+    @Environment(PracticeSessionStore.self) private var store
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Review complete")
+                    .font(Typography.screenTitle)
+                    .tracking(Typography.tightTracking)
+                    .foregroundStyle(Color.ink)
+                    .accessibilityAddTraits(.isHeader)
+
+                Text("Next up: some new words to learn.")
+                    .font(Typography.body)
+                    .foregroundStyle(Color.mutedInk)
+                    .padding(.top, Spacing.xs)
+
+                if !cards.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(cards.enumerated()), id: \.offset) { index, card in
+                            if index > 0 {
+                                Divider().overlay(Color.stroke)
+                            }
+                            row(card)
+                        }
+                    }
+                    .cardSurface(radius: Radii.tile)
+                    .padding(.top, Spacing.l)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.top, Spacing.m)
+            .padding(.bottom, Spacing.l)
+        }
+        .safeAreaInset(edge: .bottom) {
+            PinnedActionBar {
+                PrimaryButton(title: "Learn new words") {
+                    motion.perform(MotionTokens.transition) { store.continueToPractice() }
+                }
+            }
+        }
+    }
+
+    private func row(_ card: LearnCard) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            Text(verbatim: card.word)
+                .font(Typography.emphasis)
+                .foregroundStyle(Color.ink)
+            Text(verbatim: card.meaning)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
+        .accessibilityElement(children: .combine)
     }
 }
 

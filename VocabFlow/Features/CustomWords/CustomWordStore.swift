@@ -23,6 +23,8 @@ final class CustomWordStore {
     private(set) var isAdding = false
     /// The word an "other meaning" search started from, which going back returns to.
     private(set) var baseWord: ExistingWord?
+    /// Set once a lookup answers: from then on, lookups and adds show in the result sheet over the word entry.
+    private(set) var isReviewing = false
 
     private(set) var listPhase: ListPhase = .loading
     private(set) var words: [CustomWord] = []
@@ -71,6 +73,7 @@ final class CustomWordStore {
             let result = try await api.lookupCustomWord(query)
             guard token == lookupToken else { return }
             phase = .result(result)
+            isReviewing = true
         } catch {
             guard token == lookupToken else { return }
             let failure = error.asAPIError
@@ -112,6 +115,7 @@ final class CustomWordStore {
         lookupToken = UUID()
         lastQuery = nil
         baseWord = nil
+        isReviewing = false
         phase = .idle
         notice = nil
     }

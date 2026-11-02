@@ -62,6 +62,7 @@ final class PracticeSessionStore {
 
     let audio: AudioClipPlaying
     let haptics: FeedbackProviding
+    private let sounds: SoundEffectsPlaying
 
     private let api: VocabAPI
     private let recorder: VoiceRecording
@@ -73,11 +74,12 @@ final class PracticeSessionStore {
     private var pendingAudio: RecordedAudio?
     private var latestReceiptID: String?
 
-    init(api: VocabAPI, audio: AudioClipPlaying, recorder: VoiceRecording, haptics: FeedbackProviding) {
+    init(api: VocabAPI, audio: AudioClipPlaying, recorder: VoiceRecording, haptics: FeedbackProviding, sounds: SoundEffectsPlaying = SilentSoundEffects()) {
         self.api = api
         self.audio = audio
         self.recorder = recorder
         self.haptics = haptics
+        self.sounds = sounds
         recorder.onLimitReached = { [weak self] in
             Task { await self?.stopRecording() }
         }
@@ -89,6 +91,14 @@ final class PracticeSessionStore {
     var currentAttempt: TaskAttempt? {
         guard case .practice(_, let task) = currentStep else { return nil }
         return attempts[task.id]
+    }
+
+    /// The words the rest of the session introduces, in plan order.
+    var upcomingCards: [LearnCard] {
+        steps.dropFirst(stepIndex).compactMap { step in
+            guard case .learn(_, let card) = step else { return nil }
+            return card
+        }
     }
 
     /// Tasks answered right on the first try without help. A local display figure, not a score.
@@ -190,9 +200,9 @@ final class PracticeSessionStore {
         score { $0.submitPair(leftID: leftID, rightID: rightID) }
     }
 
-    func tapTile(_ id: Int) { update { $0.tapTile(id) } }
-    func removeTile(_ id: Int) { update { $0.removeTile(id) } }
-    func moveTile(_ id: Int, to index: Int) { update { $0.moveTile(id, to: index) } }
+    func tapTile(_ id: Int) { update(click: true) { $0.tapTile(id) } }
+    func removeTile(_ id: Int) { update(click: true) { $0.removeTile(id) } }
+    func moveTile(_ id: Int, to index: Int) { update(click: true) { $0.moveTile(id, to: index) } }
     func useHint() { update { $0.useHint() } }
     func reveal() { update { $0.reveal() } }
     func tryAgain() { mutate { $0.tryAgain() } }
@@ -278,8 +288,10 @@ final class PracticeSessionStore {
             recording = .assessed(assessment)
             if assessment.passed == true {
                 haptics.success()
+                sounds.playCorrect()
             } else {
                 haptics.error()
+                sounds.playWrong()
             }
         } catch {
             guard currentAttempt?.task.id == taskID else { return }
@@ -421,16 +433,27 @@ final class PracticeSessionStore {
         return body(&attempts[id]!)
     }
 
-    private func update(_ body: (inout TaskAttempt) -> Void) {
+    /// Feedback for picking an answer in a task view. Buttons outside the answer area stay silent.
+    func answerPicked() {
+        haptics.selectionChanged()
+        sounds.playClick()
+    }
+
+    private func update(click: Bool = false, _ body: (inout TaskAttempt) -> Void) {
         let before = currentAttempt?.events.count
         mutate(body)
-        if currentAttempt?.events.count != before { haptics.selectionChanged() }
+        guard currentAttempt?.events.count != before else { return }
+        if click { answerPicked() } else { haptics.selectionChanged() }
     }
 
     private func score(_ body: (inout TaskAttempt) -> Bool?) {
         switch mutate(body) ?? nil {
-        case true?: haptics.success()
-        case false?: haptics.error()
+        case true?:
+            haptics.success()
+            sounds.playCorrect()
+        case false?:
+            haptics.error()
+            sounds.playWrong()
         default: break
         }
     }

@@ -117,7 +117,7 @@ struct MatchTaskView: View {
             selectedRightID = selectedRightID == id ? nil : id
         }
         guard let leftID = selectedLeftID, let rightID = selectedRightID else {
-            store.haptics.selectionChanged()
+            store.answerPicked()
             return
         }
         store.submitPair(leftID: leftID, rightID: rightID)

@@ -20,13 +20,14 @@ struct VocabFlowApp: App {
         let settings = AppSettingsStore(feedback: SettingsAwareFeedback(base: FeedbackHaptics()))
         let haptics = settings.feedback
         let speech = SpeechPlayer()
+        let sounds = SoundEffects()
         let plan = LearningPlanStore(storage: UserDefaultsPreferencesStore(), reminders: NotificationReminderScheduler())
         let progress = ProgressStore()
         let client = APIClient(baseURL: APIConfiguration.baseURL, tokens: KeychainTokenStore())
         let api = LiveVocabAPI(client: client)
         let auth = AuthStore(api: api)
         let learner = LearnerStore(api: api, plan: plan)
-        let practice = PracticeSessionStore(api: api, audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics)
+        let practice = PracticeSessionStore(api: api, audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics, sounds: sounds)
         let onboarding = OnboardingStore(plan: plan, api: api, haptics: haptics)
         let customWords = CustomWordStore(api: api, audio: AudioClipPlayer())
         customWords.onRoadmapChanged = { [learner] in await learner.refresh() }
@@ -56,7 +57,7 @@ struct VocabFlowApp: App {
         _store = State(initialValue: store)
         _sandbox = State(initialValue: TemplateSandboxStore(
             templates: repository.loadLabOrFail().templates,
-            session: PracticeSessionStore(api: OfflineVocabAPI(), audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics)
+            session: PracticeSessionStore(api: OfflineVocabAPI(), audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics, sounds: sounds)
         ))
     }
 

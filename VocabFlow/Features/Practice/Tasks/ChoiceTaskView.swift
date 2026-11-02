@@ -13,7 +13,7 @@ struct ChoiceTaskView: View {
                     ForEach(options) { option in
                         ChoiceTileButton(text: option.text, state: state(option.id, correct: correct)) {
                             selectedID = selectedID == option.id ? nil : option.id
-                            store.haptics.selectionChanged()
+                            store.answerPicked()
                         }
                     }
                 }
