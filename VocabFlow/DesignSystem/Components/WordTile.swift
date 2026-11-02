@@ -9,6 +9,8 @@ struct WordTile: View {
     let visualState: WordTileVisualState
     /// Face height floor; callers raise it to equalize a group of tiles.
     var minHeight: CGFloat = Spacing.tileMinHeight
+    /// Each change sinks the face into its depth and springs it back up.
+    var bounceTrigger = 0
     @Environment(\.motion) private var motion
 
     var body: some View {
@@ -22,7 +24,12 @@ struct WordTile: View {
         .frame(maxWidth: .infinity, minHeight: minHeight)
         .background(face, in: shape)
         .overlay(shape.strokeBorder(border, lineWidth: borderWidth))
-        .offset(y: faceDrop)
+        .keyframeAnimator(initialValue: CGFloat.zero, trigger: bounceTrigger) { face, sink in
+            face.offset(y: min(faceDrop + sink, Spacing.tileDepth - 1))
+        } keyframes: { _ in
+            CubicKeyframe(Spacing.tileDepth - 1, duration: 0.07)
+            SpringKeyframe(0, duration: 0.25, spring: .bouncy(duration: 0.2, extraBounce: 0.05))
+        }
         .background(shape.fill(depth).offset(y: Spacing.tileDepth))
         .padding(.bottom, Spacing.tileDepth)
         .shadow(
@@ -41,14 +48,12 @@ struct WordTile: View {
     private var faceDrop: CGFloat {
         switch visualState {
         case .pressed: Spacing.tileDepth - 1
-        case .selected: 1
         default: 0
         }
     }
 
     private var scale: CGFloat {
         switch visualState {
-        case .pressed: motion.pressedScale
         case .dragging: motion.liftedScale
         default: 1
         }

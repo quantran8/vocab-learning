@@ -5,12 +5,18 @@ struct ChoiceTileButton: View {
     let text: String
     let state: WordTileVisualState
     let action: () -> Void
+    @Environment(\.motion) private var motion
+    @State private var bounce = 0
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            if !motion.reduceMotion { bounce += 1 }
+            action()
+        } label: {
             EmptyView()
         }
-        .buttonStyle(ChoiceTilePressStyle(text: text, state: state))
+        // A quick tap inside a ScrollView often never reports isPressed, so the tile also sinks on tap.
+        .buttonStyle(ChoiceTilePressStyle(text: text, state: state, bounce: bounce))
         .disabled(state == .disabled || state == .correct)
         .accessibilityLabel(Text("\(text), option"))
         .accessibilityValue(choiceValue)
@@ -28,13 +34,14 @@ struct ChoiceTileButton: View {
     }
 }
 
-/// Drives the tile's own pressed face (drop + scale) while a finger is down on an idle or selected tile.
+/// Drives the tile's own pressed face while a finger is down on an idle or selected tile.
 private struct ChoiceTilePressStyle: ButtonStyle {
     let text: String
     let state: WordTileVisualState
+    let bounce: Int
 
     func makeBody(configuration: Configuration) -> some View {
         let canPress = state == .idle || state == .selected
-        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state)
+        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state, bounceTrigger: bounce)
     }
 }
