@@ -33,23 +33,7 @@ struct CustomWordEditView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                EditorField(title: "Meaning", text: $draft.meaningText, maxLength: CustomWordInput.maxFieldLength)
-                EditorField(title: "Definition", text: $draft.definitionText, maxLength: CustomWordInput.maxFieldLength)
-
-                ForEach($draft.examples) { $example in
-                    VStack(alignment: .leading, spacing: Spacing.s) {
-                        EditorField(title: "Example", text: $example.text, maxLength: CustomWordInput.maxFieldLength)
-                        if example.isRewritten, !example.text.trimmed.isEmpty {
-                            HighlightPicker(
-                                sentence: example.text.trimmed,
-                                selection: draft.locator(for: example)
-                            ) { word in
-                                draft.pick(word, inExample: example.id)
-                            }
-                        }
-                        EditorField(title: "Translation", text: $example.translation, maxLength: CustomWordInput.maxFieldLength)
-                    }
-                }
+                CustomWordEditFields(draft: $draft)
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.l)
@@ -59,7 +43,7 @@ struct CustomWordEditView: View {
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
                 PrimaryButton(
-                    title: "Save changes",
+                    title: "Save",
                     requirement: "Change something and fill in every field",
                     isEnabled: draft.isValid && draft != initial
                 ) {
@@ -70,6 +54,33 @@ struct CustomWordEditView: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.canvas)
+    }
+}
+
+/// The editable text of a word: meaning, definition and each example.
+struct CustomWordEditFields: View {
+    @Binding var draft: CustomWordEditDraft
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            EditorField(title: "Meaning", text: $draft.meaningText, maxLength: CustomWordInput.maxFieldLength)
+            EditorField(title: "Definition", text: $draft.definitionText, maxLength: CustomWordInput.maxFieldLength)
+
+            ForEach($draft.examples) { $example in
+                VStack(alignment: .leading, spacing: Spacing.m) {
+                    EditorField(title: "Example", text: $example.text, maxLength: CustomWordInput.maxFieldLength)
+                    if example.isRewritten, !example.text.trimmed.isEmpty {
+                        HighlightPicker(
+                            sentence: example.text.trimmed,
+                            selection: draft.locator(for: example)
+                        ) { word in
+                            draft.pick(word, inExample: example.id)
+                        }
+                    }
+                    EditorField(title: "Translation", text: $example.translation, maxLength: CustomWordInput.maxFieldLength)
+                }
+            }
+        }
     }
 }
 
@@ -118,18 +129,21 @@ struct EditorField: View {
     let title: LocalizedStringKey
     @Binding var text: String
     var maxLength: Int?
+    var lines: ClosedRange<Int> = 1...5
+    var focusesOnAppear = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            Eyebrow(text: title)
+            Eyebrow(text: title, color: isFocused ? .selectedInk : .mutedInk)
                 .accessibilityHidden(true)
             TextField(title, text: $text, axis: .vertical)
                 .font(Typography.body)
                 .foregroundStyle(Color.ink)
-                .lineLimit(1...5)
+                .lineLimit(lines)
                 .focused($isFocused)
+                .onAppear { if focusesOnAppear { isFocused = true } }
                 .padding(.horizontal, Spacing.m - 2)
                 .padding(.vertical, Spacing.s)
                 .frame(minHeight: Spacing.minTouchTarget + 4)

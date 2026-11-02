@@ -7,7 +7,7 @@ extension Color {
     static let surface = Color(hex: 0xFFFFFF)
     static let ink = Color(hex: 0x171717)
     static let mutedInk = Color(hex: 0x5C606B)
-    static let primaryAction = Color(hex: 0x0B0C0E)
+    static let primaryAction = Color(hex: 0x303030)
     static let interactive = Color(hex: 0x4775F5)
     static let reward = Color(hex: 0xFFD23F)
     static let success = Color(hex: 0x2BC86A)
@@ -28,13 +28,13 @@ extension Color {
     static let quietSurface = Color(hex: 0xFAFAFA)
 
     // Stepped depth under tactile surfaces
-    static let primaryDepth = Color(hex: 0x33363D)
+    static let primaryDepth = Color(hex: 0x080808)
     static let interactiveDepth = Color(hex: 0x2B55CE)
     static let rewardDepth = Color(hex: 0xB89528)
-    static let tileDepth = Color(hex: 0xE1E4EB)
-    static let selectedDepth = Color(hex: 0xC4D3FC)
-    static let successDepth = Color(hex: 0xB7EDCB)
-    static let errorDepth = Color(hex: 0xFFD2C6)
+    static let tileDepth = Color(hex: 0xCDD2DC)
+    static let selectedDepth = Color(hex: 0xB2C5F5)
+    static let successDepth = Color(hex: 0x9EE5B8)
+    static let errorDepth = Color(hex: 0xFFB5A5)
 
     static let track = Color(hex: 0xE1E4EB)
     static let slotTargetedSurface = Color(hex: 0xD9E4FF)

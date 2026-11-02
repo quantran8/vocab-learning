@@ -67,7 +67,7 @@ struct ChunkyButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radii.primaryAction, style: .continuous)
         let pressed = configuration.isPressed && isEnabled
-        let depth = kind == .primary ? Spacing.buttonDepth : Spacing.buttonDepth - 1
+        let depth = kind == .primary ? Spacing.buttonDepth : Spacing.buttonDepth - 2
         configuration.label
             .foregroundStyle(foreground)
             .background(face, in: shape)

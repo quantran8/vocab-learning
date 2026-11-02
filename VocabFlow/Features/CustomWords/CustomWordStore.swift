@@ -9,7 +9,7 @@ final class CustomWordStore {
         case idle, loading
         case result(CustomWordLookup)
         /// `isNew` is false when the word was already on the roadmap.
-        case added(lemma: String, isNew: Bool)
+        case added(lemma: String, isNew: Bool, ipa: String? = nil)
         case failed(String, canRetry: Bool)
     }
 
@@ -21,6 +21,8 @@ final class CustomWordStore {
     /// Why the last add didn't go through. The result stays on screen so the learner can act on it.
     private(set) var notice: String?
     private(set) var isAdding = false
+    /// The word an "other meaning" search started from, which going back returns to.
+    private(set) var baseWord: ExistingWord?
 
     private(set) var listPhase: ListPhase = .loading
     private(set) var words: [CustomWord] = []
@@ -37,6 +39,8 @@ final class CustomWordStore {
     /// Identifies the current lookup: a slow answer for a closed sheet must not land in the next one.
     private var lookupToken = UUID()
 
+    var lastContext: String { lastQuery?.context ?? "" }
+
     init(api: VocabAPI, audio: AudioClipPlaying) {
         self.api = api
         self.audio = audio
@@ -46,6 +50,9 @@ final class CustomWordStore {
 
     func lookup(_ text: String, context: String? = nil) async {
         notice = nil
+        if context != nil, case .result(.existing(let word)) = phase {
+            baseWord = word
+        }
         await run(CustomWordQuery(text: text.trimmed, context: context?.trimmed))
     }
 
@@ -71,7 +78,7 @@ final class CustomWordStore {
         }
     }
 
-    func add(_ addition: CustomWordAddition, lemma: String) async {
+    func add(_ addition: CustomWordAddition, lemma: String, ipa: String? = nil) async {
         guard !isAdding else { return }
         isAdding = true
         defer { isAdding = false }
@@ -81,7 +88,7 @@ final class CustomWordStore {
             let response = try await api.addCustomWord(addition)
             await onRoadmapChanged?()
             guard token == lookupToken else { return }
-            phase = .added(lemma: lemma, isNew: response.added)
+            phase = .added(lemma: lemma, isNew: response.added, ipa: ipa)
         } catch {
             guard token == lookupToken else { return }
             await recover(from: error.asAPIError)
@@ -104,7 +111,17 @@ final class CustomWordStore {
     func resetLookup() {
         lookupToken = UUID()
         lastQuery = nil
+        baseWord = nil
         phase = .idle
+        notice = nil
+    }
+
+    func goBack() {
+        guard let word = baseWord else { return resetLookup() }
+        lookupToken = UUID()
+        lastQuery = CustomWordQuery(text: word.lemma)
+        baseWord = nil
+        phase = .result(.existing(word))
         notice = nil
     }
 

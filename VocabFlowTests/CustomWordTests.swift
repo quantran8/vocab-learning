@@ -229,6 +229,30 @@ final class CustomWordStoreTests: XCTestCase {
         XCTAssertEqual(store.phase, .idle)
     }
 
+    func testGoingBackFromAnOtherMeaningSearchReturnsToTheWord() async {
+        let word = ExistingWord(wordId: "w", lemma: "arrive", meanings: [])
+        api.lookupResults = [.success(.existing(word)), .success(.newMeaningDraft(WordDraft(draftId: "d", lemma: "arrive", senses: [])))]
+        await store.lookup("arrived")
+        await store.lookup("arrive", context: "at a decision")
+        XCTAssertEqual(store.lastContext, "at a decision")
+
+        store.goBack()
+        XCTAssertEqual(store.phase, .result(.existing(word)))
+        XCTAssertEqual(api.lookups.count, 2, "Going back doesn't look the word up again")
+
+        store.goBack()
+        XCTAssertEqual(store.phase, .idle)
+    }
+
+    func testFailedOtherMeaningSearchKeepsItsContextAndWord() async {
+        let word = ExistingWord(wordId: "w", lemma: "arrive", meanings: [])
+        api.lookupResults = [.success(.existing(word)), .failure(CustomWordFixtures.error(503, "LEXICAL_PROVIDER_UNAVAILABLE", retryable: true))]
+        await store.lookup("arrive")
+        await store.lookup("arrive", context: "at a decision")
+        XCTAssertEqual(store.baseWord, word)
+        XCTAssertEqual(store.lastContext, "at a decision")
+    }
+
     func testChangesReloadTheList() async {
         let word = CustomWordFixtures.word()
         api.customWordList = [word]

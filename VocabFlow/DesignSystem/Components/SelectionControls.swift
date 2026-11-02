@@ -172,6 +172,26 @@ struct PressScaleButtonStyle: ButtonStyle {
     }
 }
 
+/// Round ‹ for steps inside a sheet, the counterpart of `SheetCloseButton`.
+struct SheetBackButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "chevron.left")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color.mutedInk)
+                .frame(width: 34, height: 34)
+                .background(Color.neutralSurface, in: Circle())
+                .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .padding(.leading, -Spacing.xs)
+        .accessibilityLabel(Text("Back"))
+    }
+}
+
 /// Round ✕ for sheets, sized to a full touch target. Dismisses the presenting sheet.
 struct SheetCloseButton: View {
     @Environment(\.dismiss) private var dismiss

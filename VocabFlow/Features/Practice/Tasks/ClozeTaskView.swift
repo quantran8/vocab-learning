@@ -85,7 +85,7 @@ struct ClozeTaskView: View {
             .hidden()
             .background {
                 RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                    .fill(Color.tileDepth)
+                    .fill(Color.stroke)
                     .padding(.bottom, Spacing.tileDepth)
             }
             .accessibilityHidden(true)
@@ -111,7 +111,7 @@ private struct ClozeTile: View {
             .frame(minHeight: Spacing.minTouchTarget - Spacing.tileDepth)
             .background(surface, in: shape)
             .overlay(shape.strokeBorder(border, lineWidth: 1.5))
-            .background(shape.fill(Color.tileDepth).offset(y: Spacing.tileDepth))
+            .background(shape.fill(depth).offset(y: Spacing.tileDepth))
             .padding(.bottom, Spacing.tileDepth)
             .opacity(state == .disabled ? 0.6 : 1)
     }
@@ -131,6 +131,15 @@ private struct ClozeTile: View {
         case .incorrect: Color.errorSurface
         case .selected: Color.selectedSurface
         default: Color.surface
+        }
+    }
+
+    private var depth: Color {
+        switch state {
+        case .correct: Color.successDepth
+        case .incorrect: Color.errorDepth
+        case .selected: Color.selectedDepth
+        default: Color.tileDepth
         }
     }
 

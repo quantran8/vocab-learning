@@ -210,7 +210,7 @@ struct ReorderTaskView: View {
     @ViewBuilder private func slotPlaceholder(_ isActive: Bool) -> some View {
         if isActive {
             RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                .fill(Color.tileDepth)
+                .fill(Color.stroke)
                 .padding(.bottom, Spacing.tileDepth)
         }
     }
@@ -236,7 +236,7 @@ struct ReorderTaskView: View {
             .frame(minWidth: tileWidth, minHeight: Self.tileSize)
             .background(isRight ? Color.successSurface : (isWrong ? Color.errorSurface : Color.surface), in: shape)
             .overlay(shape.strokeBorder(isRight ? Color.success : (isWrong ? Color.error : Color.stroke), lineWidth: 1.5))
-            .background(shape.fill(Color.tileDepth).offset(y: Spacing.tileDepth))
+            .background(shape.fill(isRight ? Color.successDepth : (isWrong ? Color.errorDepth : Color.tileDepth)).offset(y: Spacing.tileDepth))
             .padding(.bottom, Spacing.tileDepth)
     }
 }

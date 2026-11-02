@@ -28,7 +28,8 @@ struct MyWordsView: View {
                     emptyState
                         .padding(.top, Spacing.xl)
                 } else {
-                    LibraryStats(learned: allWords.count, needPractice: allWords.filter(\.needsPractice).count)
+                    let needPractice = allWords.filter(\.needsPractice).count
+                    LibraryStats(learned: allWords.count, needPractice: needPractice)
                         .padding(.top, Spacing.m)
 
                     SectionHeading(text: "Practice")
@@ -39,12 +40,17 @@ struct MyWordsView: View {
                             systemImage: "shuffle",
                             title: "Random Practice",
                             subtitle: "Mixed review",
+                            actionTitle: "Start",
+                            actionImage: "chevron.right",
                             action: { startPractice(.randomPractice) }
                         )
                         PracticeTile(
                             systemImage: "target",
                             title: "Weak Words",
-                            subtitle: "Focus on mistakes",
+                            subtitle: needPractice > 0 ? "Focus on mistakes" : "Nothing to review yet",
+                            actionTitle: needPractice > 0 ? "Start" : "All caught up",
+                            actionImage: needPractice > 0 ? "chevron.right" : "checkmark",
+                            isEnabled: needPractice > 0,
                             action: { startPractice(.weakWordsPractice) }
                         )
                     }
@@ -102,12 +108,14 @@ struct MyWordsView: View {
         Button {
             customWordSheet = .add
         } label: {
+            let shape = RoundedRectangle(cornerRadius: Radii.primaryAction, style: .continuous)
             Label("Add word", systemImage: "plus")
                 .font(Typography.tile)
                 .foregroundStyle(Color.ink)
                 .padding(.horizontal, Spacing.m)
-                .frame(minHeight: Spacing.minTouchTarget)
-                .background(Color.neutralSurface, in: Capsule())
+                .frame(minHeight: Spacing.minTouchTarget + 4)
+                .background(Color.surface, in: shape)
+                .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
         }
         .buttonStyle(PressScaleButtonStyle())
     }
@@ -225,7 +233,7 @@ private struct LibraryStats: View {
     let needPractice: Int
 
     var body: some View {
-        HStack(spacing: Spacing.s) {
+        HStack(spacing: Spacing.m + Spacing.xxs) {
             figure(learned, caption: "Words learned")
             Rectangle()
                 .fill(Color.stroke)
@@ -234,23 +242,21 @@ private struct LibraryStats: View {
             figure(needPractice, caption: "Need practice")
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, Spacing.m)
-        .padding(.vertical, Spacing.s + 2)
+        .padding(Spacing.m + Spacing.xxs)
         .background(Color.neutralSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
     }
 
     private func figure(_ value: Int, caption: LocalizedStringKey) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(caption)
-                .font(Typography.secondary)
+                .font(Typography.secondary.weight(.semibold))
                 .foregroundStyle(Color.mutedInk)
-            Spacer(minLength: 0)
             Text(value, format: .number)
-                .font(Typography.screenTitle.monospacedDigit())
+                .font(Typography.display.monospacedDigit())
                 .foregroundStyle(Color.ink)
                 .contentTransition(.numericText())
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }
@@ -259,30 +265,33 @@ private struct PracticeTile: View {
     let systemImage: String
     let title: LocalizedStringKey
     let subtitle: LocalizedStringKey
+    let actionTitle: LocalizedStringKey
+    let actionImage: String
+    var isEnabled = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Image(systemName: systemImage)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.interactive)
-                    .padding(.bottom, Spacing.s)
-                    .accessibilityHidden(true)
-                Text(title)
-                    .font(Typography.emphasis)
-                    .foregroundStyle(Color.ink)
-                Text(subtitle)
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.mutedInk)
-            }
-            .multilineTextAlignment(.leading)
-            .padding(Spacing.m)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .cardSurface()
-            .contentShape(RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
+            Image(systemName: systemImage)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.interactive)
+                .padding(.bottom, Spacing.s)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(Typography.tileLarge.weight(.bold))
+                .tracking(Typography.tightTracking)
+                .foregroundStyle(Color.ink)
+            Text(subtitle)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.mutedInk)
+            Spacer(minLength: Spacing.m)
+            PrimaryButton(title: actionTitle, systemImage: actionImage, isEnabled: isEnabled, action: action)
         }
-        .buttonStyle(PressScaleButtonStyle())
+        .multilineTextAlignment(.leading)
+        .padding(Spacing.m)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .cardSurface()
+        .accessibilityElement(children: .combine)
     }
 }
 

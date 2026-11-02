@@ -83,6 +83,8 @@ struct ExistingMeaning: Decodable, Equatable, Identifiable {
         case .unavailable: nil
         }
     }
+
+    var canBeAdded: Bool { !inRoadmap && addition != nil }
 }
 
 struct ExistingWord: Decodable, Equatable {
