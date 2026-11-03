@@ -493,6 +493,9 @@
           "question": "Read this word aloud.",
           "assessment": {
             "kind": "azurePronunciation"
+          },
+          "evaluation": {
+            "acceptedResponses": ["appreciate"]
           }
         }
       ]

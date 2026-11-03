@@ -16,6 +16,8 @@ struct TaskEvent: Encodable, Equatable {
         case reveal
         case assessed(receiptID: String)
         case unavailable(reason: String)
+        /// On-device take. The backend re-scores the transcript against the task's text.
+        case transcribed(String)
 
         var isSubmit: Bool {
             switch self {
@@ -30,7 +32,7 @@ struct TaskEvent: Encodable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case seq, action, optionId, value, tileIds, graphemeIndex, replacement
-        case leftId, rightId, tileId, toIndex, assessmentReceiptId, reason
+        case leftId, rightId, tileId, toIndex, assessmentReceiptId, reason, transcript
     }
 
     func encode(to encoder: Encoder) throws {
@@ -74,6 +76,9 @@ struct TaskEvent: Encodable, Equatable {
         case .unavailable(let reason):
             try container.encode("unavailable", forKey: .action)
             try container.encode(reason, forKey: .reason)
+        case .transcribed(let transcript):
+            try container.encode("transcribed", forKey: .action)
+            try container.encode(transcript, forKey: .transcript)
         }
     }
 }

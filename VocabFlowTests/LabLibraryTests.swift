@@ -19,7 +19,7 @@ final class LabLibraryTests: XCTestCase {
     @MainActor
     func testSandboxPlaysTasksWithoutCommitting() throws {
         let api = StubVocabAPI()
-        let store = PracticeSessionStore(api: api, audio: SilentAudioClips(), recorder: NoVoiceRecorder(), haptics: NoOpFeedback())
+        let store = PracticeSessionStore(api: api, audio: SilentAudioClips(), recorder: NoVoiceRecorder(), haptics: NoOpFeedback(), transcriber: NoSpeechTranscriber())
         var ended = false
         store.onSandboxEnd = { ended = true }
         store.startSandbox([PracticeFixtures.choice()])

@@ -52,9 +52,12 @@ final class PlanDecodingTests: XCTestCase {
         let surgery = try decodeTask(#""template":"surgery","variant":"fix_spelling",\#(text),"word":"ab","evaluation":{"wrongGraphemeIndex":1,"replacement":""}"#)
         XCTAssertEqual(surgery.body, .surgery(word: "ab", wrongGraphemeIndex: 1, replacement: ""))
 
-        let recording = try decodeTask(#""template":"recording","variant":"scripted_pronunciation","prompt":{"type":"audio","audio":{"url":"https://a.example/x.mp3","locale":"en-US"}},"assessment":{"kind":"azurePronunciation"}"#)
-        XCTAssertEqual(recording.body, .recording)
+        let recording = try decodeTask(#""template":"recording","variant":"scripted_pronunciation","prompt":{"type":"audio","audio":{"url":"https://a.example/x.mp3","locale":"en-US"}},"assessment":{"kind":"azurePronunciation"},"evaluation":{"acceptedResponses":["a"]}"#)
+        XCTAssertEqual(recording.body, .recording(accepted: ["a"]))
         XCTAssertEqual(recording.prompt?.isAudio, true)
+
+        let legacyRecording = try decodeTask(#""template":"recording","variant":"scripted_pronunciation",\#(text),"assessment":{"kind":"azurePronunciation"}"#)
+        XCTAssertEqual(legacyRecording.body, .recording(accepted: []))
     }
 
     func testMaxRetriesIsOptional() throws {

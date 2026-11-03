@@ -109,7 +109,7 @@ private enum RouteID: Hashable {
         .environment(SessionStore(content: content, haptics: NoOpFeedback()))
         .environment(TemplateSandboxStore(
             templates: DemoContentRepository().loadLabOrFail().templates,
-            session: PracticeSessionStore(api: OfflineVocabAPI(), audio: SilentAudioClips(), recorder: NoVoiceRecorder(), haptics: NoOpFeedback())
+            session: PracticeSessionStore(api: OfflineVocabAPI(), audio: SilentAudioClips(), recorder: NoVoiceRecorder(), haptics: NoOpFeedback(), transcriber: NoSpeechTranscriber())
         ))
         .environment(SpeechPlayer())
         .environment(AppSettingsStore(feedback: SettingsAwareFeedback(base: NoOpFeedback()), defaults: nil))
@@ -122,7 +122,8 @@ private enum RouteID: Hashable {
             api: OfflineVocabAPI(),
             audio: SilentAudioClips(),
             recorder: NoVoiceRecorder(),
-            haptics: NoOpFeedback()
+            haptics: NoOpFeedback(),
+            transcriber: NoSpeechTranscriber()
         ))
         .environment(CustomWordStore(api: OfflineVocabAPI(), audio: SilentAudioClips()))
 }

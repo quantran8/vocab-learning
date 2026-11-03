@@ -7,10 +7,11 @@ final class PracticeSessionStoreTests: XCTestCase {
     private lazy var committed = CommitResponse(sessionId: "s1", summary: summary)
     private let api = StubVocabAPI()
     private let recorder = StubRecorder()
+    private let transcriber = StubTranscriber()
 
-    private func makeStore(steps: [PlanStep]) -> PracticeSessionStore {
+    private func makeStore(steps: [PlanStep], scoring: RecordingScoring = .backend) -> PracticeSessionStore {
         api.plan = .success(SessionPlan(sessionID: "s1", mode: .daily, steps: steps))
-        return PracticeSessionStore(api: api, audio: SilentAudioClips(), recorder: recorder, haptics: NoOpFeedback())
+        return PracticeSessionStore(api: api, audio: SilentAudioClips(), recorder: recorder, haptics: NoOpFeedback(), recordingScoring: scoring, transcriber: transcriber)
     }
 
     private func waitForStage(_ store: PracticeSessionStore, where matches: (PracticeSessionStore.Stage) -> Bool) async {
@@ -222,6 +223,31 @@ final class PracticeSessionStoreTests: XCTestCase {
         store.acceptRecording()
 
         XCTAssertEqual(store.attempts["t-recording"]?.events.map(\.action), [.assessed(receiptID: "r2")])
+    }
+
+    func testOnDeviceScoringCommitsTheTranscriptWithoutUploading() async {
+        let store = makeStore(steps: [.practice(phase: .newPractice, task: PracticeFixtures.recording())], scoring: .onDevice)
+        transcriber.candidates = ["Clarify."]
+        await store.start(.daily)
+        await store.startRecording()
+        await store.stopRecording()
+
+        guard case .assessed(let assessment) = store.recording else { return XCTFail("Expected an assessment") }
+        XCTAssertEqual(assessment.passed, true)
+        store.acceptRecording()
+        XCTAssertEqual(store.attempts["t-recording"]?.events.map(\.action), [.transcribed("clarify")])
+        XCTAssertEqual(store.attempts["t-recording"]?.status, .recorded)
+    }
+
+    func testOnDeviceScoringFallsBackToTheBackendWithoutRecognition() async {
+        let store = makeStore(steps: [.practice(phase: .newPractice, task: PracticeFixtures.recording())], scoring: .onDevice)
+        transcriber.hasAccess = false
+        api.assessResult = .success(RecordingAssessment(assessmentReceiptId: "r1", validity: "valid", passed: true, accuracyScore: 90))
+        await store.start(.daily)
+        await store.startRecording()
+        await store.stopRecording()
+        store.acceptRecording()
+        XCTAssertEqual(store.attempts["t-recording"]?.events.map(\.action), [.assessed(receiptID: "r1")])
     }
 
     func testRecordingStopsAtTheLimitAndKeepsTheLastReceipt() async {

@@ -59,6 +59,8 @@ final class PracticeSessionStore {
     /// Practice Lab: tasks are scored locally and nothing is planned, assessed or committed.
     private(set) var isSandbox = false
     var onSandboxEnd: (() -> Void)?
+    /// Falls back to the backend when the task has no reference text or on-device recognition can't run.
+    var recordingScoring: RecordingScoring
 
     let audio: AudioClipPlaying
     let haptics: FeedbackProviding
@@ -66,6 +68,7 @@ final class PracticeSessionStore {
 
     private let api: VocabAPI
     private let recorder: VoiceRecording
+    private let transcriber: SpeechTranscribing
     private var sessionID: String?
     private var lastRequest: (mode: SessionMode, challengeID: String?)?
     private var completedLearnIDs: Set<String> = []
@@ -73,13 +76,25 @@ final class PracticeSessionStore {
     private var commitBody: Data?
     private var pendingAudio: RecordedAudio?
     private var latestReceiptID: String?
+    /// Decided on a task's first take: its events can't mix receipts and transcripts.
+    private var canTranscribe: Bool?
 
-    init(api: VocabAPI, audio: AudioClipPlaying, recorder: VoiceRecording, haptics: FeedbackProviding, sounds: SoundEffectsPlaying = SilentSoundEffects()) {
+    init(
+        api: VocabAPI,
+        audio: AudioClipPlaying,
+        recorder: VoiceRecording,
+        haptics: FeedbackProviding,
+        sounds: SoundEffectsPlaying = SilentSoundEffects(),
+        recordingScoring: RecordingScoring = .onDevice,
+        transcriber: SpeechTranscribing? = nil
+    ) {
         self.api = api
         self.audio = audio
         self.recorder = recorder
         self.haptics = haptics
         self.sounds = sounds
+        self.recordingScoring = recordingScoring
+        self.transcriber = transcriber ?? OnDeviceSpeechTranscriber()
         recorder.onLimitReached = { [weak self] in
             Task { await self?.stopRecording() }
         }
@@ -231,12 +246,19 @@ final class PracticeSessionStore {
             recording = .blocked(reason: UnavailableReason.micDenied)
             return
         }
+        if canTranscribe == nil {
+            canTranscribe = transcriptTarget != nil ? await transcriber.requestAccess() : false
+        }
         do {
             try recorder.start()
             recording = .recording
         } catch {
             recording = .blocked(reason: UnavailableReason.recorderFailed)
         }
+    }
+
+    func inputLevel() -> Double {
+        recording == .recording ? recorder.inputLevel() : 0
     }
 
     func stopRecording() async {
@@ -246,7 +268,11 @@ final class PracticeSessionStore {
             return
         }
         pendingAudio = captured
-        await upload()
+        if canTranscribe == true, let transcriptTarget {
+            await assessOnDevice(against: transcriptTarget)
+        } else {
+            await upload()
+        }
     }
 
     func retryUpload() async {
@@ -257,6 +283,8 @@ final class PracticeSessionStore {
     func acceptRecording() {
         if let latestReceiptID {
             mutate { $0.finishRecording(receiptID: latestReceiptID) }
+        } else if currentAttempt?.hasTranscripts == true {
+            mutate { $0.finishTranscribed() }
         } else {
             let reason: String
             switch recording {
@@ -267,6 +295,26 @@ final class PracticeSessionStore {
             mutate { $0.markRecordingUnavailable(reason: reason) }
         }
         advance()
+    }
+
+    private var transcriptTarget: String? {
+        guard recordingScoring == .onDevice, case .recording(let accepted)? = currentAttempt?.task.body else { return nil }
+        return accepted.first
+    }
+
+    private func assessOnDevice(against target: String) async {
+        guard let pendingAudio, let taskID = currentAttempt?.task.id else { return }
+        recording = .uploading
+        let candidates = await transcriber.transcribe(pendingAudio)
+        guard currentAttempt?.task.id == taskID else { return }
+        let assessment = TranscriptMatcher.assess(candidates, target: target)
+        mutate { $0.recordTranscript(assessment.heard ?? "") }
+        recording = .assessed(assessment)
+        if assessment.passed == true {
+            haptics.success()
+        } else {
+            haptics.error()
+        }
     }
 
     private func upload() async {
@@ -424,6 +472,7 @@ final class PracticeSessionStore {
         recording = .idle
         pendingAudio = nil
         latestReceiptID = nil
+        canTranscribe = nil
         audioFailed = false
     }
 

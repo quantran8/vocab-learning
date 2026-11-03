@@ -246,6 +246,22 @@ struct TaskAttempt: Equatable {
         status = .recorded
     }
 
+    /// On-device takes are one `transcribed` event each and can't mix with the other two.
+    mutating func recordTranscript(_ transcript: String) {
+        guard !isFinished, task.template == .recording, canRecordAgain else { return }
+        append(.transcribed(Self.truncated(transcript, to: 200)))
+        assessmentCount += 1
+    }
+
+    var hasTranscripts: Bool {
+        events.contains { if case .transcribed = $0.action { true } else { false } }
+    }
+
+    mutating func finishTranscribed() {
+        guard !isFinished, hasTranscripts else { return }
+        status = .recorded
+    }
+
     mutating func markRecordingUnavailable(reason: String) {
         guard !isFinished, task.template == .recording else { return }
         append(.unavailable(reason: reason))

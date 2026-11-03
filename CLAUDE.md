@@ -64,3 +64,9 @@ Tokens live in the Keychain (`KeychainTokenStore`). Otherwise `UserDefaults`: `P
 
 ### Localization
 User-facing strings use `LocalizedStringKey` and live in `Resources/Localizable.xcstrings`. Learning content (Vietnamese meanings, feedback) comes from the JSON files, not the string catalog.
+
+**Rule: every displayed text that doesn't come from data (JSON content, backend responses, user input) must be localized** — UI labels, buttons, titles, errors, accessibility labels/hints/values, VoiceOver announcements, notification text.
+- View-facing parameters take `LocalizedStringKey`, not `String`. Where a `String` is required (stores, errors, `StreamingText`, models), build it with `String(localized:)`.
+- `Text(verbatim:)` / `Text(someString)` only for data, numbers/counters, or the brand name.
+- Every new key must be in `Localizable.xcstrings` (Xcode syncs it on build; `xcodebuild` does not). Check with the compiler's `.stringsdata` output when in doubt.
+- **Vietnamese (`vi`) is mandatory**: every key needs a `vi` translation (state `translated`) in the same change. Multi-argument strings use positional specifiers (`%1$@`, `%2$lld`). Info.plist strings (permission prompts) live in `Resources/InfoPlist.xcstrings`.

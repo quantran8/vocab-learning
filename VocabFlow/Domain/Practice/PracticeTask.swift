@@ -205,7 +205,8 @@ enum TaskBody: Equatable {
     case reorder(tiles: [TaskOption], accepted: [String])
     case match(left: [TaskOption], right: [TaskOption], correct: [PairKey])
     case surgery(word: String, wrongGraphemeIndex: Int, replacement: String)
-    case recording
+    /// The text to read. Empty for sessions issued before the backend sent it.
+    case recording(accepted: [String])
 }
 
 /// An unknown template or variant fails the whole plan: commit needs a result for every task,
@@ -265,7 +266,10 @@ struct PracticeTask: Decodable, Equatable, Identifiable {
     }
 
     private static func decodeBody(_ template: TaskTemplate, _ container: KeyedDecodingContainer<CodingKeys>) throws -> TaskBody {
-        guard template != .recording else { return .recording }
+        guard template != .recording else {
+            let evaluation = try container.decodeIfPresent(Evaluation.self, forKey: .evaluation)
+            return .recording(accepted: evaluation?.acceptedResponses ?? [])
+        }
         let evaluation = try container.decode(Evaluation.self, forKey: .evaluation)
 
         func required<Value>(_ value: Value?) throws -> Value {
@@ -299,7 +303,7 @@ struct PracticeTask: Decodable, Equatable, Identifiable {
                 replacement: try required(evaluation.replacement)
             )
         case .recording:
-            return .recording
+            return .recording(accepted: evaluation.acceptedResponses ?? [])
         }
     }
 }
@@ -319,6 +323,8 @@ struct RecordingAssessment: Decodable, Equatable {
     let validity: String
     let passed: Bool?
     let accuracyScore: Double?
+    /// On-device scoring only: the normalized transcript that was scored.
+    var heard: String? = nil
 
     /// False for silence or noise: not a fail, the learner should just read again.
     var isValid: Bool { validity == "valid" }

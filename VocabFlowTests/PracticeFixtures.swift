@@ -41,7 +41,7 @@ enum PracticeFixtures {
     }
 
     static func recording(prompt: TaskPrompt = .text("clarify"), maxRetries: Int? = nil) -> PracticeTask {
-        PracticeTask(id: "t-recording", template: .recording, variant: "scripted_pronunciation", prompt: prompt, question: nil, body: .recording, maxRetries: maxRetries)
+        PracticeTask(id: "t-recording", template: .recording, variant: "scripted_pronunciation", prompt: prompt, question: nil, body: .recording(accepted: ["clarify"]), maxRetries: maxRetries)
     }
 
     static let clip = AudioClip(url: URL(string: "https://example.com/a.mp3")!, locale: "en-US")
@@ -140,10 +140,18 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     }
 }
 
+final class StubTranscriber: SpeechTranscribing {
+    var hasAccess = true
+    var candidates: [String] = []
+    func requestAccess() async -> Bool { hasAccess }
+    func transcribe(_ audio: RecordedAudio) async -> [String] { candidates }
+}
+
 final class StubRecorder: VoiceRecording {
     var canRecord = true
     var hasAccess = true
     var onLimitReached: (@MainActor () -> Void)?
+    func inputLevel() -> Double { 0 }
     func requestAccess() async -> Bool { hasAccess }
     func start() throws {}
     func stop() -> RecordedAudio? { RecordedAudio(data: Data([1])) }

@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import Speech
 
 @MainActor
 protocol AudioClipPlaying: AnyObject {
@@ -123,6 +124,8 @@ protocol VoiceRecording: AnyObject {
     var canRecord: Bool { get }
     /// Fires when the time limit stops a recording.
     var onLimitReached: (@MainActor () -> Void)? { get set }
+    /// Smoothed input loudness, 0 (silence) to 1. Polled every frame while recording.
+    func inputLevel() -> Double
     func requestAccess() async -> Bool
     func start() throws
     /// Ends the recording and returns it; nil if nothing usable was captured.
@@ -137,13 +140,26 @@ final class VoiceRecorder: NSObject, VoiceRecording {
 
     var onLimitReached: (@MainActor () -> Void)?
 
+    private static let silenceFloor: Float = -50
+
     private var recorder: AVAudioRecorder?
+    private var smoothedLevel = 0.0
     private let fileURL = FileManager.default.temporaryDirectory.appending(path: "vocabflow-recording.wav")
 
     var canRecord: Bool { AVAudioApplication.shared.recordPermission != .denied }
 
     func requestAccess() async -> Bool {
         await AVAudioApplication.requestRecordPermission()
+    }
+
+    func inputLevel() -> Double {
+        guard let recorder, recorder.isRecording else { return 0 }
+        recorder.updateMeters()
+        let power = max(recorder.averagePower(forChannel: 0), Self.silenceFloor)
+        let level = Double((power - Self.silenceFloor) / -Self.silenceFloor)
+        // Rise at once, fall slowly, so the rings don't flicker between syllables.
+        smoothedLevel = level > smoothedLevel ? level : smoothedLevel * 0.88 + level * 0.12
+        return smoothedLevel
     }
 
     func start() throws {
@@ -159,6 +175,8 @@ final class VoiceRecorder: NSObject, VoiceRecording {
             AVLinearPCMIsBigEndianKey: false,
         ])
         recorder.delegate = self
+        recorder.isMeteringEnabled = true
+        smoothedLevel = 0
         guard recorder.record(forDuration: Self.maxDuration) else {
             throw CocoaError(.fileWriteUnknown)
         }
@@ -193,8 +211,59 @@ extension VoiceRecorder: AVAudioRecorderDelegate {
 final class NoVoiceRecorder: VoiceRecording {
     let canRecord = false
     var onLimitReached: (@MainActor () -> Void)?
+    func inputLevel() -> Double { 0 }
     func requestAccess() async -> Bool { false }
     func start() throws { throw CocoaError(.featureUnsupported) }
     func stop() -> RecordedAudio? { nil }
     func cancel() {}
+}
+
+@MainActor
+protocol SpeechTranscribing: AnyObject {
+    /// False when recognition can't run on this device: no permission, or no on-device model for English.
+    func requestAccess() async -> Bool
+    /// Candidate transcripts, best first; empty when nothing was recognized.
+    func transcribe(_ audio: RecordedAudio) async -> [String]
+}
+
+/// Recognizes a finished take with Apple's on-device model, so no audio leaves the phone.
+@MainActor
+final class OnDeviceSpeechTranscriber: SpeechTranscribing {
+    private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+    private let fileURL = FileManager.default.temporaryDirectory.appending(path: "vocabflow-transcribe.wav")
+
+    func requestAccess() async -> Bool {
+        guard let recognizer, recognizer.supportsOnDeviceRecognition, recognizer.isAvailable else { return false }
+        let status = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+        }
+        return status == .authorized
+    }
+
+    func transcribe(_ audio: RecordedAudio) async -> [String] {
+        guard let recognizer, (try? audio.data.write(to: fileURL)) != nil else { return [] }
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let request = SFSpeechURLRecognitionRequest(url: fileURL)
+        request.requiresOnDeviceRecognition = true
+        request.shouldReportPartialResults = false
+        return await withCheckedContinuation { continuation in
+            var resumed = false
+            // Silence arrives as an error ("no speech detected"), which is an invalid take, not a failure.
+            recognizer.recognitionTask(with: request) { result, error in
+                guard !resumed else { return }
+                if let result, result.isFinal {
+                    resumed = true
+                    continuation.resume(returning: result.transcriptions.map(\.formattedString))
+                } else if error != nil {
+                    resumed = true
+                    continuation.resume(returning: [])
+                }
+            }
+        }
+    }
+}
+
+final class NoSpeechTranscriber: SpeechTranscribing {
+    func requestAccess() async -> Bool { false }
+    func transcribe(_ audio: RecordedAudio) async -> [String] { [] }
 }
