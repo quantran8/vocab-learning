@@ -28,9 +28,11 @@ struct FeedbackActionPanel<Action: View>: View {
                             .foregroundStyle(accent(feedback.kind))
                     }
                     .font(Typography.emphasis)
-                    Text(feedback.message)
-                        .font(Typography.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+                    if !feedback.message.isEmpty {
+                        Text(feedback.message)
+                            .font(Typography.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .foregroundStyle(ink(feedback.kind))
                 .frame(maxWidth: .infinity, alignment: .leading)

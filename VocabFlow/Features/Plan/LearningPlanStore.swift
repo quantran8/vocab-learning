@@ -132,4 +132,15 @@ final class LearningPlanStore {
         storage.hasCompletedOnboarding = false
         hasCompletedOnboarding = false
     }
+
+    /// The account was deleted: forget the plan and cancel its reminders.
+    func erase() {
+        var off = current
+        off.reminderEnabled = false
+        let reminders = reminders
+        Task { await reminders.apply(off) }
+        storage.preferences = nil
+        preferences = nil
+        resetOnboarding()
+    }
 }

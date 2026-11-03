@@ -3,14 +3,21 @@ import SwiftUI
 struct MyWordsView: View {
     @Environment(LearnerStore.self) private var learner
     @Environment(PracticeSessionStore.self) private var practice
-    @State private var today = Date()
     @State private var query = ""
     @State private var selected: WordProgress?
     @State private var customWordSheet: CustomWordSheet?
 
+    /// Reaching this many rows from the end loads the next page.
+    private static let loadMoreDistance = 10
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var body: some View {
-        let allWords = learner.words
-        let words = allWords.filter { $0.matches(query) }
+        let words = learner.words
+        let stats = learner.wordStats
+        let needPractice = stats?.needPracticeWords ?? 0
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -24,13 +31,14 @@ struct MyWordsView: View {
                     addWordButton
                 }
 
-                if allWords.isEmpty {
+                if (stats?.learnedWords ?? words.count) == 0 && learner.wordsQuery.isEmpty {
                     emptyState
                         .padding(.top, Spacing.xl)
                 } else {
-                    let needPractice = allWords.filter(\.needsPractice).count
-                    LibraryStats(learned: allWords.count, needPractice: needPractice)
-                        .padding(.top, Spacing.m)
+                    if let stats {
+                        LibraryStats(learned: stats.learnedWords, needPractice: needPractice)
+                            .padding(.top, Spacing.m)
+                    }
 
                     SectionHeading(text: "Practice")
                         .padding(.top, Spacing.l)
@@ -67,19 +75,7 @@ struct MyWordsView: View {
                     SearchField(placeholder: "Search your words", text: $query)
                         .padding(.top, Spacing.s)
 
-                    if words.isEmpty {
-                        Text("No words match “\(query)”")
-                            .font(Typography.secondary)
-                            .foregroundStyle(Color.mutedInk)
-                            .padding(.vertical, Spacing.l - 2)
-                    } else {
-                        LazyVStack(spacing: 0) {
-                            ForEach(words) { word in
-                                row(word, isDue: word.isDue(on: today), isLast: word.id == words.last?.id)
-                            }
-                        }
-                        .padding(.top, Spacing.xs)
-                    }
+                    wordList(words)
                 }
             }
             .padding(.horizontal, Spacing.screenGutter)
@@ -87,10 +83,22 @@ struct MyWordsView: View {
             .padding(.bottom, Spacing.l)
         }
         .scrollDismissesKeyboard(.interactively)
-        .onAppear { today = .now }
         .refreshable { await learner.refresh() }
+        .task(id: trimmedQuery) {
+            let search = trimmedQuery
+            guard search != learner.wordsQuery else { return }
+            try? await Task.sleep(for: .milliseconds(300))
+            guard !Task.isCancelled else { return }
+            // Detached from this task: leaving the tab must not abandon a query the store already recorded.
+            Task { await learner.loadWords(matching: search) }
+        }
         .sheet(item: $selected) { word in
-            WordDetailSheet(word: vocabulary(for: word), learnedAt: word.learnedAt, skills: word.meanings.first?.skills)
+            WordDetailSheet(
+                word: vocabulary(for: word),
+                wordID: word.wordId,
+                meaningID: word.meanings.first?.meaningId,
+                playAudio: word.meanings.compactMap(\.meaning.audio).first.map { clip in { practice.playClip(clip) } }
+            )
         }
         .sheet(item: $customWordSheet) { sheet in
             switch sheet {
@@ -98,6 +106,65 @@ struct MyWordsView: View {
             case .list: CustomWordsView()
             }
         }
+    }
+
+    @ViewBuilder
+    private func wordList(_ words: [WordProgress]) -> some View {
+        if words.isEmpty {
+            if learner.isSearchingWords {
+                loadingRow
+            } else if let error = learner.wordsError {
+                retry(error) { await learner.loadWords(matching: trimmedQuery) }
+            } else if !learner.wordsQuery.isEmpty {
+                Text("No words match “\(learner.wordsQuery)”")
+                    .font(Typography.secondary)
+                    .foregroundStyle(Color.mutedInk)
+                    .padding(.vertical, Spacing.l - 2)
+            }
+        } else {
+            let loadMoreTrigger = words.suffix(Self.loadMoreDistance).first?.id
+            LazyVStack(spacing: 0) {
+                ForEach(words) { word in
+                    row(word, isLast: word.id == words.last?.id)
+                        .onAppear {
+                            guard word.id == loadMoreTrigger else { return }
+                            Task { await learner.loadMoreWords() }
+                        }
+                }
+                if learner.isLoadingMoreWords {
+                    loadingRow
+                } else if let error = learner.wordsError {
+                    retry(error) {
+                        if learner.hasMoreWords {
+                            await learner.loadMoreWords()
+                        } else {
+                            await learner.loadWords(matching: trimmedQuery)
+                        }
+                    }
+                }
+            }
+            .opacity(learner.isSearchingWords ? 0.5 : 1)
+            .padding(.top, Spacing.xs)
+        }
+    }
+
+    private var loadingRow: some View {
+        ProgressView()
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.m)
+    }
+
+    private func retry(_ message: String, action: @escaping () async -> Void) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            Text(verbatim: message)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.errorInk)
+                .fixedSize(horizontal: false, vertical: true)
+            SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
+                Task { await action() }
+            }
+        }
+        .padding(.vertical, Spacing.m)
     }
 
     private func startPractice(_ mode: SessionMode) {
@@ -138,7 +205,7 @@ struct MyWordsView: View {
         .buttonStyle(PressScaleButtonStyle())
     }
 
-    private func row(_ word: WordProgress, isDue: Bool, isLast: Bool) -> some View {
+    private func row(_ word: WordProgress, isLast: Bool) -> some View {
         Button {
             selected = word
         } label: {
@@ -153,9 +220,6 @@ struct MyWordsView: View {
                         .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 0)
-                if isDue {
-                    Chip(text: "Review", fill: .selectedSurface, foreground: .selectedInk)
-                }
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(Color.mutedInk)
@@ -178,7 +242,8 @@ struct MyWordsView: View {
             id: word.id,
             term: word.lemma,
             meaningVi: word.meaningText,
-            example: "",
+            example: word.meanings.compactMap { $0.meaning.examples?.first?.text }.first ?? "",
+            definitionEN: word.meanings.compactMap(\.meaning.definition).first,
             ipa: word.meanings.compactMap(\.meaning.ipa).first
         )
     }
@@ -297,10 +362,19 @@ private struct PracticeTile: View {
 
 /// Bottom sheet that opens with the same introduction the word got in its learn step, with the word
 /// at rest instead of animated, followed by the learner's skill progress.
-private struct WordDetailSheet: View {
+struct WordDetailSheet: View {
+    private enum Progress: Equatable {
+        case loading, failed
+        case loaded(WordDetail.Meaning?)
+    }
+
     let word: VocabularyItem
-    let learnedAt: Date?
-    let skills: MeaningSkills?
+    let wordID: String
+    let meaningID: String?
+    /// Plays recorded audio when there is some; otherwise the word is spoken by the device.
+    let playAudio: (() -> Void)?
+    @Environment(LearnerStore.self) private var learner
+    @State private var progress = Progress.loading
 
     var body: some View {
         ScrollView {
@@ -310,37 +384,75 @@ private struct WordDetailSheet: View {
                     SheetCloseButton()
                 }
 
-                WordIntroContent(word: word, presentation: word.introPresentation, animatesWord: false)
-                    .padding(.top, Spacing.s)
+                WordIntroContent(
+                    word: word,
+                    presentation: word.introPresentation,
+                    playAudio: playAudio,
+                    animatesWord: false
+                )
+                .padding(.top, Spacing.s)
 
-                if let skills {
-                    section("Skills") {
-                        VStack(alignment: .leading, spacing: Spacing.xs) {
-                            skillRow("Reading", skills.reading)
-                            skillRow("Writing", skills.writing)
-                            if let listening = skills.listening {
-                                skillRow("Listening", listening)
-                            }
-                            if let speaking = skills.speaking {
-                                skillRow("Speaking", speaking)
-                            }
-                        }
-                    }
-                }
-
-                if let learnedAt {
-                    Text("Learned \(learnedAt.formatted(date: .abbreviated, time: .omitted))")
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
-                }
+                progressContent
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
+        .task { await loadProgress() }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.canvas)
+    }
+
+    /// A meaning that isn't learned yet has no progress to show.
+    @ViewBuilder
+    private var progressContent: some View {
+        switch progress {
+        case .loading:
+            section("Skills") {
+                ProgressView()
+            }
+        case .failed:
+            section("Skills") {
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    Text("Couldn’t load your skills")
+                        .font(Typography.secondary)
+                        .foregroundStyle(Color.errorInk)
+                    SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
+                        Task { await loadProgress() }
+                    }
+                }
+            }
+        case .loaded(let meaning):
+            if let meaning, let learnedAt = meaning.learnedAt {
+                section("Skills") {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        skillRow("Reading", meaning.skills.reading)
+                        skillRow("Writing", meaning.skills.writing)
+                        if let listening = meaning.skills.listening {
+                            skillRow("Listening", listening)
+                        }
+                        if let speaking = meaning.skills.speaking {
+                            skillRow("Speaking", speaking)
+                        }
+                    }
+                }
+                Text("Learned \(learnedAt.formatted(date: .abbreviated, time: .omitted))")
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+            }
+        }
+    }
+
+    private func loadProgress() async {
+        progress = .loading
+        do {
+            let detail = try await learner.wordDetail(id: wordID)
+            progress = .loaded(detail.meanings.first { $0.meaningId == meaningID })
+        } catch {
+            guard !Task.isCancelled else { return }
+            progress = .failed
+        }
     }
 
     private func skillRow(_ name: LocalizedStringKey, _ skill: SkillState) -> some View {

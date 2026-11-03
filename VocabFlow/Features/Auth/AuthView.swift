@@ -82,6 +82,12 @@ struct AuthView: View {
                     .focused($focus, equals: .password)
                     .onSubmit(submit)
             }
+            if let notice = auth.accountDeletedNotice {
+                Text(verbatim: notice)
+                    .font(Typography.secondary)
+                    .foregroundStyle(Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let error = auth.errorMessage {
                 Text(verbatim: error)
                     .font(Typography.secondary)

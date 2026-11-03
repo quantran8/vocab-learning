@@ -2,6 +2,22 @@ import AVFoundation
 import Observation
 import Speech
 
+/// Activation blocks until the audio hardware answers, so it stays off the main thread.
+/// The async system API needs iOS 27. As an actor, requests also can't overlap and clobber each other's category.
+private actor AudioSessionActivator {
+    static let shared = AudioSessionActivator()
+
+    func activate(
+        _ category: AVAudioSession.Category,
+        mode: AVAudioSession.Mode,
+        options: AVAudioSession.CategoryOptions = []
+    ) throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(category, mode: mode, options: options)
+        try session.setActive(true)
+    }
+}
+
 @MainActor
 protocol AudioClipPlaying: AnyObject {
     var isPlaying: Bool { get }
@@ -19,15 +35,20 @@ final class AudioClipPlayer: NSObject, AudioClipPlaying {
 
     @ObservationIgnored private var player: AVAudioPlayer?
     @ObservationIgnored private var cache: [URL: Data] = [:]
+    /// Bumped by `stop()`, so a play still waiting on its clip or the session can tell it was called off.
+    @ObservationIgnored private var playRequest = 0
 
     var canPlay: Bool { !AVAudioSession.sharedInstance().currentRoute.outputs.isEmpty }
 
     func play(_ url: URL) async -> Bool {
         stop()
+        let request = playRequest
         do {
             let data = try await clip(url)
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio)
-            try AVAudioSession.sharedInstance().setActive(true)
+            // Checked before activating too: a stale play must not switch the category under a recording.
+            guard request == playRequest else { return false }
+            try await AudioSessionActivator.shared.activate(.playback, mode: .spokenAudio)
+            guard request == playRequest else { return false }
             let player = try AVAudioPlayer(data: data)
             player.delegate = self
             self.player = player
@@ -40,6 +61,7 @@ final class AudioClipPlayer: NSObject, AudioClipPlaying {
     }
 
     func stop() {
+        playRequest += 1
         player?.stop()
         player = nil
         isPlaying = false
@@ -79,33 +101,45 @@ protocol SoundEffectsPlaying: AnyObject {
 /// Short UI cues bundled in `Resources/Sounds`. Loaded once so they play without delay.
 @MainActor
 final class SoundEffects: SoundEffectsPlaying {
-    private let correct = SoundEffects.load("vocab_correct")
-    private let wrong = SoundEffects.load("vocab_wrong")
-    private let click = SoundEffects.load("click1")
+    /// Built off the main thread and handed over once, so the players are never shared while in use.
+    private struct Cues: @unchecked Sendable {
+        let correct = Cues.load("vocab_correct")
+        let wrong = Cues.load("vocab_wrong")
+        let click = Cues.load("click1")
 
-    func playCorrect() { playAnswer(correct) }
-    func playWrong() { playAnswer(wrong) }
+        private static func load(_ name: String) -> AVAudioPlayer? {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "wav"),
+                  let player = try? AVAudioPlayer(contentsOf: url)
+            else { return nil }
+            player.prepareToPlay()
+            return player
+        }
+    }
+
+    private var cues: Cues?
+
+    /// Preparing a player acquires audio hardware, which shouldn't hold up launch. A cue due before that finishes is skipped.
+    init() {
+        Task {
+            cues = await Task.detached(priority: .userInitiated) { Cues() }.value
+        }
+    }
+
+    func playCorrect() { playAnswer(cues?.correct) }
+    func playWrong() { playAnswer(cues?.wrong) }
 
     func playClick() {
-        click?.currentTime = 0
-        click?.play()
+        cues?.click?.currentTime = 0
+        cues?.click?.play()
     }
 
     /// An answer cue replaces the previous one instead of overlapping it.
     private func playAnswer(_ player: AVAudioPlayer?) {
         guard let player else { return }
-        correct?.stop()
-        wrong?.stop()
+        cues?.correct?.stop()
+        cues?.wrong?.stop()
         player.currentTime = 0
         player.play()
-    }
-
-    private static func load(_ name: String) -> AVAudioPlayer? {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "wav"),
-              let player = try? AVAudioPlayer(contentsOf: url)
-        else { return nil }
-        player.prepareToPlay()
-        return player
     }
 }
 
@@ -127,7 +161,7 @@ protocol VoiceRecording: AnyObject {
     /// Smoothed input loudness, 0 (silence) to 1. Polled every frame while recording.
     func inputLevel() -> Double
     func requestAccess() async -> Bool
-    func start() throws
+    func start() async throws
     /// Ends the recording and returns it; nil if nothing usable was captured.
     func stop() -> RecordedAudio?
     func cancel()
@@ -141,9 +175,12 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     var onLimitReached: (@MainActor () -> Void)?
 
     private static let silenceFloor: Float = -50
+    /// Time constant of the level's fall between syllables.
+    private static let levelRelease: TimeInterval = 0.25
 
     private var recorder: AVAudioRecorder?
     private var smoothedLevel = 0.0
+    private var lastLevelTime: TimeInterval = 0
     private let fileURL = FileManager.default.temporaryDirectory.appending(path: "vocabflow-recording.wav")
 
     var canRecord: Bool { AVAudioApplication.shared.recordPermission != .denied }
@@ -154,18 +191,22 @@ final class VoiceRecorder: NSObject, VoiceRecording {
 
     func inputLevel() -> Double {
         guard let recorder, recorder.isRecording else { return 0 }
+        let now = ProcessInfo.processInfo.systemUptime
+        let elapsed = now - lastLevelTime
+        // Several views read the level each frame; only the first read of a frame advances it.
+        guard elapsed > 1.0 / 240 else { return smoothedLevel }
+        lastLevelTime = now
         recorder.updateMeters()
         let power = max(recorder.averagePower(forChannel: 0), Self.silenceFloor)
         let level = Double((power - Self.silenceFloor) / -Self.silenceFloor)
-        // Rise at once, fall slowly, so the rings don't flicker between syllables.
-        smoothedLevel = level > smoothedLevel ? level : smoothedLevel * 0.88 + level * 0.12
+        // Rise at once, fall over a fixed time (not per call), so the rings don't flicker between syllables.
+        let keep = exp(-min(elapsed, 0.25) / Self.levelRelease)
+        smoothedLevel = level > smoothedLevel ? level : smoothedLevel * keep + level * (1 - keep)
         return smoothedLevel
     }
 
-    func start() throws {
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
-        try session.setActive(true)
+    func start() async throws {
+        try await AudioSessionActivator.shared.activate(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
         let recorder = try AVAudioRecorder(url: fileURL, settings: [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVSampleRateKey: 16_000,

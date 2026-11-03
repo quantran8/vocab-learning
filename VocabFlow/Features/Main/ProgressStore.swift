@@ -61,6 +61,12 @@ final class ProgressStore {
         save()
     }
 
+    /// The account was deleted.
+    func erase() {
+        progress = LearningProgress()
+        defaults?.removeObject(forKey: Self.key)
+    }
+
     private func save() {
         defaults?.set(try? JSONEncoder().encode(progress), forKey: Self.key)
     }

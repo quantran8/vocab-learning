@@ -5,6 +5,7 @@ struct AppSettingsView: View {
     @Environment(TemplateSandboxStore.self) private var sandbox
     @Environment(AuthStore.self) private var auth
     @Environment(\.motion) private var motion
+    @State private var isConfirmingDeletion = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -53,6 +54,26 @@ struct AppSettingsView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .disabled(auth.isDeletingAccount)
+                    Button {
+                        isConfirmingDeletion = true
+                    } label: {
+                        SettingRow(systemImage: "trash", title: "Delete account", subtitle: "Permanently removes your account and all your data", tint: .errorInk) {
+                            if auth.isDeletingAccount {
+                                ProgressView()
+                                    .accessibilityLabel("Deleting your account")
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(auth.isDeletingAccount)
+                    if let error = auth.accountDeletionError {
+                        Text(verbatim: error)
+                            .font(Typography.secondary)
+                            .foregroundStyle(Color.errorInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, Spacing.xs)
+                    }
                 }
             }
             .padding(.horizontal, Spacing.screenGutter)
@@ -61,6 +82,14 @@ struct AppSettingsView: View {
         }
         .background(Color.canvas)
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Delete your account?", isPresented: $isConfirmingDeletion, titleVisibility: .visible) {
+            Button("Delete account", role: .destructive) {
+                Task { await auth.deleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your progress, words and settings will be permanently deleted. This can’t be undone.")
+        }
     }
 
     private func group<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
@@ -82,6 +111,7 @@ private struct SettingRow<Trailing: View>: View {
     let systemImage: String
     let title: LocalizedStringKey
     let subtitle: LocalizedStringKey
+    var tint: Color = .ink
     @ViewBuilder let trailing: Trailing
 
     var body: some View {
@@ -92,13 +122,13 @@ private struct SettingRow<Trailing: View>: View {
                 .overlay(
                     Image(systemName: systemImage)
                         .font(.body.weight(.medium))
-                        .foregroundStyle(Color.ink)
+                        .foregroundStyle(tint)
                 )
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(title)
                     .font(Typography.secondary.weight(.bold))
-                    .foregroundStyle(Color.ink)
+                    .foregroundStyle(tint)
                 Text(subtitle)
                     .font(Typography.micro)
                     .foregroundStyle(Color.mutedInk)

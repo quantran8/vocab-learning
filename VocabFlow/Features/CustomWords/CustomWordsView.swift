@@ -1,29 +1,34 @@
 import SwiftUI
 
-/// Sheet listing the words the learner added: edit, restore the original, or remove.
+/// Sheet listing the words the learner added: tap for details, swipe to edit, restore the original, or remove.
 struct CustomWordsView: View {
     @Environment(CustomWordStore.self) private var store
+    @State private var selected: CustomWord?
     @State private var editing: CustomWord?
     @State private var removing: CustomWord?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.m) {
-                HStack {
-                    Eyebrow(text: "My Words")
-                    Spacer()
-                    SheetCloseButton()
-                }
+        VStack(alignment: .leading, spacing: Spacing.m) {
+            HStack {
                 ExerciseHeading("Words you added")
-                content
+                Spacer()
+                SheetCloseButton()
             }
             .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.l)
-            .padding(.bottom, Spacing.l)
+            content
         }
+        .padding(.top, Spacing.l)
         .task { await store.loadWords() }
         .refreshable { await store.loadWords() }
         .onDisappear { store.stopAudio() }
+        .sheet(item: $selected) { word in
+            WordDetailSheet(
+                word: vocabulary(for: word),
+                wordID: word.wordId,
+                meaningID: word.meaningId,
+                playAudio: word.audioUrl == nil ? nil : { store.play(word) }
+            )
+        }
         .sheet(item: $editing) { word in
             CustomWordEditView(initial: CustomWordEditDraft(word: word)) { edited in
                 editing = nil
@@ -40,6 +45,7 @@ struct CustomWordsView: View {
             Button("Remove", role: .destructive) {
                 Task { await store.remove(word) }
             }
+            Button("Cancel", role: .cancel) {}
         } message: { _ in
             Text("It won’t be scheduled for review and your edits will be deleted. Your learning history stays.")
         }
@@ -56,72 +62,90 @@ struct CustomWordsView: View {
                 .controlSize(.large)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Spacing.xl)
+            Spacer(minLength: 0)
         case .failed(let message):
-            Text(verbatim: message)
-                .font(Typography.secondary)
-                .foregroundStyle(Color.errorInk)
-                .fixedSize(horizontal: false, vertical: true)
-            SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
-                Task { await store.loadWords() }
+            VStack(alignment: .leading, spacing: Spacing.m) {
+                errorText(message)
+                SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
+                    Task { await store.loadWords() }
+                }
             }
+            .padding(.horizontal, Spacing.screenGutter)
+            Spacer(minLength: 0)
         case .ready:
             if let error = store.listError {
-                Text(verbatim: error)
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.errorInk)
-                    .fixedSize(horizontal: false, vertical: true)
+                errorText(error)
+                    .padding(.horizontal, Spacing.screenGutter)
             }
             if store.words.isEmpty {
                 Text("Words you add will collect here.")
                     .font(Typography.secondary)
                     .foregroundStyle(Color.mutedInk)
+                    .padding(.horizontal, Spacing.screenGutter)
+                Spacer(minLength: 0)
             } else {
-                LazyVStack(spacing: 0) {
-                    ForEach(store.words) { word in
-                        row(word)
-                    }
+                // Swipe actions only exist on List rows.
+                List(store.words) { word in
+                    row(word)
+                        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.screenGutter, bottom: 0, trailing: Spacing.screenGutter))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) { rowActions(word) }
                 }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
     }
 
+    private func errorText(_ message: String) -> some View {
+        Text(verbatim: message)
+            .font(Typography.secondary)
+            .foregroundStyle(Color.errorInk)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     private func row(_ word: CustomWord) -> some View {
-        HStack(alignment: .top, spacing: Spacing.s) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                HStack(spacing: Spacing.xs) {
+        Button {
+            if word.isEditable { selected = word }
+        } label: {
+            HStack(spacing: Spacing.s) {
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(verbatim: word.lemma)
                         .font(Typography.emphasis)
                         .foregroundStyle(word.recalled ? Color.disabledInk : Color.ink)
-                    Text(verbatim: word.partOfSpeech)
-                        .font(Typography.micro)
+                    status(word)
+                }
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                if word.isEditable {
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(Color.mutedInk)
-                    if word.overridden && word.isEditable {
-                        Chip(text: "Edited", fill: .selectedSurface, foreground: .selectedInk)
-                    }
+                        .accessibilityHidden(true)
                 }
-                status(word)
             }
-            Spacer(minLength: 0)
-            if word.audioUrl != nil && !word.recalled {
-                Button {
-                    store.play(word)
-                } label: {
-                    Image(systemName: "speaker.wave.2")
-                        .foregroundStyle(Color.selectedInk)
-                        .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(PressScaleButtonStyle())
-                .accessibilityLabel(Text("Play pronunciation"))
+            .padding(.vertical, Spacing.m)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(Color.neutralSurface).frame(height: 1)
             }
-            actions(word)
+            .contentShape(Rectangle())
         }
-        .padding(.vertical, Spacing.s)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color.neutralSurface).frame(height: 1)
-        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityHint(word.isEditable ? Text("Shows the word introduction") : Text(verbatim: ""))
         .opacity(store.busyMeaningIDs.contains(word.meaningId) ? 0.5 : 1)
         .disabled(store.busyMeaningIDs.contains(word.meaningId))
+    }
+
+    private func vocabulary(for word: CustomWord) -> VocabularyItem {
+        VocabularyItem(
+            id: word.meaningId,
+            term: word.lemma,
+            meaningVi: word.meaningText ?? "",
+            example: word.examples?.first?.text ?? "",
+            definitionEN: word.definitionText,
+            ipa: word.ipa
+        )
     }
 
     @ViewBuilder
@@ -140,36 +164,26 @@ struct CustomWordsView: View {
             if let meaning = word.meaningText {
                 Text(verbatim: meaning)
                     .font(Typography.secondary)
-                    .foregroundStyle(Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let definition = word.definitionText {
-                Text(verbatim: definition)
-                    .font(Typography.micro)
                     .foregroundStyle(Color.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    private func actions(_ word: CustomWord) -> some View {
-        Menu {
-            if word.isEditable {
-                Button("Edit", systemImage: "pencil") { editing = word }
-                if word.overridden {
-                    Button("Restore original", systemImage: "arrow.uturn.backward") {
-                        Task { await store.restoreOriginal(word) }
-                    }
+    /// Removal asks first, so it has no destructive role: that role animates the row away before the answer.
+    @ViewBuilder
+    private func rowActions(_ word: CustomWord) -> some View {
+        Button("Remove", systemImage: "trash") { removing = word }
+            .tint(Color.errorInk)
+        if word.isEditable {
+            Button("Edit", systemImage: "pencil") { editing = word }
+                .tint(Color.interactive)
+            if word.overridden {
+                Button("Restore original", systemImage: "arrow.uturn.backward") {
+                    Task { await store.restoreOriginal(word) }
                 }
+                .tint(Color.mutedInk)
             }
-            Button("Remove", systemImage: "trash", role: .destructive) { removing = word }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Color.mutedInk)
-                .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
-                .contentShape(Rectangle())
         }
-        .accessibilityLabel(Text("Actions for \(word.lemma)"))
     }
 }

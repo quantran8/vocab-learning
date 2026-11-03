@@ -4,6 +4,8 @@ enum MotionTokens {
     static let press = Animation.easeOut(duration: 0.12)
     static let lift = Animation.spring(response: 0.24, dampingFraction: 0.82)
     static let snap = Animation.spring(response: 0.32, dampingFraction: 0.76)
+    /// Time for a `snap` move to come to rest.
+    static let snapSettle: Double = 0.4
     static let returnToOrigin = Animation.spring(response: 0.34, dampingFraction: 0.84)
     static let feedback = Animation.spring(response: 0.36, dampingFraction: 0.68)
     static let transitionDuration: Double = 0.36

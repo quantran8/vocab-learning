@@ -49,15 +49,13 @@ enum PracticeFixtures {
     static let card = LearnCard(word: "clarify", meaning: "làm rõ", definition: nil, ipa: nil, audio: nil, examples: nil)
 
     static func word(_ lemma: String, nextReviewAt: Date?) -> WordProgress {
-        let skill = SkillState(status: .notVerified, needsPractice: false)
         let meaning = WordMeaning(
+            meaningId: "m-\(lemma)",
             meaning: WordMeaning.Sense(partOfSpeech: "verb", text: "nghĩa của \(lemma)", ipa: nil),
             learnedAt: nil,
-            nextReviewAt: nextReviewAt,
-            skills: MeaningSkills(reading: skill, writing: skill, listening: nil, speaking: nil),
-            needsPractice: false
+            nextReviewAt: nextReviewAt
         )
-        return WordProgress(wordId: lemma, lemma: lemma, meanings: [meaning], needsPractice: false, fullyVerified: false)
+        return WordProgress(wordId: lemma, lemma: lemma, meanings: [meaning])
     }
 
     static func json(_ value: some Encodable) throws -> Any {
@@ -75,10 +73,14 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     private(set) var planRequests: [PlanRequest] = []
     var library: [WordProgress] = []
     var wordsError: APIError?
+    var onWords: (() async -> Void)?
     var lookupResults: [Result<CustomWordLookup, APIError>] = []
     var addResults: [Result<CustomWordAdded, APIError>] = []
     var customWordList: [CustomWord] = []
     var removeError: APIError?
+    var deleteAccountError: APIError?
+    private(set) var deleteAccountCalls = 0
+    private(set) var signOutCalls = 0
     var onLookup: (() async -> Void)?
     private(set) var lookups: [CustomWordQuery] = []
     private(set) var removed: [String] = []
@@ -87,7 +89,11 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     func signUp(email: String, password: String) async throws -> SignupResult { SignupResult(session: nil, confirmationRequired: true) }
     func logIn(email: String, password: String) async throws {}
     func logIn(googleIDToken: String, nonce: String?) async throws {}
-    func signOut() async {}
+    func signOut() async { signOutCalls += 1 }
+    func deleteAccount() async throws {
+        deleteAccountCalls += 1
+        if let deleteAccountError { throw deleteAccountError }
+    }
     func profile() async throws -> UserProfile { throw APIError.transport }
     func updateLevels(_ level: CEFRLevel) async throws {}
     func updateSettings(_ settings: SettingsUpdate) async throws {}
@@ -95,10 +101,14 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     func catalog() async throws -> [CatalogCollection] { [] }
     func learnHome() async throws -> LearnHome { LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0) }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
-    func words(limit: Int, offset: Int) async throws -> [WordProgress] {
+    func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] {
         if let wordsError { throw wordsError }
-        return Array(library.dropFirst(offset).prefix(limit))
+        await onWords?()
+        let matching = library.filter { query?.isEmpty != false || $0.lemma.contains(query!) }
+        return Array(matching.dropFirst(offset).prefix(limit))
     }
+    func wordStats() async throws -> WordStats { WordStats(learnedWords: library.count, needPracticeWords: 0) }
+    func wordDetail(id: String) async throws -> WordDetail { throw APIError.transport }
 
     func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup {
         lookups.append(query)

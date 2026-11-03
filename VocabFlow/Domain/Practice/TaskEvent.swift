@@ -16,7 +16,7 @@ struct TaskEvent: Encodable, Equatable {
         case reveal
         case assessed(receiptID: String)
         case unavailable(reason: String)
-        /// On-device take. The backend re-scores the transcript against the task's text.
+        /// On-device take. The backend re-checks the transcript against the task's text.
         case transcribed(String)
 
         var isSubmit: Bool {

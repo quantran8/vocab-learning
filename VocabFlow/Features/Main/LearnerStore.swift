@@ -13,8 +13,19 @@ final class LearnerStore {
     private(set) var profile: UserProfile?
     private(set) var home: LearnHome?
     private(set) var challenges: [CheckpointChallenge] = []
+    /// The pages loaded so far for `wordsQuery`, not the whole library.
     private(set) var words: [WordProgress] = []
+    private(set) var wordStats: WordStats?
+    private(set) var wordsQuery = ""
+    private(set) var hasMoreWords = false
+    private(set) var isSearchingWords = false
+    private(set) var isLoadingMoreWords = false
+    private(set) var wordsError: String?
 
+    static let wordsPageSize = 50
+
+    /// Bumped by every first-page load, so answers for an older query or list are ignored.
+    private var wordsGeneration = 0
     private let api: VocabAPI
     private let plan: LearningPlanStore
 
@@ -48,10 +59,63 @@ final class LearnerStore {
     func refresh() async {
         async let home = try? api.learnHome()
         async let challenges = try? api.checkpointChallenges()
-        async let words = try? api.allWords()
+        async let stats = try? api.wordStats()
+        async let library: Void = loadWords(matching: wordsQuery)
         if let home = await home { self.home = home }
         if let challenges = await challenges { self.challenges = challenges }
-        if let words = await words { self.words = words }
+        if let stats = await stats { wordStats = stats }
+        await library
+    }
+
+    /// Replaces the list with the first page for `query`. A failed reload keeps what is on screen,
+    /// but a failed new search clears it: those rows don't answer the new query.
+    func loadWords(matching query: String) async {
+        wordsGeneration += 1
+        let generation = wordsGeneration
+        let isNewQuery = query != wordsQuery
+        wordsQuery = query
+        isSearchingWords = true
+        isLoadingMoreWords = false
+        wordsError = nil
+        do {
+            let page = try await api.words(limit: Self.wordsPageSize, offset: 0, query: query)
+            guard generation == wordsGeneration else { return }
+            words = page
+            hasMoreWords = page.count == Self.wordsPageSize
+        } catch {
+            guard generation == wordsGeneration else { return }
+            if isNewQuery {
+                words = []
+                hasMoreWords = false
+            }
+            if !Task.isCancelled { wordsError = error.asAPIError.userMessage }
+        }
+        isSearchingWords = false
+    }
+
+    /// Appends the next page, if there is one and nothing is loading already.
+    func loadMoreWords() async {
+        guard hasMoreWords, !isLoadingMoreWords, !isSearchingWords else { return }
+        let generation = wordsGeneration
+        isLoadingMoreWords = true
+        wordsError = nil
+        do {
+            let page = try await api.words(limit: Self.wordsPageSize, offset: words.count, query: wordsQuery)
+            guard generation == wordsGeneration else { return }
+            // Learning a word between pages shifts the offsets, so a word can come back twice.
+            let known = Set(words.map(\.id))
+            words += page.filter { !known.contains($0.id) }
+            hasMoreWords = page.count == Self.wordsPageSize
+        } catch {
+            guard generation == wordsGeneration else { return }
+            if !Task.isCancelled { wordsError = error.asAPIError.userMessage }
+        }
+        isLoadingMoreWords = false
+    }
+
+    /// Skill states are only read when a word is opened.
+    func wordDetail(id: String) async throws -> WordDetail {
+        try await api.wordDetail(id: id)
     }
 
     /// Scope and goal go to the server first, so a failed save leaves the local plan unchanged.
@@ -72,7 +136,14 @@ final class LearnerStore {
         profile = nil
         home = nil
         challenges = []
+        wordsGeneration += 1
         words = []
+        wordStats = nil
+        wordsQuery = ""
+        hasMoreWords = false
+        isSearchingWords = false
+        isLoadingMoreWords = false
+        wordsError = nil
     }
 
     /// `timeZone` defines the learner's "day" for the daily goal; `uiLocale` localizes the catalog.

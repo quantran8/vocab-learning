@@ -6,8 +6,8 @@ struct ClozeTaskView: View {
     let attempt: TaskAttempt
     @Environment(PracticeSessionStore.self) private var store
     @Environment(\.motion) private var motion
-    @Namespace private var flightSpace
     @State private var selectedID: Int?
+    @State private var lastFlight: Date?
 
     var body: some View {
         TaskScaffold(attempt: attempt) {
@@ -17,18 +17,29 @@ struct ClozeTaskView: View {
                     ClozeSentence(
                         parts: sentence,
                         filled: options.first { $0.id == filledID },
-                        filledState: filledState,
-                        flightSpace: flightSpace,
                         onRemove: remove
                     )
-                    // Above the bank, so a word leaving for the blank isn't drawn under the gray slots.
-                    .zIndex(1)
                     FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs) {
                         ForEach(options) { option in
-                            bankSlot(option, filledID: filledID)
+                            bankSlot(option)
                         }
                     }
                     .frame(maxWidth: .infinity)
+                }
+                // Above both the sentence and the bank, so a flying word is never drawn under either.
+                // Placed from anchors inside this stack, so the step's entrance moves them with it and they never fly in.
+                .overlayPreferenceValue(ClozeFramesKey.self) { frames in
+                    GeometryReader { proxy in
+                        ForEach(options) { option in
+                            let isFilled = option.id == filledID
+                            if let anchor = frames[isFilled ? .blank : .slot(option.id)] {
+                                let frame = proxy[anchor]
+                                tile(option, isFilled: isFilled)
+                                    .frame(width: frame.width, height: frame.height)
+                                    .position(x: frame.midX, y: frame.midY)
+                            }
+                        }
+                    }
                 }
                 .animation(motion.travel(MotionTokens.snap), value: filledID)
             }
@@ -38,6 +49,10 @@ struct ClozeTaskView: View {
                 store.submitOption(selectedID)
                 self.selectedID = nil
             }
+        }
+        // "Try again" sends the wrong word back to the bank.
+        .onChange(of: attempt.status) {
+            if attempt.status == .answering { lastFlight = .now }
         }
     }
 
@@ -58,29 +73,44 @@ struct ClozeTaskView: View {
         }
     }
 
+    /// Words ignore taps while any word is in the air, so a double-tap can't send one straight back.
+    private func tap(_ option: TaskOption, isFilled: Bool) {
+        if let lastFlight, Date.now.timeIntervalSince(lastFlight) < MotionTokens.snapSettle { return }
+        lastFlight = .now
+        isFilled ? remove() : pick(option.id)
+    }
+
+    /// A word already in the blank flies home while the new one flies in.
+    private func pick(_ id: Int) {
+        guard attempt.status == .answering else { return }
+        selectedID = id
+        store.answerPicked()
+    }
+
     private func remove() {
         guard attempt.status == .answering else { return }
         selectedID = nil
         store.answerPicked()
     }
 
-    private func bankTile(_ option: TaskOption) -> some View {
-        let tileState: WordTileVisualState = attempt.isFinished ? .disabled : .idle
+    /// Each word is one view for the whole task, and flying only changes which frame it is placed on.
+    /// Nothing is inserted or removed, so no fading copy of a word is left behind to catch the next move.
+    private func tile(_ option: TaskOption, isFilled: Bool) -> some View {
+        let tileState: WordTileVisualState = isFilled ? filledState : (attempt.isFinished ? .disabled : .idle)
         return Button {
-            selectedID = option.id
-            store.answerPicked()
+            tap(option, isFilled: isFilled)
         } label: {
             ClozeTile(text: option.text, state: tileState)
         }
         .buttonStyle(PressScaleButtonStyle())
-        .disabled(tileState == .disabled)
-        .matchedGeometryEffect(id: option.id, in: flightSpace)
+        .disabled(attempt.status != .answering)
+        // The sentence reads the filled word and offers removing it.
+        .accessibilityHidden(isFilled)
         .accessibilityLabel(Text("\(option.text), option"))
     }
 
-    /// Holds the word's place so the bank doesn't reflow. The gray stand-in sits under the tile rather than
-    /// replacing it, so it stays until a returning word lands.
-    private func bankSlot(_ option: TaskOption, filledID: Int?) -> some View {
+    /// Holds the word's place so the bank doesn't reflow. The gray stand-in shows whenever the word is away.
+    private func bankSlot(_ option: TaskOption) -> some View {
         ClozeTile(text: option.text, state: .idle)
             .hidden()
             .background {
@@ -89,11 +119,20 @@ struct ClozeTaskView: View {
                     .padding(.bottom, Spacing.tileDepth)
             }
             .accessibilityHidden(true)
-            .overlay {
-                if option.id != filledID {
-                    bankTile(option)
-                }
-            }
+            .anchorPreference(key: ClozeFramesKey.self, value: .bounds) { [.slot(option.id): $0] }
+    }
+}
+
+/// The frames a word can sit in.
+private enum ClozeFlightTarget: Hashable {
+    case blank
+    case slot(Int)
+}
+
+private struct ClozeFramesKey: PreferenceKey {
+    static let defaultValue: [ClozeFlightTarget: Anchor<CGRect>] = [:]
+    static func reduce(value: inout [ClozeFlightTarget: Anchor<CGRect>], nextValue: () -> [ClozeFlightTarget: Anchor<CGRect>]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -157,8 +196,6 @@ private struct ClozeTile: View {
 private struct ClozeSentence: View {
     let parts: SentenceParts
     let filled: TaskOption?
-    let filledState: WordTileVisualState
-    let flightSpace: Namespace.ID
     let onRemove: () -> Void
 
     private static let blankWidth: CGFloat = 72
@@ -190,18 +227,17 @@ private struct ClozeSentence: View {
             .frame(minHeight: Spacing.minTouchTarget)
     }
 
-    @ViewBuilder private var blank: some View {
-        if let filled {
-            Button(action: onRemove) {
-                ClozeTile(text: filled.text, state: filledState)
+    /// Always in place and only sized here: the word itself is drawn above, following this frame.
+    private var blank: some View {
+        ClozeTile(text: filled?.text ?? "", state: .idle)
+            .hidden()
+            .frame(width: filled == nil ? Self.blankWidth : nil)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.interactive)
+                    .frame(height: 2)
+                    .opacity(filled == nil ? 1 : 0)
             }
-            .buttonStyle(.plain)
-            .matchedGeometryEffect(id: filled.id, in: flightSpace)
-        } else {
-            Rectangle()
-                .fill(Color.interactive)
-                .frame(width: Self.blankWidth, height: 2)
-                .frame(minHeight: Spacing.minTouchTarget, alignment: .bottom)
-        }
+            .anchorPreference(key: ClozeFramesKey.self, value: .bounds) { [.blank: $0] }
     }
 }

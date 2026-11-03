@@ -6,7 +6,7 @@ struct RecordingTaskView: View {
     @Environment(PracticeSessionStore.self) private var store
 
     var body: some View {
-        TaskScaffold(attempt: attempt) {
+        TaskScaffold(attempt: attempt, feedback: feedback) {
             VStack(spacing: Spacing.m) {
                 micButton
                 status
@@ -35,7 +35,8 @@ struct RecordingTaskView: View {
 
     private var canUseMic: Bool {
         switch store.recording {
-        case .uploading, .blocked: false
+        // A take's result waits for "Try again" before the mic works again.
+        case .uploading, .blocked, .assessed: false
         case .recording: true
         default: attempt.canRecordAgain
         }
@@ -53,8 +54,8 @@ struct RecordingTaskView: View {
             }
         case .uploading:
             ProgressView()
-        case .assessed(let assessment):
-            result(assessment)
+        case .assessed:
+            EmptyView()
         case .uploadFailed:
             statusText("Couldn’t check your recording.")
         case .blocked(let reason):
@@ -64,24 +65,35 @@ struct RecordingTaskView: View {
         }
     }
 
-    @ViewBuilder
-    private func result(_ assessment: RecordingAssessment) -> some View {
-        if !assessment.isValid {
-            statusText(attempt.canRecordAgain ? "We couldn’t hear you clearly. Try reading again." : "We couldn’t hear you clearly.")
-        } else {
-            VStack(spacing: Spacing.xxs) {
-                if let score = assessment.accuracyScore {
-                    Text(score, format: .number.precision(.fractionLength(0)))
-                        .font(Typography.display.monospacedDigit())
-                        .foregroundStyle(assessment.passed == true ? Color.successInk : Color.errorInk)
-                }
-                statusText(assessment.passed == true ? "Great pronunciation!" : (attempt.canRecordAgain ? "Close. Try once more?" : "Close. Keep practicing."))
-                if let heard = assessment.heard, assessment.passed != true {
-                    statusText("We heard “\(heard)”")
-                }
-            }
-            .accessibilityElement(children: .combine)
+    /// While a take's result is shown, the panel holds it and the mic waits for "Try again".
+    private var feedback: FeedbackCopy? {
+        guard case .assessed(let assessment) = store.recording else { return nil }
+        guard assessment.isValid else {
+            let title = attempt.canRecordAgain
+                ? String(localized: "We couldn’t hear you clearly. Try reading again.")
+                : String(localized: "We couldn’t hear you clearly.")
+            return FeedbackCopy(kind: .info, title: title, message: "")
         }
+        let passed = assessment.passed == true
+        return FeedbackCopy(kind: passed ? .success : .error, title: resultTitle(passed: passed), message: resultMessage(assessment, passed: passed))
+    }
+
+    private func resultTitle(passed: Bool) -> String {
+        if attempt.hasTranscripts {
+            return passed ? String(localized: "Correct!") : String(localized: "Not quite")
+        }
+        if passed { return String(localized: "Great pronunciation!") }
+        return attempt.canRecordAgain ? String(localized: "Close. Try once more?") : String(localized: "Close. Keep practicing.")
+    }
+
+    private func resultMessage(_ assessment: RecordingAssessment, passed: Bool) -> String {
+        if let score = assessment.accuracyScore {
+            return score.formatted(.number.precision(.fractionLength(0)))
+        }
+        if let heard = assessment.heard, !passed {
+            return String(localized: "We heard “\(heard)”")
+        }
+        return ""
     }
 
     private func statusText(_ text: LocalizedStringKey) -> some View {
@@ -95,8 +107,12 @@ struct RecordingTaskView: View {
     @ViewBuilder
     private var actions: some View {
         switch store.recording {
-        case .assessed(let assessment) where assessment.isValid || !attempt.canRecordAgain:
+        case .assessed(let assessment) where assessment.passed == true || !attempt.canRecordAgain:
             PrimaryButton(title: "Continue") { store.acceptRecording() }
+        case .assessed(let assessment):
+            PrimaryButton(title: "Try again") { store.retryRecording() }
+            // An invalid take is nothing to keep, so leaving it reads as skipping.
+            SecondaryButton(title: assessment.isValid ? "Continue" : "Can’t speak now") { store.acceptRecording() }
         case .uploadFailed:
             PrimaryButton(title: "Try again") {
                 Task { await store.retryUpload() }
@@ -104,7 +120,7 @@ struct RecordingTaskView: View {
             SecondaryButton(title: "Skip") { store.acceptRecording() }
         case .blocked:
             PrimaryButton(title: "Continue") { store.acceptRecording() }
-        case .idle, .assessed:
+        case .idle:
             SecondaryButton(title: "Can’t speak now") { store.acceptRecording() }
         case .recording, .uploading:
             EmptyView()
@@ -112,7 +128,7 @@ struct RecordingTaskView: View {
     }
 }
 
-/// Record control: breathes at rest; the halo and voice ripples appear only while recording.
+/// Record control: breathes at rest; the halo and voice ripples appear only while the mic hears a voice.
 private struct RecordingPulseButton: View {
     let isRecording: Bool
     let isEnabled: Bool
@@ -121,13 +137,19 @@ private struct RecordingPulseButton: View {
 
     @Environment(\.motion) private var motion
 
-    private static let buttonSize: CGFloat = 104
-    private static let haloScales: [CGFloat] = [1.22, 1.5, 1.8]
-    private static let haloSwell: CGFloat = 0.22
+    private static let buttonSize: CGFloat = 128
+    private static let haloScales: [CGFloat] = [1.3, 1.65, 2.0]
+    /// Inner to outer ring, fading toward the canvas.
+    private static let haloColors: [Color] = [.selectedDepth, .slotTargetedSurface, .selectedSurface]
+    private static let haloSwell: CGFloat = 0.12
+    private static let haloPulseDepth: CGFloat = 0.04
+    private static let haloPulsePeriod: Double = 1.4
     private static let rippleCount = 3
-    private static let ripplePeriod: Double = 1.6
+    private static let ripplePeriod: Double = 2.1
     private static let breathDepth: CGFloat = 0.07
     private static let breathPeriod: Double = 3.2
+
+    @State private var envelope = VoiceEnvelope()
 
     private var isLive: Bool { isRecording && !motion.reduceMotion }
     private var isBreathing: Bool { !isRecording && isEnabled && !motion.reduceMotion }
@@ -135,14 +157,17 @@ private struct RecordingPulseButton: View {
     var body: some View {
         TimelineView(.animation(paused: !isLive && !isBreathing)) { context in
             let time = context.date.timeIntervalSinceReferenceDate
-            let loudness = isLive ? level() : 0
+            // Reduce Motion has no live level, so the halo stays on as the static recording cue.
+            let voice = isLive
+                ? envelope.update(level: level(), at: time)
+                : VoiceEnvelope.Output(presence: isRecording ? 1 : 0, swell: 0)
             ZStack {
                 ZStack {
-                    halo(swell: CGFloat(loudness))
-                        .opacity(isRecording ? 1 : 0)
-                        .scaleEffect(isRecording ? 1 : 0.8)
+                    halo(growth: CGFloat(voice.presence), swell: CGFloat(voice.swell), pulse: isLive ? pulse(at: time) : 0)
+                        .compositingGroup()
+                        .opacity(min(voice.presence * 2, 1))
                     if isLive {
-                        ripples(at: time, loudness: loudness)
+                        ripples(at: time, presence: voice.presence, swell: voice.swell)
                     }
                 }
                 .allowsHitTesting(false)
@@ -153,7 +178,12 @@ private struct RecordingPulseButton: View {
             }
             .animation(motion.animation(MotionTokens.transition), value: isRecording)
         }
-        .frame(width: Self.buttonSize * 2, height: Self.buttonSize * 2)
+        .frame(width: Self.buttonSize * 2.5, height: Self.buttonSize * 2.5)
+    }
+
+    /// A slow, steady swell of the halo while a voice is heard, independent of loudness.
+    private func pulse(at time: TimeInterval) -> CGFloat {
+        CGFloat(sin(time * 2 * .pi / Self.haloPulsePeriod))
     }
 
     private func breath(at time: TimeInterval) -> CGFloat {
@@ -163,13 +193,11 @@ private struct RecordingPulseButton: View {
     private var recordButton: some View {
         Button(action: action) {
             Image(systemName: isRecording ? "pause.fill" : "play.fill")
-                .font(.system(size: 38, weight: .bold))
+                .font(.system(size: 46, weight: .bold))
                 .foregroundStyle(isEnabled ? Color.surface : Color.disabledInk)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: Self.buttonSize, height: Self.buttonSize)
                 .background(isEnabled ? Color.interactive : Color.disabledSurface, in: Circle())
-                .overlay(Circle().strokeBorder(Color.surface.opacity(isEnabled ? 0.35 : 0), lineWidth: 2))
-                .shadow(color: Color.interactiveDepth.opacity(isEnabled ? 0.35 : 0), radius: 16, y: 6)
                 .contentShape(Circle())
         }
         .buttonStyle(PressScaleButtonStyle())
@@ -177,32 +205,89 @@ private struct RecordingPulseButton: View {
         .accessibilityLabel(Text(isRecording ? "Stop recording" : "Start recording"))
     }
 
-    /// Outer rings swell more than inner ones, so loud speech spreads the halo apart.
-    private func halo(swell: CGFloat) -> some View {
+    /// Rings grow out from behind the button as `growth` goes 0 → 1.
+    /// Outer rings swell and pulse more than inner ones, so the halo spreads apart while speaking.
+    private func halo(growth: CGFloat, swell: CGFloat, pulse: CGFloat) -> some View {
         ZStack {
             ForEach(Array(Self.haloScales.enumerated().reversed()), id: \.offset) { index, scale in
-                let grown = scale + swell * Self.haloSwell * CGFloat(index + 1)
+                let reach = CGFloat(index + 1)
+                let rest = 1 + (scale - 1) * growth
+                let grown = rest + (swell * Self.haloSwell + pulse * Self.haloPulseDepth * growth) * reach
                 Circle()
-                    .fill(Color.interactive.opacity(isEnabled ? 0.16 - Double(index) * 0.04 : 0.05))
+                    .fill(isEnabled ? Self.haloColors[index] : Color.disabledSurface)
                     .frame(width: Self.buttonSize * grown, height: Self.buttonSize * grown)
             }
         }
     }
 
-    /// Ripples always travel at the same pace; loudness sets how far and how visibly they spread, so silence shows none.
-    private func ripples(at time: TimeInterval, loudness: Double) -> some View {
+    /// Ripples leave the button at a steady pace and ease out as they spread, like sound waves.
+    /// Their visibility follows the smoothed presence, not the raw level, so they never flicker.
+    private func ripples(at time: TimeInterval, presence: Double, swell: Double) -> some View {
         ZStack {
             ForEach(0..<Self.rippleCount, id: \.self) { index in
                 let phase = (time / Self.ripplePeriod + Double(index) / Double(Self.rippleCount))
                     .truncatingRemainder(dividingBy: 1)
-                let fade = (1 - phase) * loudness
+                let spread = 1 - (1 - phase) * (1 - phase)
+                let fade = (1 - phase) * (1 - phase) * presence
                 Circle()
-                    .strokeBorder(Color.interactive.opacity(0.5 * fade), lineWidth: 2)
-                    .background(Circle().fill(Color.interactive.opacity(0.14 * fade)))
+                    .strokeBorder(Color.interactive.opacity(fade), lineWidth: 2)
                     .frame(width: Self.buttonSize, height: Self.buttonSize)
-                    .scaleEffect(1 + phase * (0.4 + 0.6 * loudness))
+                    .scaleEffect(1 + spread * (0.95 + 0.25 * swell))
             }
         }
+    }
+}
+
+/// Turns the jumpy mic level into a calm signal: the halo fades in when a voice starts,
+/// holds through the short gaps between words, and fades out only after a real pause.
+private final class VoiceEnvelope {
+    struct Output {
+        let presence: Double
+        let swell: Double
+    }
+
+    /// Mic level where room noise ends and a voice begins.
+    private static let voiceGate = 0.22
+    /// Mic level span above the gate that maps to a full swell.
+    private static let swellRange = 0.3
+    /// How long the halo stays after the voice drops, bridging gaps between words.
+    private static let hold: TimeInterval = 0.5
+    /// Seconds for the halo to grow fully in, and to shrink back out.
+    private static let growIn: TimeInterval = 0.55
+    private static let shrinkOut: TimeInterval = 0.7
+    private static let swellEase: TimeInterval = 0.2
+
+    private var presence = 0.0
+    private var swell = 0.0
+    private var lastHeard = -Double.infinity
+    private var lastTime: TimeInterval?
+
+    func update(level: Double, at time: TimeInterval) -> Output {
+        // A gap in updates means a new recording: start from silence, not from the last one's tail.
+        if let lastTime, time - lastTime > 0.25 {
+            presence = 0
+            swell = 0
+            lastHeard = -.infinity
+        }
+        let elapsed = lastTime.map { min(max(time - $0, 0), 0.1) } ?? 0
+        lastTime = time
+
+        if level > Self.voiceGate { lastHeard = time }
+        let target = time - lastHeard < Self.hold ? 1.0 : 0
+        // A steady ramp (not an exponential, which front-loads the change into the first frames),
+        // eased at both ends on output, so the halo visibly grows instead of popping in.
+        let step = elapsed / (target > presence ? Self.growIn : Self.shrinkOut)
+        presence = target > presence ? min(presence + step, target) : max(presence - step, target)
+        let eased = presence * presence * (3 - 2 * presence)
+
+        let loud = min(max((level - Self.voiceGate) / Self.swellRange, 0), 1)
+        swell = Self.approach(swell, loud, elapsed, Self.swellEase)
+
+        return Output(presence: eased, swell: swell * eased)
+    }
+
+    private static func approach(_ value: Double, _ target: Double, _ elapsed: TimeInterval, _ timeConstant: TimeInterval) -> Double {
+        value + (target - value) * (1 - exp(-elapsed / timeConstant))
     }
 }
 

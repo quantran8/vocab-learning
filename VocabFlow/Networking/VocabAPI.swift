@@ -121,37 +121,41 @@ struct WordMeaning: Decodable, Equatable {
         let partOfSpeech: String
         let text: String
         let ipa: String?
+        var definition: String?
+        var audio: AudioClip?
+        var examples: [LearnCard.Example]?
     }
 
+    let meaningId: String
     let meaning: Sense
     let learnedAt: Date?
     let nextReviewAt: Date?
-    let skills: MeaningSkills
-    let needsPractice: Bool
 }
 
+/// One library row. Skill states are not part of it: they load with `WordDetail` when a word opens.
 struct WordProgress: Decodable, Equatable, Identifiable {
     let wordId: String
     let lemma: String
     let meanings: [WordMeaning]
-    let needsPractice: Bool
-    let fullyVerified: Bool
 
     var id: String { wordId }
-    var learnedAt: Date? { meanings.compactMap(\.learnedAt).max() }
     var meaningText: String { meanings.map(\.meaning.text).joined(separator: "; ") }
+}
 
-    func isDue(on date: Date) -> Bool {
-        meanings.contains { $0.nextReviewAt.map { $0 <= date } ?? false }
+/// Library-wide figures, independent of paging and search.
+struct WordStats: Decodable, Equatable {
+    let learnedWords: Int
+    let needPracticeWords: Int
+}
+
+struct WordDetail: Decodable, Equatable {
+    struct Meaning: Decodable, Equatable {
+        let meaningId: String
+        let learnedAt: Date?
+        let skills: MeaningSkills
     }
 
-    /// Case- and diacritic-insensitive match on the English word or its meanings.
-    func matches(_ query: String) -> Bool {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return true }
-        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
-        return lemma.range(of: needle, options: options) != nil || meaningText.range(of: needle, options: options) != nil
-    }
+    let meanings: [Meaning]
 }
 
 /// One due word, shown before a session's review tasks.
@@ -187,6 +191,8 @@ protocol VocabAPI: Sendable {
     func logIn(email: String, password: String) async throws
     func logIn(googleIDToken: String, nonce: String?) async throws
     func signOut() async
+    /// Permanent. On failure nothing was deleted.
+    func deleteAccount() async throws
 
     func profile() async throws -> UserProfile
     func updateLevels(_ level: CEFRLevel) async throws
@@ -196,7 +202,10 @@ protocol VocabAPI: Sendable {
 
     func learnHome() async throws -> LearnHome
     func checkpointChallenges() async throws -> [CheckpointChallenge]
-    func words(limit: Int, offset: Int) async throws -> [WordProgress]
+    /// `query` searches on the server, across the English word and its meanings.
+    func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress]
+    func wordStats() async throws -> WordStats
+    func wordDetail(id: String) async throws -> WordDetail
 
     func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup
     func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded
@@ -213,11 +222,11 @@ protocol VocabAPI: Sendable {
 }
 
 extension VocabAPI {
-    /// The library is ordered by last learned, so anything searching it needs every page.
+    /// The library is ordered by last learned, so anything scanning it for due dates needs every page.
     func allWords(pageSize: Int = 100) async throws -> [WordProgress] {
         var result: [WordProgress] = []
         while true {
-            let page = try await words(limit: pageSize, offset: result.count)
+            let page = try await words(limit: pageSize, offset: result.count, query: nil)
             result += page
             if page.count < pageSize { return result }
         }
@@ -262,6 +271,10 @@ struct LiveVocabAPI: VocabAPI {
         await client.signOut()
     }
 
+    func deleteAccount() async throws {
+        _ = try await client.sendRaw(APIRequest(method: .delete, path: "me"))
+    }
+
     func profile() async throws -> UserProfile {
         try await client.send(get("me"))
     }
@@ -298,14 +311,25 @@ struct LiveVocabAPI: VocabAPI {
         return response.challenges
     }
 
-    func words(limit: Int, offset: Int) async throws -> [WordProgress] {
+    func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] {
         var request = get("me/words")
         request.query = [
             URLQueryItem(name: "limit", value: String(limit)),
             URLQueryItem(name: "offset", value: String(offset)),
         ]
+        if let query, !query.isEmpty {
+            request.query.append(URLQueryItem(name: "q", value: query))
+        }
         let response: WordsResponse = try await client.send(request)
         return response.words
+    }
+
+    func wordStats() async throws -> WordStats {
+        try await client.send(get("me/words/stats"))
+    }
+
+    func wordDetail(id: String) async throws -> WordDetail {
+        try await client.send(get("words/\(id)"))
     }
 
     /// Not retried here: every generation counts against the learner's daily allowance.
@@ -415,6 +439,7 @@ struct OfflineVocabAPI: VocabAPI {
     func logIn(email: String, password: String) async throws {}
     func logIn(googleIDToken: String, nonce: String?) async throws {}
     func signOut() async {}
+    func deleteAccount() async throws {}
 
     func profile() async throws -> UserProfile { throw APIError.transport }
     func updateLevels(_ level: CEFRLevel) async throws {}
@@ -436,7 +461,9 @@ struct OfflineVocabAPI: VocabAPI {
         LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0)
     }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
-    func words(limit: Int, offset: Int) async throws -> [WordProgress] { [] }
+    func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] { [] }
+    func wordStats() async throws -> WordStats { WordStats(learnedWords: 0, needPracticeWords: 0) }
+    func wordDetail(id: String) async throws -> WordDetail { throw APIError.transport }
 
     func lookupCustomWord(_ query: CustomWordQuery) async throws -> CustomWordLookup { .invalid }
     func addCustomWord(_ addition: CustomWordAddition) async throws -> CustomWordAdded { throw APIError.transport }

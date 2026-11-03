@@ -13,10 +13,16 @@ final class AuthStore {
     private(set) var phase: Phase = .launching
     private(set) var isSubmitting = false
     private(set) var errorMessage: String?
+    private(set) var isDeletingAccount = false
+    private(set) var accountDeletionError: String?
+    /// Shown on the sign-in screen after the account is gone.
+    private(set) var accountDeletedNotice: String?
     /// Email awaiting confirmation after signing up.
     private(set) var pendingConfirmationEmail: String?
     /// Clears per-account state. Runs on sign-out and when the session can't be refreshed.
     var onSignedOut: (@MainActor () -> Void)?
+    /// Erases what this device remembers about the account, which signing out keeps.
+    var onAccountDeleted: (@MainActor () -> Void)?
 
     private let api: VocabAPI
 
@@ -61,10 +67,31 @@ final class AuthStore {
 
     func clearError() {
         errorMessage = nil
+        accountDeletedNotice = nil
     }
 
     func signOut() async {
         await api.signOut()
+        sessionEnded()
+    }
+
+    func deleteAccount() async {
+        guard !isDeletingAccount else { return }
+        isDeletingAccount = true
+        accountDeletionError = nil
+        defer { isDeletingAccount = false }
+        do {
+            try await api.deleteAccount()
+            accountDeletedNotice = String(localized: "Your account has been deleted.")
+        } catch let error as APIError where error.status == 401 {
+            // Either the session expired or an earlier attempt succeeded and its answer was lost.
+            errorMessage = String(localized: "Log in again to delete your account.")
+        } catch {
+            accountDeletionError = error.asAPIError.userMessage
+            return
+        }
+        await api.signOut()
+        onAccountDeleted?()
         sessionEnded()
     }
 
@@ -79,6 +106,7 @@ final class AuthStore {
         guard !isSubmitting else { return }
         isSubmitting = true
         errorMessage = nil
+        accountDeletedNotice = nil
         defer { isSubmitting = false }
         do {
             try await work()

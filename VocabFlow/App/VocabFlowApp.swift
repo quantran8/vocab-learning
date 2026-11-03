@@ -37,6 +37,10 @@ struct VocabFlowApp: App {
             onboarding.reset()
             customWords.reset()
         }
+        auth.onAccountDeleted = { [plan, progress] in
+            plan.erase()
+            progress.erase()
+        }
         Task { [auth] in
             await client.setSessionEndedHandler { auth.sessionEnded() }
         }

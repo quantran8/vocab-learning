@@ -78,6 +78,8 @@ final class PracticeSessionStore {
     private var latestReceiptID: String?
     /// Decided on a task's first take: its events can't mix receipts and transcripts.
     private var canTranscribe: Bool?
+    /// Starting waits on permissions and the audio session; a second tap in that gap must not start a second recorder.
+    private var isStartingRecording = false
 
     init(
         api: VocabAPI,
@@ -240,7 +242,10 @@ final class PracticeSessionStore {
     // MARK: Recording
 
     func startRecording() async {
-        guard recording != .recording, currentAttempt?.canRecordAgain == true else { return }
+        guard recording != .recording, !isStartingRecording, currentAttempt?.canRecordAgain == true else { return }
+        isStartingRecording = true
+        defer { isStartingRecording = false }
+        let taskID = currentAttempt?.task.id
         audio.stop()
         guard await recorder.requestAccess() else {
             recording = .blocked(reason: UnavailableReason.micDenied)
@@ -250,7 +255,12 @@ final class PracticeSessionStore {
             canTranscribe = transcriptTarget != nil ? await transcriber.requestAccess() : false
         }
         do {
-            try recorder.start()
+            try await recorder.start()
+            // The learner may have left the task meanwhile; don't leave the mic running behind them.
+            guard currentAttempt?.task.id == taskID else {
+                recorder.cancel()
+                return
+            }
             recording = .recording
         } catch {
             recording = .blocked(reason: UnavailableReason.recorderFailed)
@@ -277,6 +287,12 @@ final class PracticeSessionStore {
 
     func retryUpload() async {
         await upload()
+    }
+
+    /// Leaves a take's result for the mic. The take stays the one to commit until a new one replaces it.
+    func retryRecording() {
+        guard case .assessed = recording, currentAttempt?.canRecordAgain == true else { return }
+        recording = .idle
     }
 
     /// Ends the task with the last assessment. An invalid one still counts as this task's attempt.

@@ -161,15 +161,29 @@ final class PlanDecodingTests: XCTestCase {
 
     func testDecodesWordsResponseShape() throws {
         let json = #"""
-        {"wordId":"w","lemma":"clarify","needsPractice":true,"fullyVerified":false,"meanings":[{
+        {"wordId":"w","lemma":"clarify","meanings":[{"meaningId":"m",
+         "meaning":{"partOfSpeech":"verb","text":"làm rõ","ipa":"/x/","definition":"To make clear.",
+          "audio":{"url":"https://example.com/clarify.mp3","locale":"en-US"},
+          "examples":[{"text":"Please clarify.","translation":"Hãy làm rõ."}]},
+         "learnedAt":"2026-10-30T10:00:00.000Z","nextReviewAt":null}]}
+        """#
+        let meaning = try APIClient.decoder.decode(WordProgress.self, from: Data(json.utf8)).meanings[0]
+        XCTAssertEqual(meaning.meaningId, "m")
+        XCTAssertEqual(meaning.meaning.definition, "To make clear.")
+        XCTAssertEqual(meaning.meaning.audio?.locale, "en-US")
+        XCTAssertEqual(meaning.meaning.examples?.first?.text, "Please clarify.")
+    }
+
+    func testDecodesWordDetailSkills() throws {
+        let json = #"""
+        {"wordId":"w","lemma":"clarify","needsPractice":true,"fullyVerified":false,"meanings":[{"meaningId":"m",
          "meaning":{"partOfSpeech":"verb","text":"làm rõ"},"learnedAt":"2026-10-30T10:00:00.000Z","nextReviewAt":"2026-10-31T10:00:00Z",
          "needsPractice":true,"skills":{"reading":{"status":"verified","needsPractice":false},
          "writing":{"status":"not_verified","needsPractice":true}}}]}
         """#
-        let word = try APIClient.decoder.decode(WordProgress.self, from: Data(json.utf8))
-        XCTAssertNil(word.meanings[0].skills.listening)
-        XCTAssertEqual(word.meanings[0].skills.reading.status, .verified)
-        XCTAssertEqual(word.meanings[0].skills.writing.status, .notVerified)
-        XCTAssertTrue(word.matches("LAM RO"))
+        let meaning = try APIClient.decoder.decode(WordDetail.self, from: Data(json.utf8)).meanings[0]
+        XCTAssertNil(meaning.skills.listening)
+        XCTAssertEqual(meaning.skills.reading.status, .verified)
+        XCTAssertEqual(meaning.skills.writing.status, .notVerified)
     }
 }

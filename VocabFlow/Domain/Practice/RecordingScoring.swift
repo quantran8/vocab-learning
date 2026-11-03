@@ -8,24 +8,21 @@ enum RecordingScoring: Equatable {
     case onDevice
 }
 
-/// Instant feedback only: the backend re-scores the committed transcript the same way.
+/// Instant feedback only: the backend re-checks the committed transcript the same way.
+/// A transcript can't measure pronunciation, so a take is only right or wrong and carries no score.
 enum TranscriptMatcher {
-    /// Same pass mark as the backend's `accuracyScore`.
-    static let passScore = 80.0
-
     static func assess(_ candidates: [String], target: String) -> RecordingAssessment {
         let expected = normalize(target)
-        let heard = candidates.map(normalize).filter { !$0.isEmpty }
-        guard !expected.isEmpty, let best = heard.max(by: { similarity($0, expected) < similarity($1, expected) }) else {
+        // Only the recognizer's top pick counts: lower alternatives would let a wrong reading through.
+        guard !expected.isEmpty, let heard = candidates.map(normalize).first(where: { !$0.isEmpty }) else {
             return RecordingAssessment(assessmentReceiptId: "on-device", validity: "invalid", passed: nil, accuracyScore: nil)
         }
-        let score = (similarity(best, expected) * 100).rounded()
         return RecordingAssessment(
             assessmentReceiptId: "on-device",
             validity: "valid",
-            passed: score >= passScore,
-            accuracyScore: score,
-            heard: best
+            passed: heard == expected,
+            accuracyScore: nil,
+            heard: heard
         )
     }
 
@@ -34,21 +31,5 @@ enum TranscriptMatcher {
             .replacingOccurrences(of: "’", with: "'")
         let kept = folded.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) || $0 == "'" ? Character($0) : " " }
         return String(kept).split(separator: " ").joined(separator: " ")
-    }
-
-    /// 1 minus the edit distance over the longer length.
-    static func similarity(_ lhs: String, _ rhs: String) -> Double {
-        let a = Array(lhs), b = Array(rhs)
-        let longest = max(a.count, b.count)
-        guard !a.isEmpty, !b.isEmpty else { return longest == 0 ? 1 : 0 }
-        var previous = Array(0...b.count)
-        for i in 1...a.count {
-            var current = [i] + Array(repeating: 0, count: b.count)
-            for j in 1...b.count {
-                current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
-            }
-            previous = current
-        }
-        return 1 - Double(previous[b.count]) / Double(longest)
     }
 }

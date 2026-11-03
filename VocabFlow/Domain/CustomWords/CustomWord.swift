@@ -195,6 +195,7 @@ struct CustomWord: Decodable, Equatable, Identifiable {
     let meaningText: String?
     let definitionText: String?
     let examples: [CustomWordExample]?
+    var ipa: String?
     let audioUrl: URL?
     let overridden: Bool
     let translationPending: Bool

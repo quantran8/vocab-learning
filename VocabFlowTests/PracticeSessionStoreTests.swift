@@ -225,6 +225,27 @@ final class PracticeSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.attempts["t-recording"]?.events.map(\.action), [.assessed(receiptID: "r2")])
     }
 
+    func testRetryRecordingReturnsToTheMicOnlyWhileTriesRemain() async {
+        let store = makeStore(steps: [.practice(phase: .newPractice, task: PracticeFixtures.recording())], scoring: .onDevice)
+        transcriber.candidates = ["apricot"]
+        await store.start(.daily)
+        var tries = 0
+        while store.currentAttempt?.canRecordAgain == true {
+            await store.startRecording()
+            await store.stopRecording()
+            tries += 1
+            guard case .assessed = store.recording else { return XCTFail("Expected an assessment") }
+            if store.currentAttempt?.canRecordAgain == true {
+                store.retryRecording()
+                XCTAssertEqual(store.recording, .idle)
+            }
+        }
+        XCTAssertGreaterThan(tries, 0)
+
+        store.retryRecording()
+        guard case .assessed = store.recording else { return XCTFail("Out of tries keeps the result") }
+    }
+
     func testOnDeviceScoringCommitsTheTranscriptWithoutUploading() async {
         let store = makeStore(steps: [.practice(phase: .newPractice, task: PracticeFixtures.recording())], scoring: .onDevice)
         transcriber.candidates = ["Clarify."]

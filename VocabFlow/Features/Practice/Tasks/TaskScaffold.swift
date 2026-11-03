@@ -3,6 +3,8 @@ import SwiftUI
 /// Practice scaffold shared by every template: question → prompt → exercise → feedback → pinned action.
 struct TaskScaffold<Content: View, Action: View>: View {
     let attempt: TaskAttempt
+    /// Replaces the attempt's own feedback, for a result that doesn't change its status (Recording).
+    var feedback: FeedbackCopy? = nil
     @ViewBuilder let content: Content
     @ViewBuilder let action: Action
 
@@ -24,7 +26,7 @@ struct TaskScaffold<Content: View, Action: View>: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
-            FeedbackActionPanel(feedback: TaskFeedbackCopy.make(attempt)) { action }
+            FeedbackActionPanel(feedback: feedback ?? TaskFeedbackCopy.make(attempt)) { action }
         }
     }
 }
