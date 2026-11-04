@@ -11,13 +11,14 @@ struct WordTile: View {
     var minHeight: CGFloat = Spacing.tileMinHeight
     /// Each change sinks the face into its depth and springs it back up.
     var bounceTrigger = 0
+    var font: Font = Typography.tile
     @Environment(\.motion) private var motion
 
     var body: some View {
         Text(text)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)
-        .font(Typography.tile)
+        .font(font)
         .foregroundStyle(foreground)
         .padding(.horizontal, Spacing.s)
         .padding(.vertical, Spacing.m)

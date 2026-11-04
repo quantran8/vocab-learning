@@ -42,6 +42,6 @@ private struct ChoiceTilePressStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let canPress = state == .idle || state == .selected
-        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state, bounceTrigger: bounce)
+        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state, bounceTrigger: bounce, font: Typography.choice)
     }
 }

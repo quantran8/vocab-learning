@@ -214,6 +214,14 @@ final class TaskAttemptTests: XCTestCase {
         XCTAssertEqual(attempt.missedPairsText, "a — x", "Only the pair that was missed")
     }
 
+    func testAllPairsTextListsEveryPairOfAMatchAndNothingElse() {
+        let match = TaskAttempt(task: PracticeFixtures.match(), phase: .randomPractice)
+        XCTAssertEqual(match.allPairsText, "a — x\nb — y")
+
+        let surgery = TaskAttempt(task: PracticeFixtures.surgery(), phase: .randomPractice)
+        XCTAssertNil(surgery.allPairsText)
+    }
+
     func testRecordingCountsEveryAssessment() {
         var attempt = TaskAttempt(task: PracticeFixtures.recording(maxRetries: 1), phase: .newPractice)
         attempt.countAssessment()

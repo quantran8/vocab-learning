@@ -52,6 +52,8 @@ struct LearnCard: Decodable, Equatable {
     let ipa: String?
     let audio: AudioClip?
     let examples: [Example]?
+    /// Optional: a plan started before the backend sent it has no value here.
+    var partOfSpeech: String? = nil
 }
 
 enum TaskPhase: Equatable {

@@ -86,6 +86,7 @@ struct StatusScreen<Actions: View>: View {
         }
         .padding(.horizontal, Spacing.screenGutter)
         .padding(.bottom, Spacing.m)
+        .environment(\.designZone, .product)
     }
 }
 
@@ -244,18 +245,38 @@ private struct ReviewFinishedView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Review complete")
-                    .font(Typography.screenTitle)
-                    .tracking(Typography.tightTracking)
-                    .foregroundStyle(Color.ink)
-                    .accessibilityAddTraits(.isHeader)
+                VStack(spacing: Spacing.m) {
+                    Text("Review complete")
+                        .font(Typography.challengeTerm)
+                        .tracking(Typography.tightTracking)
+                        .foregroundStyle(Color.ink)
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
-                Text("Next up: some new words to learn.")
-                    .font(Typography.body)
-                    .foregroundStyle(Color.mutedInk)
-                    .padding(.top, Spacing.xs)
+                    Image(systemName: "checkmark")
+                        .font(.title2.weight(.bold))
+                        .foregroundStyle(Color.successInk)
+                        .frame(width: 64, height: 64)
+                        .background(Color.successSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity)
 
-                if !cards.isEmpty {
+                if cards.isEmpty {
+                    Text("Next up: some new words to learn.")
+                        .font(Typography.body)
+                        .foregroundStyle(Color.mutedInk)
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, Spacing.l)
+                } else {
+                    Text("Next: \(cards.count) new words")
+                        .font(Typography.screenTitle)
+                        .tracking(Typography.tightTracking)
+                        .foregroundStyle(Color.ink)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, Spacing.xl)
+
                     VStack(spacing: 0) {
                         ForEach(Array(cards.enumerated()), id: \.offset) { index, card in
                             if index > 0 {
@@ -264,8 +285,7 @@ private struct ReviewFinishedView: View {
                             row(card)
                         }
                     }
-                    .cardSurface(radius: Radii.tile)
-                    .padding(.top, Spacing.l)
+                    .padding(.top, Spacing.xs)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -293,8 +313,7 @@ private struct ReviewFinishedView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Spacing.m)
-        .padding(.vertical, Spacing.s)
+        .padding(.vertical, Spacing.m)
         .accessibilityElement(children: .combine)
     }
 }
@@ -375,25 +394,34 @@ private struct PracticeFlowView: View {
             }
         }
         .safeAreaInset(edge: .top) {
+            let progress = store.partProgress
             FlowHeader(
-                stage: "Practice",
-                stageCurrent: store.stepIndex + 1,
-                stageTotal: store.steps.count,
-                step: store.stepIndex + 1,
-                totalSteps: store.steps.count,
+                stage: partName(progress.part),
+                stageCurrent: progress.current,
+                stageTotal: progress.total,
+                step: progress.current,
+                totalSteps: progress.total,
                 onClose: { isConfirmingExit = true }
             )
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.vertical, Spacing.xs)
             .background(Color.canvas)
         }
-        .confirmationDialog("Leave this flow?", isPresented: $isConfirmingExit, titleVisibility: .visible) {
+        .alert("Leave this flow?", isPresented: $isConfirmingExit) {
             Button("Leave without saving", role: .destructive) {
                 motion.perform(MotionTokens.transition) { store.close() }
             }
             Button("Keep practising", role: .cancel) {}
         } message: {
             Text("Progress only counts once the whole session is finished.")
+        }
+    }
+
+    private func partName(_ part: SessionPartProgress.Part) -> LocalizedStringKey {
+        switch part {
+        case .review: "Review"
+        case .newWords: "New words"
+        case .practice: "Practice"
         }
     }
 
@@ -438,8 +466,10 @@ private struct LearnCardStep: View {
             term: card.word,
             meaningVi: card.meaning,
             example: card.examples?.first?.text ?? "",
+            exampleTranslation: card.examples?.first?.translation,
             definitionEN: card.definition,
-            ipa: card.ipa
+            ipa: card.ipa,
+            partsOfSpeech: card.partOfSpeech.map { [$0] } ?? []
         )
         ScrollView {
             WordIntroContent(
@@ -465,14 +495,18 @@ struct PracticeResultsView: View {
     let summary: CommitSummary
     @Environment(PracticeSessionStore.self) private var store
     @Environment(\.motion) private var motion
+    @State private var hasAppeared = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 0) {
                 BrandBar()
 
+                CelebrationBadge()
+                    .padding(.top, Spacing.xl)
+
                 Chip(text: "Flow complete", fill: .reward)
-                    .padding(.top, Spacing.xl + Spacing.xs)
+                    .padding(.top, Spacing.l)
 
                 Text("Nice work.")
                     .font(Typography.display)
@@ -483,10 +517,10 @@ struct PracticeResultsView: View {
                     .padding(.top, Spacing.s)
 
                 LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.s), GridItem(.flexible())], spacing: Spacing.s) {
-                    stat("Exercises done", value: summary.practiceTasks)
-                    stat("Right first time", value: store.firstTryCount)
-                    stat("Meanings reviewed", value: summary.reviewedMeanings)
-                    stat("New words", value: summary.newWordGoalSlots)
+                    stat("Exercises done", value: summary.practiceTasks, index: 0)
+                    stat("Right first time", value: store.firstTryCount, index: 1)
+                    stat("Meanings reviewed", value: summary.reviewedMeanings, index: 2)
+                    stat("New words", value: summary.newWordGoalSlots, index: 3)
                 }
                 .padding(.top, Spacing.xl)
             }
@@ -501,9 +535,11 @@ struct PracticeResultsView: View {
                 }
             }
         }
+        .overlay { ConfettiBurst() }
+        .onAppear { hasAppeared = true }
     }
 
-    private func stat(_ label: LocalizedStringKey, value: Int) -> some View {
+    private func stat(_ label: LocalizedStringKey, value: Int, index: Int) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(value, format: .number)
                 .font(Typography.screenTitle.monospacedDigit())
@@ -517,5 +553,11 @@ struct PracticeResultsView: View {
         .padding(Spacing.l - 4)
         .cardSurface(radius: Radii.tile)
         .accessibilityElement(children: .combine)
+        .opacity(hasAppeared ? 1 : 0)
+        .offset(y: hasAppeared ? 0 : MotionTokens.enterOffset)
+        .animation(
+            motion.travel(MotionTokens.entrance.delay(MotionTokens.celebrationStatsDelay + Double(index) * MotionTokens.celebrationStagger)),
+            value: hasAppeared
+        )
     }
 }

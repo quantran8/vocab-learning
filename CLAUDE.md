@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-VocabFlow is a SwiftUI iOS app (iOS 17+, Swift 5 mode, no third-party dependencies) for learning English vocabulary with Vietnamese meanings. Learning sessions, accounts and progress come from the backend (sibling repo `vocab-backend`, contract in its `docs/FRONTEND_FLOW.md`). Practice Lab content is bundled JSON.
+VocabFlow is a SwiftUI iOS app (iOS 17+, Swift 5 mode, one dependency: `lottie-ios` via SPM, for the end-of-session confetti) for learning English vocabulary with Vietnamese meanings. Learning sessions, accounts and progress come from the backend (sibling repo `vocab-backend`, contract in its `docs/FRONTEND_FLOW.md`). Practice Lab content is bundled JSON.
 
 ## Commands
 

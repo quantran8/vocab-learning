@@ -82,7 +82,7 @@ private struct TemplateCard: View {
             .padding(Spacing.m)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(ChunkyButtonStyle(kind: .secondary))
+        .buttonStyle(ActionButtonStyle(kind: .secondary))
         .accessibilityElement(children: .combine)
         .accessibilityHint(Text("Opens the exercise."))
     }

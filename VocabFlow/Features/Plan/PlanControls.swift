@@ -116,7 +116,7 @@ struct WordsPerDayStepper: View {
             }
             HStack(alignment: .firstTextBaseline, spacing: Spacing.xs - 1) {
                 Text(verbatim: "\(value)")
-                    .font(.system(size: 32, weight: .heavy).monospacedDigit())
+                    .font(Typography.display.monospacedDigit())
                     .tracking(-1.5)
                     .foregroundStyle(Color.ink)
                     .contentTransition(.numericText(value: Double(value)))

@@ -14,6 +14,8 @@ enum Typography {
     static let eyebrow = Font.system(.caption, weight: .bold)
     static let tile = Font.system(.body, weight: .semibold)
     static let tileLarge = Font.system(.title3, weight: .semibold)
+    /// Answer tiles (Select, Match): big enough to read as the content, not as a control.
+    static let choice = Font.system(.title2)
     static let action = Font.system(.headline, weight: .bold)
     static let wordmark = Font.system(.title3, weight: .heavy)
 

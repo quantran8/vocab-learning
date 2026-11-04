@@ -34,14 +34,15 @@ struct ClozeTaskView: View {
                             let isFilled = option.id == filledID
                             if let anchor = frames[isFilled ? .blank : .slot(option.id)] {
                                 let frame = proxy[anchor]
+                                // Only the position follows the frame. A word is the same size in the bank and
+                                // in the blank, so taking the blank's width as well could only stretch it mid-flight.
                                 tile(option, isFilled: isFilled)
-                                    .frame(width: frame.width, height: frame.height)
                                     .position(x: frame.midX, y: frame.midY)
                             }
                         }
                     }
                 }
-                .animation(motion.travel(MotionTokens.snap), value: filledID)
+                .animation(motion.travel(MotionTokens.wordFlight), value: filledID)
             }
         } action: {
             TaskActionBar(attempt: attempt, canCheck: selectedID != nil) {
@@ -75,7 +76,7 @@ struct ClozeTaskView: View {
 
     /// Words ignore taps while any word is in the air, so a double-tap can't send one straight back.
     private func tap(_ option: TaskOption, isFilled: Bool) {
-        if let lastFlight, Date.now.timeIntervalSince(lastFlight) < MotionTokens.snapSettle { return }
+        if let lastFlight, Date.now.timeIntervalSince(lastFlight) < MotionTokens.wordFlightSettle { return }
         lastFlight = .now
         isFilled ? remove() : pick(option.id)
     }

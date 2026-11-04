@@ -238,13 +238,20 @@ struct MyWordsView: View {
     }
 
     private func vocabulary(for word: WordProgress) -> VocabularyItem {
-        VocabularyItem(
+        let example = word.meanings.compactMap { $0.meaning.examples?.first }.first
+        var partsOfSpeech: [String] = []
+        for meaning in word.meanings where !partsOfSpeech.contains(meaning.meaning.partOfSpeech) {
+            partsOfSpeech.append(meaning.meaning.partOfSpeech)
+        }
+        return VocabularyItem(
             id: word.id,
             term: word.lemma,
             meaningVi: word.meaningText,
-            example: word.meanings.compactMap { $0.meaning.examples?.first?.text }.first ?? "",
+            example: example?.text ?? "",
+            exampleTranslation: example?.translation,
             definitionEN: word.meanings.compactMap(\.meaning.definition).first,
-            ipa: word.meanings.compactMap(\.meaning.ipa).first
+            ipa: word.meanings.compactMap(\.meaning.ipa).first,
+            partsOfSpeech: partsOfSpeech
         )
     }
 

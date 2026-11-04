@@ -61,7 +61,9 @@ struct ProfileView: View {
                 .frame(width: 60, height: 60)
                 .overlay(
                     Text(verbatim: String(name.prefix(1)))
-                        .font(.system(size: 26, weight: .heavy))
+                        .font(Typography.challengeTerm)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
                         .foregroundStyle(Color.selectedInk)
                 )
                 .accessibilityHidden(true)

@@ -17,14 +17,9 @@ struct MatchTaskView: View {
     var body: some View {
         TaskScaffold(attempt: attempt) {
             if case .match(let left, let right, let correct) = attempt.task.body {
-                VStack(spacing: Spacing.m) {
-                    HStack(alignment: .top, spacing: Spacing.s) {
-                        column(left, isLeft: true, correct: correct)
-                        column(right, isLeft: false, correct: correct)
-                    }
-                    if attempt.status == .revealed {
-                        solution(left: left, right: right, correct: correct)
-                    }
+                HStack(alignment: .top, spacing: Spacing.s) {
+                    column(left, isLeft: true, correct: correct)
+                    column(right, isLeft: false, correct: correct)
                 }
             }
         } action: {
@@ -40,7 +35,7 @@ struct MatchTaskView: View {
         shakePhase = 0
         flashingPair = wrong
         if !motion.reduceMotion {
-            withAnimation(.linear(duration: 0.4)) { shakePhase = 1 }
+            withAnimation(MotionTokens.shake) { shakePhase = 1 }
         }
         flashTask = Task {
             try? await Task.sleep(for: .seconds(0.65))
@@ -61,7 +56,7 @@ struct MatchTaskView: View {
                 Button {
                     pick(item.id, isLeft: isLeft)
                 } label: {
-                    WordTile(text: item.text, visualState: state(item.id, isLeft: isLeft, correct: correct), minHeight: tileHeight)
+                    WordTile(text: item.text, visualState: state(item.id, isLeft: isLeft, correct: correct), minHeight: tileHeight, font: Typography.choice)
                         .onGeometryChange(for: CGFloat.self) { proxy in
                             proxy.size.height - Spacing.tileDepth
                         } action: { face in
@@ -74,19 +69,6 @@ struct MatchTaskView: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private func solution(left: [TaskOption], right: [TaskOption], correct: [PairKey]) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            ForEach(correct, id: \.leftId) { pair in
-                let term = left.first { $0.id == pair.leftId }?.text ?? ""
-                let gloss = right.first { $0.id == pair.rightId }?.text ?? ""
-                Text(verbatim: "\(term) — \(gloss)")
-                    .font(Typography.secondary.weight(.semibold))
-                    .foregroundStyle(Color.ink)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func isMatched(_ id: Int, isLeft: Bool, correct: [PairKey]) -> Bool {

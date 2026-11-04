@@ -17,14 +17,14 @@ struct HomeView: View {
                     .foregroundStyle(Color.ink)
                     .accessibilityLabel(Text(verbatim: "Vocab Flow"))
 
-                sectionTitle("Daily Lesson")
+                PunctuatedTitle(text: "Daily Lesson")
                     .padding(.top, Spacing.xl)
 
-                sessionCard(due: due)
-                    .padding(.top, Spacing.m)
+                dailyLesson(due: due)
+                    .padding(.top, Spacing.l)
 
                 sectionTitle("Checkpoint Challenge")
-                    .padding(.top, Spacing.xl)
+                    .padding(.top, Spacing.xl + Spacing.l)
 
                 CheckpointChallengeCard(home: learner.home, challenge: learner.challenges.first) {
                     start(.checkpointChallenge, challengeID: learner.challenges.first?.id)
@@ -46,13 +46,15 @@ struct HomeView: View {
             .accessibilityAddTraits(.isHeader)
     }
 
-    private func sessionCard(due: Int) -> some View {
+    /// The screen's one main action. It keeps the lesson's thick edge as an invitation into the lesson.
+    private func dailyLesson(due: Int) -> some View {
         VStack(alignment: .leading, spacing: Spacing.l) {
-            VStack(spacing: Spacing.m) {
+            HStack(alignment: .top, spacing: Spacing.l) {
                 StatRow(label: "Words to review", value: due)
                 StatRow(label: "New words / day", value: plan.current.wordsPerDay)
             }
-            PrimaryButton(title: due > 0 ? "Continue flow" : "Start Flow") { start(.daily) }
+            PrimaryButton(title: due > 0 ? "Start" : "Start Flow", shimmers: true) { start(.daily) }
+                .environment(\.designZone, .lesson)
         }
         .padding(Spacing.m + 2)
         .cardSurface()
@@ -70,16 +72,17 @@ private struct StatRow: View {
     let value: Int
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
-            Text(label)
-                .font(Typography.body)
-                .foregroundStyle(Color.mutedInk)
-            Spacer(minLength: 0)
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(verbatim: "\(value)")
-                .font(Typography.tile.monospacedDigit())
+                .font(Typography.display.monospacedDigit())
                 .foregroundStyle(Color.ink)
                 .contentTransition(.numericText(value: Double(value)))
+            Text(label)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.mutedInk)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 }
@@ -113,7 +116,7 @@ private struct CheckpointChallengeCard: View {
                         .font(Typography.secondary)
                         .foregroundStyle(Color.mutedInk)
                 }
-                PrimaryButton(title: "Start challenge", action: onStart)
+                SecondaryButton(title: "Start challenge", action: onStart)
             } else {
                 if let home {
                     sessionProgress(home)

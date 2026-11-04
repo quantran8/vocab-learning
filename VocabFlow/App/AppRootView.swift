@@ -17,6 +17,7 @@ struct AppRootView: View {
             screen
                 .id(route)
                 .transition(motion.routeTransition)
+                .environment(\.designZone, zone)
         }
         .environment(\.motion, motion)
         .scrollBounceBehavior(.basedOnSize)
@@ -24,6 +25,14 @@ struct AppRootView: View {
         .task { await auth.restore() }
         .task(id: auth.phase) {
             if auth.phase == .signedIn { await learner.load() }
+        }
+    }
+
+    private var zone: DesignZone {
+        switch route {
+        case .practice, .flow, .results: .lesson
+        case .lab(let template): template == nil ? .product : .lesson
+        case .loading, .auth, .onboarding, .home: .product
         }
     }
 

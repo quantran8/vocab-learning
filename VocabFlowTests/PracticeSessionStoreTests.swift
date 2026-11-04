@@ -59,6 +59,40 @@ final class PracticeSessionStoreTests: XCTestCase {
         XCTAssertEqual(store.stage, .running)
     }
 
+    func testReviewAndNewWordsCountProgressSeparately() async {
+        let store = makeStore(steps: [
+            .practice(phase: .dueReview, task: PracticeFixtures.choice(id: "r1")),
+            .practice(phase: .dueReview, task: PracticeFixtures.choice(id: "r2")),
+            .learn(id: "l1", card: PracticeFixtures.card),
+            .practice(phase: .newPractice, task: PracticeFixtures.choice(id: "n1")),
+            .practice(phase: .newPractice, task: PracticeFixtures.choice(id: "n2")),
+        ])
+        await store.start(.daily)
+        XCTAssertEqual(store.partProgress, SessionPartProgress(part: .review, current: 1, total: 2))
+
+        store.submitOption(3)
+        store.advance()
+        XCTAssertEqual(store.partProgress, SessionPartProgress(part: .review, current: 2, total: 2))
+
+        store.submitOption(3)
+        store.advance()
+        XCTAssertEqual(store.stage, .reviewFinished)
+        store.continueToPractice()
+        XCTAssertEqual(store.partProgress, SessionPartProgress(part: .newWords, current: 1, total: 3))
+
+        store.advance()
+        XCTAssertEqual(store.partProgress, SessionPartProgress(part: .newWords, current: 2, total: 3))
+    }
+
+    func testSessionWithoutReviewOrNewWordsIsOnePracticePart() async {
+        let store = makeStore(steps: [
+            .practice(phase: .randomPractice, task: PracticeFixtures.choice(id: "p1")),
+            .practice(phase: .randomPractice, task: PracticeFixtures.choice(id: "p2")),
+        ])
+        await store.start(.daily)
+        XCTAssertEqual(store.partProgress, SessionPartProgress(part: .practice, current: 1, total: 2))
+    }
+
     func testNoReviewListWithoutReviewTasks() async {
         let store = makeStore(steps: learnAndChoice)
         api.library = [PracticeFixtures.word("clarify", nextReviewAt: .distantPast)]

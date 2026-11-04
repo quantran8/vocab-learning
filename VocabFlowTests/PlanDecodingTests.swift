@@ -29,6 +29,7 @@ final class PlanDecodingTests: XCTestCase {
         XCTAssertEqual(id, "l1")
         XCTAssertEqual(card.word, "clarify")
         XCTAssertNil(card.ipa)
+        XCTAssertNil(card.partOfSpeech)
         XCTAssertEqual(card.audio?.locale, "en-US")
     }
 
@@ -143,6 +144,19 @@ final class PlanDecodingTests: XCTestCase {
 
         let plan = try APIClient.decoder.decode(SessionPlan.self, from: Data(#"{"sessionId":null,"mode":"checkpoint_challenge","steps":[]}"#.utf8))
         XCTAssertEqual(plan.mode, .checkpointChallenge)
+    }
+
+    func testDecodesLearnCardPartOfSpeech() throws {
+        let json = #"{"word":"clarify","meaning":"làm rõ","partOfSpeech":"verb"}"#
+        let card = try APIClient.decoder.decode(LearnCard.self, from: Data(json.utf8))
+        XCTAssertEqual(card.partOfSpeech, "verb")
+    }
+
+    func testPartOfSpeechLabel() {
+        var word = VocabularyItem(id: "w", term: "word", meaningVi: "", example: "")
+        XCTAssertNil(word.partOfSpeechLabel)
+        word.partsOfSpeech = ["new_type"]
+        XCTAssertEqual(word.partOfSpeechLabel, "new type")
     }
 
     func testLearnHomeReportsCheckpointProgress() throws {

@@ -1,6 +1,17 @@
 import Foundation
 import Observation
 
+/// One part of a session, with its own progress.
+struct SessionPartProgress: Equatable {
+    enum Part {
+        case review, newWords, practice
+    }
+
+    let part: Part
+    let current: Int
+    let total: Int
+}
+
 /// Runs one planned session: renders steps in order, scores instantly with each task's answer key,
 /// and commits the recorded events at the end. Nothing counts until the commit succeeds.
 @Observable
@@ -108,6 +119,21 @@ final class PracticeSessionStore {
     var currentAttempt: TaskAttempt? {
         guard case .practice(_, let task) = currentStep else { return nil }
         return attempts[task.id]
+    }
+
+    /// Where the learner is in the current part. Review always comes before new words in a plan,
+    /// and new words start counting from the beginning rather than continuing review's count.
+    var partProgress: SessionPartProgress {
+        let reviewCount = steps.prefix(while: \.isDueReview).count
+        if stepIndex < reviewCount {
+            return SessionPartProgress(part: .review, current: stepIndex + 1, total: reviewCount)
+        }
+        let hasNewWords = reviewCount > 0 || steps.contains { if case .learn = $0 { true } else { false } }
+        return SessionPartProgress(
+            part: hasNewWords ? .newWords : .practice,
+            current: stepIndex - reviewCount + 1,
+            total: steps.count - reviewCount
+        )
     }
 
     /// The words the rest of the session introduces, in plan order.

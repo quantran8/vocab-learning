@@ -73,7 +73,7 @@ struct SessionFlowView: View {
             }
         }
         .environment(draft)
-        .confirmationDialog("Leave this flow?", isPresented: $isConfirmingExit, titleVisibility: .visible) {
+        .alert("Leave this flow?", isPresented: $isConfirmingExit) {
             Button("Leave and reset", role: .destructive) {
                 draft.reset()
                 motion.perform(MotionTokens.transition) { store.restart() }

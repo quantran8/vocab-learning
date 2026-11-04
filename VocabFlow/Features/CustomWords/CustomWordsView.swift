@@ -36,10 +36,9 @@ struct CustomWordsView: View {
                 Task { await store.saveOverride(edits, for: word) }
             }
         }
-        .confirmationDialog(
+        .alert(
             "Remove this word?",
             isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
-            titleVisibility: .visible,
             presenting: removing
         ) { word in
             Button("Remove", role: .destructive) {
@@ -143,8 +142,10 @@ struct CustomWordsView: View {
             term: word.lemma,
             meaningVi: word.meaningText ?? "",
             example: word.examples?.first?.text ?? "",
+            exampleTranslation: word.examples?.first?.translation,
             definitionEN: word.definitionText,
-            ipa: word.ipa
+            ipa: word.ipa,
+            partsOfSpeech: [word.partOfSpeech]
         )
     }
 

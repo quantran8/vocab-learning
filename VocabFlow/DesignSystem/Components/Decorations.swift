@@ -30,28 +30,6 @@ struct BrandBar: View {
     }
 }
 
-struct DotGrid: View {
-    var spacing: CGFloat = 18
-    var color: Color = .dot
-
-    var body: some View {
-        Canvas { context, size in
-            var path = Path()
-            var y: CGFloat = spacing / 2
-            while y < size.height {
-                var x: CGFloat = spacing / 2
-                while x < size.width {
-                    path.addEllipse(in: CGRect(x: x - 1, y: y - 1, width: 2, height: 2))
-                    x += spacing
-                }
-                y += spacing
-            }
-            context.fill(path, with: .color(color))
-        }
-        .accessibilityHidden(true)
-    }
-}
-
 struct CardSurface: ViewModifier {
     var radius: CGFloat = Radii.card
     var fill: Color = .surface

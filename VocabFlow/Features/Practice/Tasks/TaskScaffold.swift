@@ -87,7 +87,7 @@ enum TaskFeedbackCopy {
                                 message: String(localized: "Try again, or show the answer."))
         case .revealed:
             return FeedbackCopy(kind: .info, title: String(localized: "Here’s the answer"),
-                                message: answer ?? String(localized: "The correct pairs are shown below."))
+                                message: answer ?? attempt.allPairsText ?? "")
         case .exhausted:
             // The exercise keeps the learner's work; this panel is the only place the answer appears.
             return FeedbackCopy(kind: .info, title: String(localized: "The correct answer"),

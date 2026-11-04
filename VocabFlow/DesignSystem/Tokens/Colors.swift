@@ -38,7 +38,6 @@ extension Color {
 
     static let track = Color(hex: 0xE1E4EB)
     static let slotTargetedSurface = Color(hex: 0xD9E4FF)
-    static let dot = Color(hex: 0xE1E4EB)
 
     init(hex: UInt32) {
         self.init(

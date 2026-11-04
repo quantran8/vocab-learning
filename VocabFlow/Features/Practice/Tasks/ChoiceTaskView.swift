@@ -5,6 +5,9 @@ struct ChoiceTaskView: View {
     let attempt: TaskAttempt
     @Environment(PracticeSessionStore.self) private var store
     @State private var selectedID: Int?
+    /// Per option, so only the option just picked wrongly moves.
+    @State private var shakes: [Int: CGFloat] = [:]
+    @Environment(\.motion) private var motion
 
     var body: some View {
         TaskScaffold(attempt: attempt) {
@@ -15,6 +18,7 @@ struct ChoiceTaskView: View {
                             selectedID = selectedID == option.id ? nil : option.id
                             store.answerPicked()
                         }
+                        .modifier(ShakeEffect(animatableData: shakes[option.id, default: 0]))
                     }
                 }
             }
@@ -24,6 +28,10 @@ struct ChoiceTaskView: View {
                 store.submitOption(selectedID)
                 self.selectedID = nil
             }
+        }
+        .onChange(of: attempt.status) { _, status in
+            guard status == .wrong || status == .exhausted, let id = attempt.lastWrongOptionID else { return }
+            withAnimation(motion.travel(MotionTokens.shake)) { shakes[id, default: 0] += 1 }
         }
     }
 

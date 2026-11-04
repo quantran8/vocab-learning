@@ -348,8 +348,17 @@ extension TaskAttempt {
 
     /// Match only: the pairs that ran out of tries, one per line. Pairs the learner got stay on the board.
     var missedPairsText: String? {
+        pairsText { exhaustedLeftIDs.contains($0.id) }
+    }
+
+    /// Every pair of a match, for when the learner asks to see the answer.
+    var allPairsText: String? {
+        pairsText { _ in true }
+    }
+
+    private func pairsText(where isIncluded: (TaskOption) -> Bool) -> String? {
         guard case .match(let left, let right, let correct) = task.body else { return nil }
-        return left.filter { exhaustedLeftIDs.contains($0.id) }.compactMap { term in
+        return left.filter(isIncluded).compactMap { term in
             guard let rightID = correct.first(where: { $0.leftId == term.id })?.rightId,
                   let gloss = right.first(where: { $0.id == rightID })
             else { return nil }

@@ -77,7 +77,7 @@ private struct FlowHero: View {
                 .frame(width: 235, height: 235)
                 .overlay(Circle().strokeBorder(Color.stroke, lineWidth: 1).padding(14))
             RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
-                .fill(Color.reward)
+                .fill(Color.selectedSurface)
                 .frame(width: 53, height: 53)
                 .rotationEffect(.degrees(21))
                 .offset(x: 128, y: -62)
@@ -402,7 +402,7 @@ private struct ReadyScreen: View {
             .frame(width: 98, height: 98)
             .overlay(alignment: .topTrailing) {
                 RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(Color.reward)
+                    .fill(Color.interactive)
                     .frame(width: 24, height: 24)
                     .rotationEffect(.degrees(28))
                     .offset(x: 11, y: -11)

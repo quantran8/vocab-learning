@@ -12,10 +12,7 @@ struct AppSettingsView: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Eyebrow(text: "App preferences")
-
                 PunctuatedTitle(text: "Settings")
-                    .padding(.top, Spacing.xs)
 
                 group("Interaction") {
                     SettingRow(systemImage: "iphone.radiowaves.left.and.right", title: "Haptics", subtitle: "Subtle touch feedback") {
@@ -46,27 +43,17 @@ struct AppSettingsView: View {
                 }
 
                 group("Account") {
-                    Button {
-                        Task { await auth.signOut() }
-                    } label: {
-                        SettingRow(systemImage: "rectangle.portrait.and.arrow.right", title: "Log out", subtitle: "Your progress stays on your account") {
-                            EmptyView()
+                    VStack(spacing: Spacing.s) {
+                        SecondaryButton(title: "Log out", systemImage: "rectangle.portrait.and.arrow.right") {
+                            Task { await auth.signOut() }
                         }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(auth.isDeletingAccount)
-                    Button {
-                        isConfirmingDeletion = true
-                    } label: {
-                        SettingRow(systemImage: "trash", title: "Delete account", subtitle: "Permanently removes your account and all your data", tint: .errorInk) {
-                            if auth.isDeletingAccount {
-                                ProgressView()
-                                    .accessibilityLabel("Deleting your account")
-                            }
+                        DestructiveButton(title: "Delete account", systemImage: "trash", isLoading: auth.isDeletingAccount) {
+                            isConfirmingDeletion = true
                         }
+                        .accessibilityValue(auth.isDeletingAccount ? Text("Deleting your account") : Text(verbatim: ""))
                     }
-                    .buttonStyle(.plain)
                     .disabled(auth.isDeletingAccount)
+                    .padding(.top, Spacing.xs)
                     if let error = auth.accountDeletionError {
                         Text(verbatim: error)
                             .font(Typography.secondary)
@@ -82,7 +69,7 @@ struct AppSettingsView: View {
         }
         .background(Color.canvas)
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Delete your account?", isPresented: $isConfirmingDeletion, titleVisibility: .visible) {
+        .alert("Delete your account?", isPresented: $isConfirmingDeletion) {
             Button("Delete account", role: .destructive) {
                 Task { await auth.deleteAccount() }
             }
@@ -116,14 +103,10 @@ private struct SettingRow<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: Spacing.s + 1) {
-            RoundedRectangle(cornerRadius: Radii.chip + 2, style: .continuous)
-                .fill(Color.neutralSurface)
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Image(systemName: systemImage)
-                        .font(.body.weight(.medium))
-                        .foregroundStyle(tint)
-                )
+            Image(systemName: systemImage)
+                .font(.body.weight(.medium))
+                .foregroundStyle(tint)
+                .frame(width: 28)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(title)

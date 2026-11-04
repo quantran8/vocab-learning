@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The Learn word introduction: spelling hero (animated unless turned off) with IPA and audio, then flat
-/// Meaning, Definition and In context sections separated by whitespace only.
+/// Part of speech, Meaning, Definition and In context sections separated by whitespace only.
 struct WordIntroContent: View {
     let word: VocabularyItem
     let presentation: IntroductionPresentation
@@ -20,6 +20,14 @@ struct WordIntroContent: View {
             }
             .padding(.bottom, Spacing.xl)
 
+            if let partOfSpeech = word.partOfSpeechLabel {
+                section("Part of speech") {
+                    Text(verbatim: partOfSpeech)
+                        .font(Typography.body)
+                        .foregroundStyle(Color.ink)
+                }
+            }
+
             section("Meaning") {
                 Text(verbatim: word.meaningVi)
                     .font(Typography.headerTitle)
@@ -37,9 +45,16 @@ struct WordIntroContent: View {
 
             if !word.example.isEmpty {
                 section("In context") {
-                    Text(LearnView.highlight(word.term, in: word.example))
-                        .font(Typography.body)
-                        .foregroundStyle(Color.ink)
+                    VStack(alignment: .leading, spacing: Spacing.xxs) {
+                        Text(LearnView.highlight(word.term, in: word.example))
+                            .font(Typography.body)
+                            .foregroundStyle(Color.ink)
+                        if let translation = word.exampleTranslation, !translation.isEmpty {
+                            Text(verbatim: translation)
+                                .font(Typography.secondary)
+                                .foregroundStyle(Color.mutedInk)
+                        }
+                    }
                 }
             }
         }
