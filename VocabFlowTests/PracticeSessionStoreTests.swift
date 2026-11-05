@@ -121,8 +121,7 @@ final class PracticeSessionStoreTests: XCTestCase {
         let now = Date()
         let word = PracticeFixtures.word("order", nextReviewAt: .distantPast)
         let twoMeanings = WordProgress(
-            wordId: word.wordId, lemma: word.lemma, meanings: word.meanings + word.meanings,
-            needsPractice: false, fullyVerified: false
+            wordId: word.wordId, lemma: word.lemma, meanings: word.meanings + word.meanings
         )
         XCTAssertEqual(ReviewWord.due(in: [twoMeanings], on: now).map(\.lemma), ["order"])
     }

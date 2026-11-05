@@ -55,7 +55,7 @@ struct MyWordsView: View {
                         PracticeTile(
                             systemImage: "target",
                             title: "Weak Words",
-                            subtitle: needPractice > 0 ? "Focus on mistakes" : "Nothing to review yet",
+                            subtitle: needPractice > 0 ? "Practice your weak skills" : "Nothing to review yet",
                             actionTitle: needPractice > 0 ? "Start" : "All caught up",
                             actionImage: needPractice > 0 ? "chevron.right" : "checkmark",
                             isEnabled: needPractice > 0,
@@ -463,23 +463,36 @@ struct WordDetailSheet: View {
     }
 
     private func skillRow(_ name: LocalizedStringKey, _ skill: SkillState) -> some View {
-        HStack {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
             Text(name)
                 .font(Typography.body)
                 .foregroundStyle(Color.ink)
-            Spacer()
-            Text(skillStatus(skill.status))
+            Spacer(minLength: 0)
+            Text(skillLabel(skill))
                 .font(Typography.micro.weight(.semibold))
-                .foregroundStyle(skill.needsPractice ? Color.errorInk : Color.mutedInk)
+                .foregroundStyle(skillColor(skill))
+                .multilineTextAlignment(.trailing)
         }
         .accessibilityElement(children: .combine)
     }
 
-    private func skillStatus(_ status: SkillStatus) -> LocalizedStringKey {
-        switch status {
-        case .notVerified: "Not verified"
-        case .demonstrated: "Demonstrated"
-        case .verified: "Verified"
+    // Copy rules: memory skill-issue-display
+    private func skillLabel(_ skill: SkillState) -> LocalizedStringKey {
+        switch (skill.issue, skill.status) {
+        case (.failed, _): "Needs practice again"
+        case (.assisted, .verified): "Verified, but recently needed help"
+        case (.assisted, _): "Recently needed help"
+        case (nil, .verified): "Verified"
+        case (nil, .demonstrated): "Demonstrated"
+        case (nil, .notVerified): "Not verified"
+        }
+    }
+
+    private func skillColor(_ skill: SkillState) -> Color {
+        switch skill.issue {
+        case .failed: .errorInk
+        case .assisted: .selectedInk
+        case nil: .mutedInk
         }
     }
 

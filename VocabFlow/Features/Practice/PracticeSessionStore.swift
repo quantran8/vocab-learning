@@ -144,10 +144,11 @@ final class PracticeSessionStore {
         }
     }
 
-    /// Tasks answered right on the first try without help. A local display figure, not a score.
     var firstTryCount: Int {
-        attempts.values.filter { $0.status == .solved && $0.submitCount <= 1 && $0.hintsUsed == 0 }.count
+        attempts.values.filter(\.isRightFirstTime).count
     }
+
+    var isWeakPractice: Bool { lastRequest?.mode == .weakWordsPractice }
 
     // MARK: Lifecycle
 
@@ -350,7 +351,7 @@ final class PracticeSessionStore {
         let candidates = await transcriber.transcribe(pendingAudio)
         guard currentAttempt?.task.id == taskID else { return }
         let assessment = TranscriptMatcher.assess(candidates, target: target)
-        mutate { $0.recordTranscript(assessment.heard ?? "") }
+        mutate { $0.recordTranscript(assessment.heard ?? "", passed: assessment.passed == true) }
         recording = .assessed(assessment)
         if assessment.passed == true {
             haptics.success()
@@ -365,7 +366,7 @@ final class PracticeSessionStore {
         if isSandbox {
             // No speech scoring in the Lab; any take counts as a pass so the flow can be tried end to end.
             latestReceiptID = "sandbox"
-            mutate { $0.countAssessment() }
+            mutate { $0.countAssessment(passed: true) }
             recording = .assessed(RecordingAssessment(assessmentReceiptId: "sandbox", validity: "valid", passed: true, accuracyScore: nil))
             haptics.success()
             return
@@ -374,7 +375,7 @@ final class PracticeSessionStore {
             let assessment = try await api.assessRecording(sessionID: sessionID, taskID: taskID, audio: pendingAudio)
             guard currentAttempt?.task.id == taskID else { return }
             latestReceiptID = assessment.assessmentReceiptId
-            mutate { $0.countAssessment() }
+            mutate { $0.countAssessment(passed: assessment.passed == true) }
             recording = .assessed(assessment)
             if assessment.passed == true {
                 haptics.success()

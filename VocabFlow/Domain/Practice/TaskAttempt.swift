@@ -64,12 +64,22 @@ struct TaskAttempt: Equatable {
     private(set) var lastWrongPair: PairKey?
     private var missesByLeftID: [Int: Int] = [:]
     private var assessmentCount = 0
+    private var passedFirstTake = false
     private var audioDelivery: DeliveryMode = .none
 
     init(task: PracticeTask, phase: TaskPhase) {
         self.task = task
         let isRecall = task.template == .typing || task.template == .flyReorder
         requiresSubmission = phase == .newPractice && isRecall
+    }
+
+    /// A local display figure, not a score.
+    var isRightFirstTime: Bool {
+        switch status {
+        case .solved: submitCount <= 1 && hintsUsed == 0
+        case .recorded: passedFirstTake
+        default: false
+        }
     }
 
     var isFinished: Bool {
@@ -236,8 +246,9 @@ struct TaskAttempt: Equatable {
     var canRecordAgain: Bool { !isOutOfTries(assessmentCount) }
 
     /// Every receipt counts, invalid audio included. An upload that got none does not.
-    mutating func countAssessment() {
+    mutating func countAssessment(passed: Bool = false) {
         assessmentCount += 1
+        if assessmentCount == 1 { passedFirstTake = passed }
     }
 
     mutating func finishRecording(receiptID: String) {
@@ -247,10 +258,10 @@ struct TaskAttempt: Equatable {
     }
 
     /// On-device takes are one `transcribed` event each and can't mix with the other two.
-    mutating func recordTranscript(_ transcript: String) {
+    mutating func recordTranscript(_ transcript: String, passed: Bool = false) {
         guard !isFinished, task.template == .recording, canRecordAgain else { return }
         append(.transcribed(Self.truncated(transcript, to: 200)))
-        assessmentCount += 1
+        countAssessment(passed: passed)
     }
 
     var hasTranscripts: Bool {

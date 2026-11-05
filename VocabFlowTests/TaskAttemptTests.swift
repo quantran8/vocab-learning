@@ -2,6 +2,32 @@ import XCTest
 @testable import VocabFlow
 
 final class TaskAttemptTests: XCTestCase {
+    func testRecordingCountsAsRightFirstTimeOnlyWhenTheFirstTakePasses() {
+        var first = TaskAttempt(task: PracticeFixtures.recording(maxRetries: 1), phase: .weakWordsPractice)
+        first.recordTranscript("clarify", passed: true)
+        first.finishTranscribed()
+        XCTAssertTrue(first.isRightFirstTime)
+
+        var second = TaskAttempt(task: PracticeFixtures.recording(maxRetries: 1), phase: .weakWordsPractice)
+        second.recordTranscript("clarity", passed: false)
+        second.recordTranscript("clarify", passed: true)
+        second.finishTranscribed()
+        XCTAssertFalse(second.isRightFirstTime)
+
+        var unavailable = TaskAttempt(task: PracticeFixtures.recording(), phase: .weakWordsPractice)
+        unavailable.markRecordingUnavailable(reason: PracticeSessionStore.UnavailableReason.micDenied)
+        XCTAssertFalse(unavailable.isRightFirstTime)
+    }
+
+    func testSkillStateDecodesIssue() throws {
+        let decode = { (json: String) in try JSONDecoder().decode(SkillState.self, from: Data(json.utf8)) }
+        let assisted = try decode(#"{"status":"verified","needsPractice":true,"issue":"assisted"}"#)
+        XCTAssertEqual(assisted.status, .verified)
+        XCTAssertTrue(assisted.needsPractice)
+        XCTAssertEqual(assisted.issue, .assisted)
+        XCTAssertNil(try decode(#"{"status":"demonstrated","needsPractice":false,"issue":null}"#).issue)
+    }
+
     func testNormalizeMatchesTheBackend() {
         XCTAssertEqual(PracticeAnswer.normalize("  New \t\n  York "), "new york")
         XCTAssertEqual(PracticeAnswer.normalize("cafe\u{301}"), "caf\u{E9}")

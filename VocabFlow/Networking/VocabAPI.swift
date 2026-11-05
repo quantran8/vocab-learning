@@ -103,9 +103,14 @@ enum SkillStatus: String, Decodable {
     case notVerified = "not_verified"
 }
 
+enum SkillIssue: String, Decodable {
+    case failed, assisted
+}
+
 struct SkillState: Decodable, Equatable {
     let status: SkillStatus
     let needsPractice: Bool
+    let issue: SkillIssue?
 }
 
 struct MeaningSkills: Decodable, Equatable {

@@ -14,7 +14,7 @@ struct PracticeSessionView: View {
         case .committing:
             StatusScreen(title: "Saving your progress", isBusy: true)
         case .empty:
-            StatusScreen(title: "Nothing to practise right now", message: Text("Check back after learning more words.")) {
+            StatusScreen(title: "Nothing to practise right now", message: store.isWeakPractice ? Text("Skills you need to practice again will show up here.") : Text("Check back after learning more words.")) {
                 closeButton
             }
         case .reviewPreview(let words):
