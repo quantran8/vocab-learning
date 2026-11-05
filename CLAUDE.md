@@ -31,7 +31,7 @@ The project uses Xcode file-system synchronized groups (`objectVersion = 77`): n
 - There is no `NavigationStack`. `App/AppRootView.swift` derives a single `RouteID` from store state (onboarding → Practice Lab sandbox → session phase) and swaps whole screens with `.id(route)` + a transition. Changing a screen means changing store state, not pushing views.
 
 ### Backend session (the live flow)
-- `Networking/`: `APIClient` (actor: bearer auth, one refresh-and-retry on 401, backoff), `VocabAPI` (protocol, `LiveVocabAPI`, and `OfflineVocabAPI` for previews). Set the server with the `VOCABFLOW_API_URL` scheme environment variable; the default is the local backend.
+- `Networking/`: `APIClient` (actor: bearer auth, one refresh-and-retry on 401, backoff), `VocabAPI` (protocol, `LiveVocabAPI`, and `OfflineVocabAPI` for previews). Default server: local backend on the simulator, `https://moneytogether.dpdns.org/service/vocab/` on a real device (`APIConfiguration`). Override with the `VOCABFLOW_API_URL` scheme environment variable.
 - `Domain/Practice/`: `PracticeTask` decodes a plan (an unknown template or variant fails the whole plan on purpose), `TaskAttempt` is the pure per-task state that records `TaskEvent`s, and it enforces the rules that would otherwise reject the entire commit with 422.
 - `Features/Practice/PracticeSessionStore.swift` runs plan → steps → commit. The commit body is encoded once so retries are byte-identical. Task views are in `Features/Practice/Tasks/`, hosted by `TaskScaffold`.
 - Routing: `AuthStore.phase` → `LearnerStore.phase` (`GET /me` decides onboarding) → onboarding → active practice session → sandbox → shell.
