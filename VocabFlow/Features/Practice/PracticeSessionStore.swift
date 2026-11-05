@@ -81,7 +81,7 @@ final class PracticeSessionStore {
     private let recorder: VoiceRecording
     private let transcriber: SpeechTranscribing
     private var sessionID: String?
-    private var lastRequest: (mode: SessionMode, challengeID: String?)?
+    private var lastRequest: (mode: SessionMode, challengeID: String?, skill: PracticeSkill?)?
     private var completedLearnIDs: Set<String> = []
     /// Encoded once: a retried commit must be byte-identical or the backend reports a conflict.
     private var commitBody: Data?
@@ -149,20 +149,29 @@ final class PracticeSessionStore {
     }
 
     var isWeakPractice: Bool { lastRequest?.mode == .weakWordsPractice }
+    var practiceSkill: PracticeSkill? { lastRequest?.skill }
+    /// A denied microphone empties a speaking plan, and only Settings can fix that.
+    var canRecord: Bool { recorder.canRecord }
 
     // MARK: Lifecycle
 
     func start(_ mode: SessionMode, challengeID: String? = nil) async {
         guard stage == .idle else { return }
-        lastRequest = (mode, challengeID)
+        lastRequest = (mode, challengeID, nil)
         await plan(mode, challengeID: challengeID)
+    }
+
+    func startPractice(_ skill: PracticeSkill) async {
+        guard stage == .idle else { return }
+        lastRequest = (.randomPractice, nil, skill)
+        await plan(.randomPractice, challengeID: nil, skill: skill)
     }
 
     func retry() async {
         switch stage {
         case .failed(.planning):
             guard let lastRequest else { return }
-            await plan(lastRequest.mode, challengeID: lastRequest.challengeID)
+            await plan(lastRequest.mode, challengeID: lastRequest.challengeID, skill: lastRequest.skill)
         case .failed(.commit):
             await commit()
         default:
@@ -388,7 +397,7 @@ final class PracticeSessionStore {
             guard currentAttempt?.task.id == taskID else { return }
             let failure = error.asAPIError
             if Self.endsSession(failure) {
-                stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.")))
+                stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.", bundle: .appLanguage)))
             } else if failure.isRetryable || failure.code == "PAYLOAD_TOO_LARGE" {
                 recording = .uploadFailed
             } else {
@@ -399,10 +408,10 @@ final class PracticeSessionStore {
 
     // MARK: Private
 
-    private func plan(_ mode: SessionMode, challengeID: String?) async {
+    private func plan(_ mode: SessionMode, challengeID: String?, skill: PracticeSkill? = nil) async {
         stage = .planning
         do {
-            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID))
+            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID, skill: skill))
             guard stage == .planning else { return }
             guard let id = plan.sessionID, !plan.steps.isEmpty else {
                 stage = .empty
@@ -480,7 +489,7 @@ final class PracticeSessionStore {
         if error.isRetryable {
             stage = .failed(.commit(error.userMessage))
         } else if Self.endsSession(error) || error.code == "SESSION_PAYLOAD_CONFLICT" {
-            stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.")))
+            stage = .failed(.sessionLost(String(localized: "This session is no longer available. Start a new one to keep going.", bundle: .appLanguage)))
         } else {
             stage = .failed(.sessionLost(error.userMessage))
         }

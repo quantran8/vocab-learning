@@ -10,6 +10,37 @@ final class LearnerWordsTests: XCTestCase {
         return (LearnerStore(api: api, plan: plan), api)
     }
 
+    private func profile(level: CEFRLevel?) -> UserProfile {
+        UserProfile(
+            id: "u1",
+            proficiencyLevel: level,
+            learningLevel: level,
+            settings: UserSettings(explanationLocale: "vi-VN", uiLocale: "vi-VN", timeZone: "UTC", dailyNewWordGoal: 5),
+            scope: nil
+        )
+    }
+
+    func testRefreshPicksUpALevelSavedDuringOnboarding() async {
+        let (store, api) = makeStore(wordCount: 0)
+        api.storedProfile = profile(level: nil)
+        await store.load()
+        XCTAssertNil(store.profile?.proficiencyLevel)
+
+        api.storedProfile = profile(level: .b1)
+        await store.refresh()
+        XCTAssertEqual(store.profile?.proficiencyLevel, .b1)
+    }
+
+    func testAFailedRefreshKeepsTheProfile() async {
+        let (store, api) = makeStore(wordCount: 0)
+        api.storedProfile = profile(level: .a2)
+        await store.load()
+
+        api.storedProfile = nil
+        await store.refresh()
+        XCTAssertEqual(store.profile?.proficiencyLevel, .a2)
+    }
+
     func testLoadsPagesUntilALibraryRunsOut() async {
         let (store, _) = makeStore(wordCount: LearnerStore.wordsPageSize + 3)
 

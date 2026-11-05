@@ -3,6 +3,7 @@ import SwiftUI
 struct MyWordsView: View {
     @Environment(LearnerStore.self) private var learner
     @Environment(PracticeSessionStore.self) private var practice
+    let onOpenRandomPractice: () -> Void
     @State private var query = ""
     @State private var selected: WordProgress?
     @State private var customWordSheet: CustomWordSheet?
@@ -47,10 +48,10 @@ struct MyWordsView: View {
                         PracticeTile(
                             systemImage: "shuffle",
                             title: "Random Practice",
-                            subtitle: "Mixed review",
+                            subtitle: "Mixed or by skill",
                             actionTitle: "Start",
                             actionImage: "chevron.right",
-                            action: { startPractice(.randomPractice) }
+                            action: onOpenRandomPractice
                         )
                         PracticeTile(
                             systemImage: "target",
@@ -398,6 +399,7 @@ struct WordDetailSheet: View {
                     animatesWord: false
                 )
                 .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.m)
 
                 progressContent
             }
@@ -444,7 +446,7 @@ struct WordDetailSheet: View {
                         }
                     }
                 }
-                Text("Learned \(learnedAt.formatted(date: .abbreviated, time: .omitted))")
+                Text("Learned \(learnedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: AppLanguage.active.locale)))")
                     .font(Typography.micro)
                     .foregroundStyle(Color.mutedInk)
             }

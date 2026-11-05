@@ -158,10 +158,10 @@ struct ResultsView: View {
 
     private func outcomeText(_ outcome: RecallOutcome?) -> String {
         switch outcome {
-        case .unaidedRecall: String(localized: "without hints")
-        case .hintedRecall: String(localized: "with hints")
-        case .recalledAfterRetry: String(localized: "after a retry")
-        case .notRecalled, nil: String(localized: "not recalled")
+        case .unaidedRecall: String(localized: "without hints", bundle: .appLanguage)
+        case .hintedRecall: String(localized: "with hints", bundle: .appLanguage)
+        case .recalledAfterRetry: String(localized: "after a retry", bundle: .appLanguage)
+        case .notRecalled, nil: String(localized: "not recalled", bundle: .appLanguage)
         }
     }
 }

@@ -30,6 +30,89 @@ final class OnboardingStoreTests: XCTestCase {
         XCTAssertEqual(store.step, .welcome)
     }
 
+    private func makeStore(api: StubVocabAPI) -> OnboardingStore {
+        api.catalogCollections = [CatalogCollection(id: "c", slug: "c", title: "C", description: nil, topics: [])]
+        return OnboardingStore(plan: LearningPlanStore(storage: InMemoryPreferencesStore(), reminders: NoReminders()), api: api, haptics: NoOpFeedback())
+    }
+
+    private let placed = PlacementResult(proficiencyLevel: .b1, correctCount: 9, totalCount: 18)
+
+    func testAcceptingAPlacementDoesNotSaveTheLevelAgain() async {
+        let api = StubVocabAPI()
+        let store = makeStore(api: api)
+        store.begin()
+        store.openPlacementTest()
+        XCTAssertEqual(store.step, .placement)
+        await store.acceptPlacement(placed)
+        XCTAssertEqual(store.step, .collection)
+        XCTAssertEqual(store.level, .b1)
+        XCTAssertEqual(api.levelUpdates, [])
+    }
+
+    func testBackFromCollectionSkipsThePlacementTest() async {
+        let store = makeStore(api: StubVocabAPI())
+        store.begin()
+        store.openPlacementTest()
+        await store.acceptPlacement(placed)
+        store.back()
+        XCTAssertEqual(store.step, .level)
+    }
+
+    func testStepChangesRememberTheirDirection() {
+        let store = makeStore(api: StubVocabAPI())
+        store.begin()
+        XCTAssertFalse(store.isMovingBack)
+        store.openPlacementTest()
+        XCTAssertFalse(store.isMovingBack)
+        store.back()
+        XCTAssertTrue(store.isMovingBack)
+        store.openPlacementTest()
+        XCTAssertFalse(store.isMovingBack)
+    }
+
+    func testLeavingThePlacementTestReturnsToLevel() {
+        let store = makeStore(api: StubVocabAPI())
+        store.begin()
+        store.openPlacementTest()
+        store.back()
+        XCTAssertEqual(store.step, .level)
+    }
+
+    func testDisagreeingWithAPlacementSavesOnlyTheNewLevel() async {
+        let api = StubVocabAPI()
+        let store = makeStore(api: api)
+        store.begin()
+        store.openPlacementTest()
+        store.chooseLevelByHand(after: placed)
+        XCTAssertEqual(store.step, .level)
+        XCTAssertEqual(store.level, .b1)
+        store.selectLevel(.c1)
+        await store.continueToCollection()
+        XCTAssertEqual(api.levelUpdates, [.c1])
+    }
+
+    func testReturningToThePlacedLevelSavesItAgain() async {
+        let api = StubVocabAPI()
+        let store = makeStore(api: api)
+        store.begin()
+        store.chooseLevelByHand(after: placed)
+        store.selectLevel(.c1)
+        await store.continueToCollection()
+        store.back()
+        store.selectLevel(.b1)
+        await store.continueToCollection()
+        XCTAssertEqual(api.levelUpdates, [.c1, .b1], "The server holds C1 by now")
+    }
+
+    func testChoosingALevelWithoutATestStillSavesIt() async {
+        let api = StubVocabAPI()
+        let store = makeStore(api: api)
+        store.begin()
+        store.selectLevel(.a2)
+        await store.continueToCollection()
+        XCTAssertEqual(api.levelUpdates, [.a2])
+    }
+
     func testCannotLeaveLevelWithoutAChoice() async {
         let (store, _) = makeStore()
         store.begin()

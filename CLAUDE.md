@@ -34,7 +34,8 @@ The project uses Xcode file-system synchronized groups (`objectVersion = 77`): n
 - `Networking/`: `APIClient` (actor: bearer auth, one refresh-and-retry on 401, backoff), `VocabAPI` (protocol, `LiveVocabAPI`, and `OfflineVocabAPI` for previews). Default server: local backend on the simulator, `https://moneytogether.dpdns.org/service/vocab/` on a real device (`APIConfiguration`). Override with the `VOCABFLOW_API_URL` scheme environment variable.
 - `Domain/Practice/`: `PracticeTask` decodes a plan (an unknown template or variant fails the whole plan on purpose), `TaskAttempt` is the pure per-task state that records `TaskEvent`s, and it enforces the rules that would otherwise reject the entire commit with 422.
 - `Features/Practice/PracticeSessionStore.swift` runs plan → steps → commit. The commit body is encoded once so retries are byte-identical. Task views are in `Features/Practice/Tasks/`, hosted by `TaskScaffold`.
-- Routing: `AuthStore.phase` → `LearnerStore.phase` (`GET /me` decides onboarding) → onboarding → active practice session → sandbox → shell.
+- Routing: `AuthStore.phase` → language step (`AppSettingsStore.language`, until chosen; `GET /me` waits for it) → `LearnerStore.phase` (`GET /me` decides onboarding) → onboarding → active practice session → sandbox → shell.
+- `Features/PlacementTest/`: `PlacementTestStore` and `PlacementTestView` run the level test, hosted as an onboarding step and as a full-screen cover from `EditLevelView`. No answer key on the client; the backend scores it and saves the level.
 
 ### Two independent demo engines
 The scored session below is no longer reachable from the UI; Home and My Words start backend sessions instead.
@@ -66,7 +67,8 @@ Tokens live in the Keychain (`KeychainTokenStore`). Otherwise `UserDefaults`: `P
 User-facing strings use `LocalizedStringKey` and live in `Resources/Localizable.xcstrings`. Learning content (Vietnamese meanings, feedback) comes from the JSON files, not the string catalog.
 
 **Rule: every displayed text that doesn't come from data (JSON content, backend responses, user input) must be localized** — UI labels, buttons, titles, errors, accessibility labels/hints/values, VoiceOver announcements, notification text.
-- View-facing parameters take `LocalizedStringKey`, not `String`. Where a `String` is required (stores, errors, `StreamingText`, models), build it with `String(localized:)`.
+- View-facing parameters take `LocalizedStringKey`, not `String`. Where a `String` is required (stores, errors, `StreamingText`, models), build it with `String(localized: "…", bundle: .appLanguage)`; without the bundle it ignores the language chosen in the app.
+- The display language (`AppLanguage`, chosen on `LanguageSelectionView` after the first login and in Settings) applies live: `AppRootView` sets `\.locale` and rebuilds the screen, and `Bundle.appLanguage` serves `String(localized:)`. Formatters outside `Text` take `AppLanguage.active.locale`.
 - `Text(verbatim:)` / `Text(someString)` only for data, numbers/counters, or the brand name.
 - Every new key must be in `Localizable.xcstrings` (Xcode syncs it on build; `xcodebuild` does not). Check with the compiler's `.stringsdata` output when in doubt.
 - **Vietnamese (`vi`) is mandatory**: every key needs a `vi` translation (state `translated`) in the same change. Multi-argument strings use positional specifiers (`%1$@`, `%2$lld`). Info.plist strings (permission prompts) live in `Resources/InfoPlist.xcstrings`.

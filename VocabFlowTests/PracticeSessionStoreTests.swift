@@ -195,6 +195,40 @@ final class PracticeSessionStoreTests: XCTestCase {
         XCTAssertEqual(request?.challengeId, "c1")
     }
 
+    func testSkillPracticeAsksForRandomPracticeOnThatSkill() async {
+        let store = makeStore(steps: learnAndChoice)
+        await store.startPractice(.listening)
+        let request = api.planRequests.first
+        XCTAssertEqual(request?.mode, .randomPractice)
+        XCTAssertEqual(request?.skill, .listening)
+        XCTAssertEqual(store.practiceSkill, .listening)
+    }
+
+    func testRetryingAFailedSkillPlanKeepsTheSkill() async {
+        let store = makeStore(steps: learnAndChoice)
+        api.plan = .failure(.transport)
+        await store.startPractice(.writing)
+        await store.retry()
+        XCTAssertEqual(api.planRequests.map(\.skill), [.writing, .writing])
+    }
+
+    func testOtherModesSendNoSkillAfterASkillSession() async {
+        let store = makeStore(steps: learnAndChoice)
+        await store.startPractice(.reading)
+        store.close()
+        await store.start(.daily)
+        XCTAssertEqual(api.planRequests.last?.mode, .daily)
+        XCTAssertNil(api.planRequests.last?.skill)
+        XCTAssertNil(store.practiceSkill)
+    }
+
+    func testEmptySkillPlanEndsAtTheEmptyStage() async {
+        let store = makeStore(steps: [])
+        api.plan = .success(SessionPlan(sessionID: nil, mode: .randomPractice, steps: []))
+        await store.startPractice(.speaking)
+        XCTAssertEqual(store.stage, .empty)
+    }
+
     func testCannotAdvancePastAnUnfinishedTask() async {
         let store = makeStore(steps: [.practice(phase: .dueReview, task: PracticeFixtures.choice())])
         await store.start(.daily)

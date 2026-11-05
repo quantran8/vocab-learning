@@ -25,15 +25,15 @@ struct VocabularyItem: Codable, Identifiable, Equatable {
 
     private static func localizedPartOfSpeech(_ value: String) -> String {
         switch value {
-        case "noun": String(localized: "noun")
-        case "verb": String(localized: "verb")
-        case "adjective": String(localized: "adjective")
-        case "adverb": String(localized: "adverb")
-        case "pronoun": String(localized: "pronoun")
-        case "preposition": String(localized: "preposition")
-        case "conjunction": String(localized: "conjunction")
-        case "interjection": String(localized: "interjection")
-        case "phrasal_verb": String(localized: "phrasal verb")
+        case "noun": String(localized: "noun", bundle: .appLanguage)
+        case "verb": String(localized: "verb", bundle: .appLanguage)
+        case "adjective": String(localized: "adjective", bundle: .appLanguage)
+        case "adverb": String(localized: "adverb", bundle: .appLanguage)
+        case "pronoun": String(localized: "pronoun", bundle: .appLanguage)
+        case "preposition": String(localized: "preposition", bundle: .appLanguage)
+        case "conjunction": String(localized: "conjunction", bundle: .appLanguage)
+        case "interjection": String(localized: "interjection", bundle: .appLanguage)
+        case "phrasal_verb": String(localized: "phrasal verb", bundle: .appLanguage)
         // A value added on the backend still shows, just untranslated.
         default: value.replacingOccurrences(of: "_", with: " ")
         }

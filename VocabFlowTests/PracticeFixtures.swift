@@ -71,6 +71,13 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     var status: CommitStatus?
     private(set) var commitBodies: [Data] = []
     private(set) var planRequests: [PlanRequest] = []
+    var placementQuestions: Result<[PlacementQuestion], APIError> = .success([])
+    var placementResults: [Result<PlacementResult, APIError>] = []
+    var onPlacementTest: (() async -> Void)?
+    private(set) var placementSubmissions: [[PlacementAnswer]] = []
+    var catalogCollections: [CatalogCollection] = []
+    var storedProfile: UserProfile?
+    private(set) var levelUpdates: [CEFRLevel] = []
     var library: [WordProgress] = []
     var wordsError: APIError?
     var onWords: (() async -> Void)?
@@ -94,11 +101,23 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
         deleteAccountCalls += 1
         if let deleteAccountError { throw deleteAccountError }
     }
-    func profile() async throws -> UserProfile { throw APIError.transport }
-    func updateLevels(_ level: CEFRLevel) async throws {}
-    func updateSettings(_ settings: SettingsUpdate) async throws {}
+    func profile() async throws -> UserProfile {
+        guard let storedProfile else { throw APIError.transport }
+        return storedProfile
+    }
+    func updateLevels(_ level: CEFRLevel) async throws { levelUpdates.append(level) }
+    func placementTest() async throws -> [PlacementQuestion] {
+        await onPlacementTest?()
+        return try placementQuestions.get()
+    }
+    func submitPlacementTest(_ answers: [PlacementAnswer]) async throws -> PlacementResult {
+        placementSubmissions.append(answers)
+        return try placementResults.removeFirst().get()
+    }
+    private(set) var settingsUpdates: [SettingsUpdate] = []
+    func updateSettings(_ settings: SettingsUpdate) async throws { settingsUpdates.append(settings) }
     func updateScope(_ scope: LearningScope) async throws {}
-    func catalog() async throws -> [CatalogCollection] { [] }
+    func catalog() async throws -> [CatalogCollection] { catalogCollections }
     func learnHome() async throws -> LearnHome { LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0) }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
     func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] {

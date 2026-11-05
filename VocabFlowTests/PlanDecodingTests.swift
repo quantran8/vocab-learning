@@ -146,6 +146,14 @@ final class PlanDecodingTests: XCTestCase {
         XCTAssertEqual(plan.mode, .checkpointChallenge)
     }
 
+    func testSkillUsesWireValueAndIsOmittedWhenAbsent() throws {
+        let capabilities = PlanRequest.Capabilities(audioPlayback: true, microphone: true)
+        let focused = try PracticeFixtures.json(PlanRequest(mode: .randomPractice, capabilities: capabilities, skill: .listening)) as? [String: Any]
+        XCTAssertEqual(focused?["skill"] as? String, "listening")
+        let mixed = try PracticeFixtures.json(PlanRequest(mode: .randomPractice, capabilities: capabilities)) as? [String: Any]
+        XCTAssertNil(mixed?["skill"])
+    }
+
     func testDecodesLearnCardPartOfSpeech() throws {
         let json = #"{"word":"clarify","meaning":"làm rõ","partOfSpeech":"verb"}"#
         let card = try APIClient.decoder.decode(LearnCard.self, from: Data(json.utf8))

@@ -175,7 +175,7 @@ final class CustomWordStore {
             let failure = error.asAPIError
             if failure.status == 404 {
                 if !treatMissingAsDone {
-                    listError = String(localized: "This word is no longer on your learning path.")
+                    listError = String(localized: "This word is no longer on your learning path.", bundle: .appLanguage)
                 }
             } else {
                 listError = failure.userMessage

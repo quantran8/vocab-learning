@@ -82,10 +82,10 @@ final class AuthStore {
         defer { isDeletingAccount = false }
         do {
             try await api.deleteAccount()
-            accountDeletedNotice = String(localized: "Your account has been deleted.")
+            accountDeletedNotice = String(localized: "Your account has been deleted.", bundle: .appLanguage)
         } catch let error as APIError where error.status == 401 {
             // Either the session expired or an earlier attempt succeeded and its answer was lost.
-            errorMessage = String(localized: "Log in again to delete your account.")
+            errorMessage = String(localized: "Log in again to delete your account.", bundle: .appLanguage)
         } catch {
             accountDeletionError = error.asAPIError.userMessage
             return
@@ -111,7 +111,7 @@ final class AuthStore {
         do {
             try await work()
         } catch let error as APIError where error.status == 401 {
-            errorMessage = String(localized: "Wrong email or password.")
+            errorMessage = String(localized: "Wrong email or password.", bundle: .appLanguage)
         } catch {
             errorMessage = error.asAPIError.userMessage
         }

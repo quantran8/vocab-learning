@@ -52,7 +52,7 @@ struct WordStackBoard: View {
         let before = (parts.first ?? "").split(separator: " ").map(String.init)
         let after = parts.dropFirst().joined(separator: BuildChallenge.blank).split(separator: " ").map(String.init)
         let placedText = placedTileID.flatMap { id in options.first { $0.id == id }?.text }
-        let spoken = prompt.replacingOccurrences(of: BuildChallenge.blank, with: placedText ?? String(localized: "blank"))
+        let spoken = prompt.replacingOccurrences(of: BuildChallenge.blank, with: placedText ?? String(localized: "blank", bundle: .appLanguage))
         let shape = RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
 
         return FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.s) {

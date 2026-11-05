@@ -1,28 +1,40 @@
 import SwiftUI
 
-/// Welcome → Level → Collection → Topics → Routine → Ready. One step is mounted at a time and slides in like the session flow.
+/// Welcome → Level (optionally through the placement test) → Collection → Topics → Routine → Ready.
+/// Welcome and the test are whole screens; every other step shares `SetupFlowView`'s frame.
 struct OnboardingView: View {
+    private enum Screen {
+        case welcome, setup, placement
+    }
+
     @Environment(OnboardingStore.self) private var store
     @Environment(\.motion) private var motion
+
+    private var current: Screen {
+        switch store.step {
+        case .welcome: .welcome
+        case .placement: .placement
+        default: .setup
+        }
+    }
 
     var body: some View {
         ZStack {
             Color.canvas.ignoresSafeArea()
             screen
-                .id(store.step)
-                .transition(motion.stepTransition)
+                .id(current)
+                .transition(motion.stepTransition(isMovingBack: { store.isMovingBack }))
         }
+        // Here rather than at each call site: some steps only change once a request answers.
+        .animation(motion.animation(MotionTokens.stepSlide), value: store.step)
     }
 
     @ViewBuilder
     private var screen: some View {
-        switch store.step {
+        switch current {
         case .welcome: WelcomeScreen()
-        case .level: LevelScreen()
-        case .collection: CollectionScreen()
-        case .topics: TopicsScreen()
-        case .routine: RoutineScreen()
-        case .ready: ReadyScreen()
+        case .setup: SetupFlowView()
+        case .placement: PlacementScreen()
         }
     }
 }
@@ -120,54 +132,210 @@ private struct FlowHero: View {
     }
 }
 
-// MARK: - Level
+// MARK: - Setup flow
 
-private struct LevelScreen: View {
+/// Steps counted by the header indicator: Level, Collection, Topics, Routine.
+private let setupStepCount = 4
+
+/// Question-style step titles run longer than the one-word ones, so they sit a size down.
+private let questionFont = Font.system(.title, weight: .heavy)
+
+/// One persistent frame for Level → Ready. The header and pinned action stay mounted;
+/// only the step's content slides, forward on next and backward on back.
+private struct SetupFlowView: View {
     @Environment(OnboardingStore.self) private var store
     @Environment(\.motion) private var motion
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 1, totalSteps: setupStepCount, backLabel: "Back to welcome") {
-                    motion.perform(MotionTokens.transition) { store.back() }
-                }
-
-                PunctuatedTitle(text: "What’s your English level", mark: "?", font: questionFont)
-                    .padding(.top, Spacing.l + 6)
-                    .padding(.bottom, Spacing.l)
-
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.s), GridItem(.flexible())], spacing: Spacing.s) {
-                    ForEach(CEFRLevel.allCases) { level in
-                        Button {
-                            motion.perform(MotionTokens.snap) { store.selectLevel(level) }
-                        } label: {
-                            WordTile(text: level.rawValue, visualState: store.level == level ? .selected : .idle)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(store.level == level ? .isSelected : [])
-                    }
-                }
-
-                SaveErrorText(message: store.errorMessage)
+        VStack(spacing: 0) {
+            StepHeader(step: stepNumber, totalSteps: setupStepCount, backLabel: backLabel) {
+                store.back()
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.xs)
-            .padding(.bottom, Spacing.l)
-        }
-        .safeAreaInset(edge: .bottom) {
+
+            ZStack(alignment: .top) {
+                content
+                    .id(store.step)
+                    .transition(motion.stepTransition(isMovingBack: { store.isMovingBack }))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .clipped()
+
             PinnedActionBar {
-                PrimaryButton(
-                    title: "Continue",
-                    requirement: "Choose your level",
-                    isEnabled: store.level != nil && !store.isSaving
-                ) {
-                    Task {
-                        await store.continueToCollection()
+                VStack(spacing: Spacing.s) {
+                    if store.step == .topics, store.canContinueFromTopics {
+                        Text("\(store.draft.topicIDs.count) topics selected")
+                            .font(Typography.micro.weight(.semibold))
+                            .foregroundStyle(Color.mutedInk)
+                            .contentTransition(.numericText())
                     }
+                    PrimaryButton(title: actionTitle, requirement: requirement, isEnabled: canAct, action: act)
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch store.step {
+        case .level: LevelStep()
+        case .collection: CollectionStep()
+        case .topics: TopicsStep()
+        case .routine: RoutineStep()
+        default: ReadyStep()
+        }
+    }
+
+    private var stepNumber: Int {
+        switch store.step {
+        case .collection: 2
+        case .topics: 3
+        case .routine, .ready: 4
+        default: 1
+        }
+    }
+
+    private var backLabel: LocalizedStringKey {
+        switch store.step {
+        case .collection: "Back to level"
+        case .topics: "Back to collections"
+        case .routine: "Back to topics"
+        case .ready: "Back to routine"
+        default: "Back to welcome"
+        }
+    }
+
+    private var actionTitle: LocalizedStringKey {
+        switch store.step {
+        case .routine: "Create my flow"
+        case .ready: "Start learning"
+        default: "Continue"
+        }
+    }
+
+    private var requirement: LocalizedStringKey? {
+        switch store.step {
+        case .collection: "Choose a collection"
+        case .topics: "Choose at least one topic"
+        case .routine: "Choose at least one learning day"
+        default: nil
+        }
+    }
+
+    private var canAct: Bool {
+        switch store.step {
+        case .level: store.level != nil && !store.isSaving
+        case .collection: store.canContinueFromCollection
+        case .topics: store.canContinueFromTopics
+        case .routine: store.draft.isComplete && !store.isSaving
+        default: true
+        }
+    }
+
+    private func act() {
+        switch store.step {
+        case .level: Task { await store.continueToCollection() }
+        case .collection: store.continueToTopics()
+        case .topics: store.continueToRoutine()
+        case .routine: Task { await store.createFlow() }
+        default: store.finish()
+        }
+    }
+}
+
+/// A scrolling step body with the frame's margins.
+private struct StepPage<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.top, Spacing.l + 6)
+            .padding(.bottom, Spacing.l)
+        }
+    }
+}
+
+// MARK: - Level
+
+private struct LevelStep: View {
+    @Environment(OnboardingStore.self) private var store
+    @Environment(PlacementTestStore.self) private var placement
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        StepPage {
+            PunctuatedTitle(text: "What’s your English level", mark: "?")
+                .padding(.bottom, Spacing.l)
+
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.s), GridItem(.flexible())], spacing: Spacing.s) {
+                ForEach(CEFRLevel.allCases) { level in
+                    LevelTile(level: level, isSelected: store.level == level) {
+                        motion.perform(MotionTokens.snap) { store.selectLevel(level) }
+                    }
+                }
+            }
+
+            placementButton
+                .padding(.top, Spacing.m)
+
+            SaveErrorText(message: store.errorMessage)
+        }
+    }
+
+    private var placementButton: some View {
+        let shape = RoundedRectangle(cornerRadius: Radii.card - 2, style: .continuous)
+        return Button {
+            placement.start()
+            store.openPlacementTest()
+        } label: {
+            HStack(spacing: Spacing.s) {
+                Image(systemName: "list.bullet")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.interactive)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+                            .strokeBorder(Color.stroke, lineWidth: 1)
+                    )
+                    .accessibilityHidden(true)
+                Text("Not sure? Take a short test")
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                    .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, minHeight: 74)
+            .padding(.horizontal, Spacing.s)
+            .background(Color.surface, in: shape)
+            .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
+            .contentShape(shape)
+        }
+        .buttonStyle(PressScaleButtonStyle())
+    }
+}
+
+private struct PlacementScreen: View {
+    @Environment(OnboardingStore.self) private var store
+
+    var body: some View {
+        PlacementTestView(
+            doneTitle: "Continue",
+            isDoneEnabled: !store.isSaving,
+            doneError: store.errorMessage,
+            onDone: { result in
+                Task { await store.acceptPlacement(result) }
+            },
+            onChooseLevel: { result in
+                store.chooseLevelByHand(after: result)
+            },
+            onLeave: {
+                store.back()
+            }
+        )
     }
 }
 
@@ -187,44 +355,17 @@ private struct SaveErrorText: View {
 
 // MARK: - Collection
 
-/// Steps counted by the header indicator: Level, Collection, Topics, Routine.
-private let setupStepCount = 4
-
-/// Question-style step titles run longer than the one-word ones, so they sit a size down.
-private let questionFont = Font.system(.title, weight: .heavy)
-
-private struct CollectionScreen: View {
+private struct CollectionStep: View {
     @Environment(OnboardingStore.self) private var store
     @Environment(\.motion) private var motion
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 2, totalSteps: setupStepCount, backLabel: "Back to level") {
-                    motion.perform(MotionTokens.transition) { store.back() }
-                }
+        StepPage {
+            PunctuatedTitle(text: "What kind of vocabulary would you like to learn", mark: "?", font: questionFont)
+                .padding(.bottom, Spacing.l)
 
-                PunctuatedTitle(text: "What kind of vocabulary would you like to learn", mark: "?", font: questionFont)
-                    .padding(.top, Spacing.l + 6)
-                    .padding(.bottom, Spacing.l)
-
-                CollectionPicker(selectedID: store.draft.collectionID) { id in
-                    motion.perform(MotionTokens.snap) { store.selectCollection(id) }
-                }
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.xs)
-            .padding(.bottom, Spacing.l)
-        }
-        .safeAreaInset(edge: .bottom) {
-            PinnedActionBar {
-                PrimaryButton(
-                    title: "Continue",
-                    requirement: "Choose a collection",
-                    isEnabled: store.canContinueFromCollection
-                ) {
-                    motion.perform(MotionTokens.transition) { store.continueToTopics() }
-                }
+            CollectionPicker(selectedID: store.draft.collectionID) { id in
+                motion.perform(MotionTokens.snap) { store.selectCollection(id) }
             }
         }
     }
@@ -232,51 +373,21 @@ private struct CollectionScreen: View {
 
 // MARK: - Topics
 
-private struct TopicsScreen: View {
+private struct TopicsStep: View {
     @Environment(OnboardingStore.self) private var store
-    @Environment(\.motion) private var motion
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 3, totalSteps: setupStepCount, backLabel: "Back to collections") {
-                    motion.perform(MotionTokens.transition) { store.back() }
-                }
+        StepPage {
+            PunctuatedTitle(text: "What topics are you interested in", mark: "?", font: questionFont)
+                .padding(.bottom, Spacing.l)
 
-                PunctuatedTitle(text: "What topics are you interested in", mark: "?", font: questionFont)
-                    .padding(.top, Spacing.l + 6)
-                    .padding(.bottom, Spacing.l)
-
-                if let collection = store.draft.collection {
-                    TopicPicker(
-                        collection: collection,
-                        selectedIDs: store.draft.topicIDs,
-                        onToggleTopic: { store.toggleTopic($0) },
-                        onToggleAll: { store.toggleAllTopics() }
-                    )
-                }
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.xs)
-            .padding(.bottom, Spacing.l)
-        }
-        .safeAreaInset(edge: .bottom) {
-            PinnedActionBar {
-                VStack(spacing: Spacing.s) {
-                    if store.canContinueFromTopics {
-                        Text("\(store.draft.topicIDs.count) topics selected")
-                            .font(Typography.micro.weight(.semibold))
-                            .foregroundStyle(Color.mutedInk)
-                            .contentTransition(.numericText())
-                    }
-                    PrimaryButton(
-                        title: "Continue",
-                        requirement: "Choose at least one topic",
-                        isEnabled: store.canContinueFromTopics
-                    ) {
-                        motion.perform(MotionTokens.transition) { store.continueToRoutine() }
-                    }
-                }
+            if let collection = store.draft.collection {
+                TopicPicker(
+                    collection: collection,
+                    selectedIDs: store.draft.topicIDs,
+                    onToggleTopic: { store.toggleTopic($0) },
+                    onToggleAll: { store.toggleAllTopics() }
+                )
             }
         }
     }
@@ -284,113 +395,74 @@ private struct TopicsScreen: View {
 
 // MARK: - Routine
 
-private struct RoutineScreen: View {
+private struct RoutineStep: View {
     @Environment(OnboardingStore.self) private var store
-    @Environment(\.motion) private var motion
 
     var body: some View {
         @Bindable var store = store
 
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                StepHeader(step: 4, totalSteps: setupStepCount, backLabel: "Back to topics") {
-                    motion.perform(MotionTokens.transition) { store.back() }
+        StepPage {
+            PunctuatedTitle(text: "Your routine")
+                .padding(.bottom, Spacing.xl + 2)
+
+            VStack(alignment: .leading, spacing: Spacing.xl - 1) {
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    PlanSectionTitle(text: "New words / day")
+                    WordsPerDayStepper(value: store.draft.wordsPerDay) { store.adjustWordsPerDay(by: $0) }
                 }
-
-                PunctuatedTitle(text: "Your routine")
-                    .padding(.top, Spacing.l + 6)
-                    .padding(.bottom, Spacing.xl + 2)
-
-                VStack(alignment: .leading, spacing: Spacing.xl - 1) {
-                    VStack(alignment: .leading, spacing: Spacing.s) {
-                        PlanSectionTitle(text: "New words / day")
-                        WordsPerDayStepper(value: store.draft.wordsPerDay) { store.adjustWordsPerDay(by: $0) }
-                    }
-                    LearningDaysPicker(
-                        selected: store.draft.learningDays,
-                        onToggleDay: { store.toggleDay($0) },
-                        onToggleEveryDay: { store.toggleEveryDay() }
-                    )
-                    ReminderPicker(preferences: $store.draft)
-                }
-
-                SaveErrorText(message: store.errorMessage)
+                LearningDaysPicker(
+                    selected: store.draft.learningDays,
+                    onToggleDay: { store.toggleDay($0) },
+                    onToggleEveryDay: { store.toggleEveryDay() }
+                )
+                ReminderPicker(preferences: $store.draft)
             }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.xs)
-            .padding(.bottom, Spacing.l)
-        }
-        .safeAreaInset(edge: .bottom) {
-            PinnedActionBar {
-                PrimaryButton(
-                    title: "Create my flow",
-                    requirement: "Choose at least one learning day",
-                    isEnabled: store.draft.isComplete && !store.isSaving
-                ) {
-                    Task {
-                        await store.createFlow()
-                    }
-                }
-            }
+
+            SaveErrorText(message: store.errorMessage)
         }
     }
 }
 
 // MARK: - Ready
 
-private struct ReadyScreen: View {
+private struct ReadyStep: View {
     @Environment(OnboardingStore.self) private var store
     @Environment(\.motion) private var motion
     @State private var hasAppeared = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            StepHeader(backLabel: "Back to routine") {
-                motion.perform(MotionTokens.transition) { store.back() }
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.xs)
+        ScrollView {
+            VStack(spacing: 0) {
+                mark
+                    .scaleEffect(hasAppeared ? 1 : 0.6)
+                    .opacity(hasAppeared ? 1 : 0)
+                    .padding(.bottom, Spacing.xl - 2)
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    mark
-                        .scaleEffect(hasAppeared ? 1 : 0.6)
-                        .opacity(hasAppeared ? 1 : 0)
-                        .padding(.bottom, Spacing.xl - 2)
+                PunctuatedTitle(text: "You’re all set")
+                    .multilineTextAlignment(.center)
 
-                    PunctuatedTitle(text: "You’re all set")
-                        .multilineTextAlignment(.center)
+                Text("Your flow is ready.")
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.mutedInk)
+                    .padding(.top, Spacing.s - 2)
+                    .padding(.bottom, Spacing.l - 2)
 
-                    Text("Your flow is ready.")
-                        .font(Typography.secondary.weight(.semibold))
-                        .foregroundStyle(Color.mutedInk)
-                        .padding(.top, Spacing.s - 2)
-                        .padding(.bottom, Spacing.l - 2)
-
-                    FlowLayout(spacing: Spacing.xs - 1, lineSpacing: Spacing.xs - 1) {
-                        if let collection = store.draft.collection {
-                            summaryTag(Text(verbatim: collection.name), highlighted: true)
-                        }
-                        summaryTag(Text("\(store.draft.topicIDs.count) topics"))
-                        summaryTag(Text("\(store.draft.wordsPerDay) words/day"))
-                        summaryTag(Text("\(store.draft.learningDays.count) days/week"))
-                        summaryTag(reminderText)
+                FlowLayout(spacing: Spacing.xs - 1, lineSpacing: Spacing.xs - 1) {
+                    if let collection = store.draft.collection {
+                        summaryTag(Text(verbatim: collection.name), highlighted: true)
                     }
-                    .frame(maxWidth: 300)
+                    summaryTag(Text("\(store.draft.topicIDs.count) topics"))
+                    summaryTag(Text("\(store.draft.wordsPerDay) words/day"))
+                    summaryTag(Text("\(store.draft.learningDays.count) days/week"))
+                    summaryTag(reminderText)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, Spacing.screenGutter)
-                .padding(.vertical, Spacing.xl)
+                .frame(maxWidth: 300)
             }
-            .defaultScrollAnchor(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Spacing.screenGutter)
+            .padding(.vertical, Spacing.xl)
         }
-        .safeAreaInset(edge: .bottom) {
-            PinnedActionBar {
-                PrimaryButton(title: "Start learning") {
-                    motion.perform(MotionTokens.transition) { store.finish() }
-                }
-            }
-        }
+        .defaultScrollAnchor(.center)
         .onAppear {
             withAnimation(motion.travel(MotionTokens.entrance.delay(0.1))) { hasAppeared = true }
         }
@@ -419,7 +491,7 @@ private struct ReadyScreen: View {
 
     private var reminderText: Text {
         guard store.draft.reminderEnabled else { return Text("Reminders off") }
-        return Text("Reminder \(store.draft.reminderDate.formatted(date: .omitted, time: .shortened))")
+        return Text("Reminder \(store.draft.reminderDate.formatted(Date.FormatStyle(date: .omitted, time: .shortened, locale: AppLanguage.active.locale)))")
     }
 
     private func summaryTag(_ text: Text, highlighted: Bool = false) -> some View {
@@ -439,4 +511,5 @@ private struct ReadyScreen: View {
             plan: LearningPlanStore(storage: InMemoryPreferencesStore(), reminders: NoReminders()),
             haptics: NoOpFeedback()
         ))
+        .environment(PlacementTestStore(api: OfflineVocabAPI(), haptics: NoOpFeedback()))
 }

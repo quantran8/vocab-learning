@@ -10,6 +10,7 @@ enum Spacing {
 
     static let screenGutter: CGFloat = 20
     static let minTouchTarget: CGFloat = 44
+    static let audioButton: CGFloat = 52
     static let tileMinHeight: CGFloat = 60
     static let tileDepth: CGFloat = 3
     static let buttonDepth: CGFloat = 4

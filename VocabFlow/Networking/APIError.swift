@@ -29,24 +29,24 @@ enum APIError: Error, Equatable {
     var userMessage: String {
         switch self {
         case .transport:
-            String(localized: "Can’t reach Vocab Flow. Check your connection and try again.")
+            String(localized: "Can’t reach Vocab Flow. Check your connection and try again.", bundle: .appLanguage)
         case .invalidResponse:
-            String(localized: "Something went wrong on our side. Please try again later.")
+            String(localized: "Something went wrong on our side. Please try again later.", bundle: .appLanguage)
         case .server(_, let code, let message, _, let requestID):
             switch code {
             case "EMAIL_ALREADY_REGISTERED":
-                String(localized: "This email already has an account. Try logging in.")
+                String(localized: "This email already has an account. Try logging in.", bundle: .appLanguage)
             case "VALIDATION_FAILED":
                 message
             case "CUSTOM_WORD_LIMIT_REACHED":
-                String(localized: "You can’t add more words right now. Please try again later.")
+                String(localized: "You can’t add more words right now. Please try again later.", bundle: .appLanguage)
             case "CUSTOM_WORD_UNAVAILABLE":
-                String(localized: "That meaning is no longer available.")
+                String(localized: "That meaning is no longer available.", bundle: .appLanguage)
             case "LEXICAL_PROVIDER_UNAVAILABLE":
-                String(localized: "We couldn’t prepare this word just now. Please try again.")
+                String(localized: "We couldn’t prepare this word just now. Please try again.", bundle: .appLanguage)
             default:
-                requestID.map { String(localized: "Something went wrong. Reference: \($0)") }
-                    ?? String(localized: "Something went wrong. Please try again.")
+                requestID.map { String(localized: "Something went wrong. Reference: \($0)", bundle: .appLanguage) }
+                    ?? String(localized: "Something went wrong. Please try again.", bundle: .appLanguage)
             }
         }
     }

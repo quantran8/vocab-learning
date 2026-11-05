@@ -4653,6 +4653,406 @@
           }
         }
       }
+    },
+    "Not sure? Take a short test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa rõ trình độ? Làm bài test ngắn"
+          }
+        }
+      }
+    },
+    "Take the placement test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Làm bài test xếp trình độ"
+          }
+        }
+      }
+    },
+    "Preparing your test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang chuẩn bị bài test"
+          }
+        }
+      }
+    },
+    "The test isn’t ready yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bài test chưa sẵn sàng"
+          }
+        }
+      }
+    },
+    "Choose the level that feels closest. You can change it any time." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy chọn trình độ gần với bạn nhất. Bạn có thể đổi bất cứ lúc nào."
+          }
+        }
+      }
+    },
+    "Choose my level" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự chọn trình độ"
+          }
+        }
+      }
+    },
+    "Couldn’t load the test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tải được bài test"
+          }
+        }
+      }
+    },
+    "Working out your level" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang xác định trình độ của bạn"
+          }
+        }
+      }
+    },
+    "Couldn’t get your result" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không lấy được kết quả"
+          }
+        }
+      }
+    },
+    "Choose a different level" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn trình độ khác"
+          }
+        }
+      }
+    },
+    "See my level" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem trình độ của tôi"
+          }
+        }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tiếp"
+          }
+        }
+      }
+    },
+    "Leave the test?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rời bài test?"
+          }
+        }
+      }
+    },
+    "Keep going" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Làm tiếp"
+          }
+        }
+      }
+    },
+    "Leave" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rời đi"
+          }
+        }
+      }
+    },
+    "Your answers won’t be saved." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Câu trả lời của bạn sẽ không được lưu."
+          }
+        }
+      }
+    },
+    "Leave the test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rời bài test"
+          }
+        }
+      }
+    },
+    "Allow microphone access in Settings to practice speaking." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hãy cho phép dùng micrô trong Cài đặt để luyện nói."
+          }
+        }
+      }
+    },
+    "Listening practice needs sound and only uses words with audio. Check back after learning more words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luyện nghe cần có âm thanh và chỉ dùng các từ có audio. Hãy quay lại sau khi học thêm từ."
+          }
+        }
+      }
+    },
+    "Choose a skill" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn kỹ năng"
+          }
+        }
+      }
+    },
+    "All skills" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tất cả kỹ năng"
+          }
+        }
+      }
+    },
+    "Mixed or by skill" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tổng hợp hoặc theo kỹ năng"
+          }
+        }
+      }
+    },
+    "Recognize words and meanings" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhận biết từ và nghĩa"
+          }
+        }
+      }
+    },
+    "Recall and spell words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nhớ và viết đúng chính tả"
+          }
+        }
+      }
+    },
+    "Hear words, then pick or type them" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nghe từ rồi chọn hoặc gõ lại"
+          }
+        }
+      }
+    },
+    "Say words out loud" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đọc to từ"
+          }
+        }
+      }
+    },
+    "Guessing can place you too high, so tap Skip when you’re unsure." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đoán bừa có thể khiến trình độ bị xếp cao hơn thực tế, nên hãy bấm Bỏ qua khi không chắc."
+          }
+        }
+      }
+    },
+    "Placement test" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bài test xếp trình độ"
+          }
+        }
+      }
+    },
+    "Beginner" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mới bắt đầu"
+          }
+        }
+      }
+    },
+    "Elementary" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sơ cấp"
+          }
+        }
+      }
+    },
+    "Intermediate" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trung cấp"
+          }
+        }
+      }
+    },
+    "Upper-intermediate" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trung cao cấp"
+          }
+        }
+      }
+    },
+    "Advanced" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nâng cao"
+          }
+        }
+      }
+    },
+    "Proficient" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thành thạo"
+          }
+        }
+      }
+    },
+    "Choose your language" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn ngôn ngữ của bạn"
+          }
+        }
+      }
+    },
+    "You can change this anytime in Settings." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn có thể đổi bất cứ lúc nào trong Cài đặt."
+          }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngôn ngữ"
+          }
+        }
+      }
+    },
+    "The language of the app’s interface" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngôn ngữ hiển thị của ứng dụng"
+          }
+        }
+      }
+    },
+    "Your English level" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trình độ tiếng Anh của bạn"
+          }
+        }
+      }
+    },
+    "correct answers" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "câu đúng"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

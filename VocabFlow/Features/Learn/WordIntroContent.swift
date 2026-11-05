@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// The Learn word introduction: spelling hero (animated unless turned off) with IPA and audio, then flat
-/// Part of speech, Meaning, Definition and In context sections separated by whitespace only.
+/// The Learn word introduction: centered spelling hero (animated unless turned off) with IPA and audio,
+/// then flat Part of speech, Meaning, Definition and In context sections separated by dividers.
 struct WordIntroContent: View {
     let word: VocabularyItem
     let presentation: IntroductionPresentation
@@ -9,8 +9,6 @@ struct WordIntroContent: View {
     var playAudio: (() -> Void)?
     var animatesWord = true
     @Environment(SpeechPlayer.self) private var speech
-    @ScaledMetric(relativeTo: .title3) private var ipaSize: CGFloat = 21
-    @ScaledMetric(relativeTo: .body) private var audioIconSize: CGFloat = 19
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,24 +16,28 @@ struct WordIntroContent: View {
                 IntroMotionHost(word: word.term, presentation: presentation, animates: animatesWord)
                 pronunciation
             }
-            .padding(.bottom, Spacing.xl)
+            // With the first section's top padding, this makes the 32pt gap between hero and information.
+            .padding(.bottom, Spacing.m)
 
+            // Meaning is always present, so anchoring dividers on it keeps them strictly between sections.
             if let partOfSpeech = word.partOfSpeechLabel {
                 section("Part of speech") {
                     Text(verbatim: partOfSpeech)
-                        .font(Typography.body)
+                        .font(Typography.wordClass)
                         .foregroundStyle(Color.ink)
                 }
+                divider
             }
 
             section("Meaning") {
                 Text(verbatim: word.meaningVi)
-                    .font(Typography.headerTitle)
+                    .font(Typography.wordMeaning)
                     .foregroundStyle(Color.ink)
                     .accessibilityLabel(Text("Vietnamese meaning: \(word.meaningVi)"))
             }
 
             if let definition = word.definitionEN {
+                divider
                 section("Definition") {
                     Text(verbatim: definition)
                         .font(Typography.body)
@@ -44,15 +46,14 @@ struct WordIntroContent: View {
             }
 
             if !word.example.isEmpty {
+                divider
                 section("In context") {
-                    VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    VStack(alignment: .leading, spacing: Spacing.s) {
                         Text(LearnView.highlight(word.term, in: word.example))
                             .font(Typography.body)
                             .foregroundStyle(Color.ink)
                         if let translation = word.exampleTranslation, !translation.isEmpty {
-                            Text(verbatim: translation)
-                                .font(Typography.secondary)
-                                .foregroundStyle(Color.mutedInk)
+                            exampleTranslation(translation)
                         }
                     }
                 }
@@ -62,11 +63,13 @@ struct WordIntroContent: View {
     }
 
     private var pronunciation: some View {
-        HStack(spacing: Spacing.xs) {
+        HStack(spacing: Spacing.s) {
             if let ipa = word.ipa {
                 Text(verbatim: ipa)
-                    .font(.system(size: ipaSize, weight: .medium))
+                    .font(Typography.body)
                     .foregroundStyle(Color.mutedInk)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel(Text("IPA: \(ipa)"))
             }
             Button {
@@ -77,17 +80,38 @@ struct WordIntroContent: View {
                 }
             } label: {
                 Image(systemName: speech.isAvailable ? "speaker.wave.2" : "speaker.slash")
-                    .font(.system(size: audioIconSize, weight: .medium))
-                    .foregroundStyle(speech.isAvailable ? Color.mutedInk : Color.disabledInk)
-                    .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
-                    .contentShape(Rectangle())
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(speech.isAvailable ? Color.interactive : Color.disabledInk)
+                    .frame(width: Spacing.audioButton, height: Spacing.audioButton)
+                    .background(
+                        speech.isAvailable ? Color.selectedSurface : Color.disabledSurface,
+                        in: RoundedRectangle(cornerRadius: Radii.audioButton, style: .continuous)
+                    )
+                    .contentShape(RoundedRectangle(cornerRadius: Radii.audioButton, style: .continuous))
             }
             .buttonStyle(PressScaleButtonStyle())
             .disabled(!speech.isAvailable)
-            .padding(.horizontal, -Spacing.xs)
             .accessibilityLabel(Text(speech.isAvailable ? "Play pronunciation" : "Audio unavailable"))
             .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
         }
+    }
+
+    /// The icon only identifies the line as a translation; it isn't a control.
+    private func exampleTranslation(_ translation: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+            Image(systemName: "translate")
+                .accessibilityLabel(Text("Translation"))
+            Text(verbatim: translation)
+        }
+        .font(Typography.secondary)
+        .foregroundStyle(Color.mutedInk)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.stroke)
+            .frame(height: 1)
     }
 
     private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
@@ -98,6 +122,6 @@ struct WordIntroContent: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, Spacing.xl)
+        .padding(.vertical, Spacing.m)
     }
 }

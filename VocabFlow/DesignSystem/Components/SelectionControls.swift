@@ -16,6 +16,31 @@ struct PunctuatedTitle: View {
     }
 }
 
+/// An icon drawn like a system navigation bar button, for screens without a bar:
+/// a Liquid Glass circle on iOS 26+, a bare tinted icon before that.
+struct SystemBarButtonLabel: View {
+    let systemImage: String
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            icon
+                .foregroundStyle(Color.ink)
+                .contentShape(Circle())
+                .glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            icon
+                .foregroundStyle(Color.interactive)
+                .contentShape(Rectangle())
+        }
+    }
+
+    private var icon: some View {
+        Image(systemName: systemImage)
+            .font(.system(size: 17, weight: .semibold))
+            .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
+    }
+}
+
 /// Back button plus an optional segmented step indicator, for short linear flows.
 struct StepHeader: View {
     var step: Int?
@@ -25,39 +50,47 @@ struct StepHeader: View {
     @Environment(\.motion) private var motion
 
     var body: some View {
-        HStack {
-            Button(action: onBack) {
-                Image(systemName: "arrow.left")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color.ink)
-                    .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
-                            .strokeBorder(Color.stroke, lineWidth: 1.5)
-                    )
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(PressScaleButtonStyle())
-            .accessibilityLabel(Text(backLabel))
+        ZStack {
+            HStack {
+                Button(action: onBack) { backButtonLabel }
+                    .buttonStyle(PressScaleButtonStyle())
+                    .accessibilityLabel(Text(backLabel))
 
-            Spacer()
+                Spacer()
+            }
 
             if let step {
                 HStack(spacing: Spacing.xs) {
-                    Text(verbatim: "\(step) / \(totalSteps)")
-                        .font(Typography.micro.weight(.bold).monospacedDigit())
-                        .foregroundStyle(Color.mutedInk)
-                        .padding(.trailing, Spacing.xxs)
                     ForEach(1...max(totalSteps, 1), id: \.self) { index in
                         Capsule()
                             .fill(index <= step ? Color.interactive : Color.track)
-                            .frame(width: 36, height: 6)
+                            .frame(width: 32, height: 6)
                     }
                 }
                 .animation(motion.animation(MotionTokens.progress), value: step)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text("Step \(step) of \(totalSteps)"))
             }
+        }
+    }
+
+    /// Matches the system's back button, which this header stands in for without a navigation bar:
+    /// a Liquid Glass circle on iOS 26+, a tinted chevron and "Back" before that.
+    @ViewBuilder
+    private var backButtonLabel: some View {
+        if #available(iOS 26.0, *) {
+            SystemBarButtonLabel(systemImage: "chevron.left")
+        } else {
+            HStack(spacing: Spacing.xxs) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 20, weight: .semibold))
+                Text("Back")
+                    .font(Typography.body)
+            }
+            .foregroundStyle(Color.interactive)
+            .frame(minHeight: Spacing.minTouchTarget)
+            .contentShape(Rectangle())
+            .padding(.leading, -Spacing.xs)
         }
     }
 }

@@ -5,5 +5,6 @@ enum Radii {
     static let card: CGFloat = 20
     static let hero: CGFloat = 24
     static let primaryAction: CGFloat = 16
+    static let audioButton: CGFloat = 16
     static let chip: CGFloat = 10
 }

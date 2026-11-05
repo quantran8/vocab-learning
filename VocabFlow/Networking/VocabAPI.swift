@@ -57,6 +57,50 @@ struct SettingsUpdate: Encodable, Equatable {
     var dailyNewWordGoal: Int?
 }
 
+// MARK: - Placement test
+
+/// Always a text `select`. Unlike a practice task, option ids are UUID strings and there is no answer key:
+/// only the backend scores it. Questions and options keep the backend's order.
+struct PlacementQuestion: Decodable, Equatable, Identifiable {
+    struct Prompt: Decodable, Equatable {
+        let text: String
+    }
+
+    struct Option: Decodable, Equatable, Identifiable {
+        let id: String
+        let text: String
+    }
+
+    let id: String
+    let prompt: Prompt
+    let question: String?
+    let options: [Option]
+}
+
+struct PlacementAnswer: Encodable, Equatable {
+    let questionId: String
+    /// Nil means the learner skipped it because they don't know.
+    let optionId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case questionId, optionId
+    }
+
+    /// Spelled out because synthesized encoding would omit nil, and the contract sends an explicit null.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(questionId, forKey: .questionId)
+        try container.encode(optionId, forKey: .optionId)
+    }
+}
+
+/// The backend has already saved this level by the time it answers.
+struct PlacementResult: Decodable, Equatable {
+    let proficiencyLevel: CEFRLevel
+    let correctCount: Int
+    let totalCount: Int
+}
+
 // MARK: - Catalog
 
 struct CatalogTopic: Decodable, Equatable {
@@ -201,6 +245,9 @@ protocol VocabAPI: Sendable {
 
     func profile() async throws -> UserProfile
     func updateLevels(_ level: CEFRLevel) async throws
+    /// Empty when there isn't enough content yet; the learner then picks a level by hand.
+    func placementTest() async throws -> [PlacementQuestion]
+    func submitPlacementTest(_ answers: [PlacementAnswer]) async throws -> PlacementResult
     func updateSettings(_ settings: SettingsUpdate) async throws
     func updateScope(_ scope: LearningScope) async throws
     func catalog() async throws -> [CatalogCollection]
@@ -288,6 +335,15 @@ struct LiveVocabAPI: VocabAPI {
         var request = try post("me/levels", Levels(proficiencyLevel: level))
         request.method = .put
         _ = try await client.sendRaw(request)
+    }
+
+    func placementTest() async throws -> [PlacementQuestion] {
+        let response: PlacementTestResponse = try await client.send(get("me/placement-test"))
+        return response.questions
+    }
+
+    func submitPlacementTest(_ answers: [PlacementAnswer]) async throws -> PlacementResult {
+        try await client.send(try post("me/placement-test", PlacementSubmission(answers: answers)))
     }
 
     func updateSettings(_ settings: SettingsUpdate) async throws {
@@ -418,6 +474,14 @@ struct LiveVocabAPI: VocabAPI {
         let proficiencyLevel: CEFRLevel
     }
 
+    private struct PlacementTestResponse: Decodable {
+        let questions: [PlacementQuestion]
+    }
+
+    private struct PlacementSubmission: Encodable {
+        let answers: [PlacementAnswer]
+    }
+
     private struct CatalogResponse: Decodable {
         let collections: [CatalogCollection]
     }
@@ -448,6 +512,8 @@ struct OfflineVocabAPI: VocabAPI {
 
     func profile() async throws -> UserProfile { throw APIError.transport }
     func updateLevels(_ level: CEFRLevel) async throws {}
+    func placementTest() async throws -> [PlacementQuestion] { [] }
+    func submitPlacementTest(_ answers: [PlacementAnswer]) async throws -> PlacementResult { throw APIError.transport }
     func updateSettings(_ settings: SettingsUpdate) async throws {}
     func updateScope(_ scope: LearningScope) async throws {}
     func catalog() async throws -> [CatalogCollection] {

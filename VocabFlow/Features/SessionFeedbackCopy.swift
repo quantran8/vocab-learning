@@ -22,15 +22,15 @@ enum SessionFeedbackCopy {
             let text = challenge.option(id: tileID)?.text ?? ""
             return FeedbackCopy(
                 kind: .success,
-                title: String(localized: "Nicely done!"),
-                message: String(localized: "“\(challenge.filledPrompt(with: text))” — “\(text)” fits this context.")
+                title: String(localized: "Nicely done!", bundle: .appLanguage),
+                message: String(localized: "“\(challenge.filledPrompt(with: text))” — “\(text)” fits this context.", bundle: .appLanguage)
             )
         case .buildIncorrect(let tileID):
             let text = challenge.option(id: tileID)?.text ?? ""
             return FeedbackCopy(
                 kind: .error,
-                title: String(localized: "Not quite — try another word"),
-                message: challenge.explanations[tileID] ?? String(localized: "“\(text)” doesn’t fit this sentence.")
+                title: String(localized: "Not quite — try another word", bundle: .appLanguage),
+                message: challenge.explanations[tileID] ?? String(localized: "“\(text)” doesn’t fit this sentence.", bundle: .appLanguage)
             )
         default:
             return nil
@@ -44,14 +44,14 @@ enum SessionFeedbackCopy {
         case .recallIncorrect(let submission, let remaining):
             return FeedbackCopy(
                 kind: .error,
-                title: String(localized: "Not quite"),
-                message: String(localized: "“\(submission)” isn’t the word that means “\(word.meaningVi)” here. \(remaining) attempts left — a hint can help.")
+                title: String(localized: "Not quite", bundle: .appLanguage),
+                message: String(localized: "“\(submission)” isn’t the word that means “\(word.meaningVi)” here. \(remaining) attempts left — a hint can help.", bundle: .appLanguage)
             )
         case .recallRevealed:
             return FeedbackCopy(
                 kind: .info,
-                title: String(localized: "The answer is “\(word.term)”"),
-                message: String(localized: "\(word.example) It’s added to your words to review.")
+                title: String(localized: "The answer is “\(word.term)”", bundle: .appLanguage),
+                message: String(localized: "\(word.example) It’s added to your words to review.", bundle: .appLanguage)
             )
         default:
             return nil
@@ -60,19 +60,19 @@ enum SessionFeedbackCopy {
 
     private static func title(for outcome: RecallOutcome) -> String {
         switch outcome {
-        case .unaidedRecall: String(localized: "Remembered!")
-        case .hintedRecall: String(localized: "Correct, with hints")
-        case .recalledAfterRetry: String(localized: "Correct on a retry")
-        case .notRecalled: String(localized: "Not recalled")
+        case .unaidedRecall: String(localized: "Remembered!", bundle: .appLanguage)
+        case .hintedRecall: String(localized: "Correct, with hints", bundle: .appLanguage)
+        case .recalledAfterRetry: String(localized: "Correct on a retry", bundle: .appLanguage)
+        case .notRecalled: String(localized: "Not recalled", bundle: .appLanguage)
         }
     }
 
     private static func message(for outcome: RecallOutcome, word: VocabularyItem) -> String {
         switch outcome {
-        case .unaidedRecall: String(localized: "Perfect recall — first try, no hints.")
-        case .hintedRecall: String(localized: "You used hints, so “\(word.term)” is listed for review.")
-        case .recalledAfterRetry: String(localized: "It took more than one try, so “\(word.term)” is listed for review.")
-        case .notRecalled: String(localized: "“\(word.term)” is listed for review.")
+        case .unaidedRecall: String(localized: "Perfect recall — first try, no hints.", bundle: .appLanguage)
+        case .hintedRecall: String(localized: "You used hints, so “\(word.term)” is listed for review.", bundle: .appLanguage)
+        case .recalledAfterRetry: String(localized: "It took more than one try, so “\(word.term)” is listed for review.", bundle: .appLanguage)
+        case .notRecalled: String(localized: "“\(word.term)” is listed for review.", bundle: .appLanguage)
         }
     }
 }

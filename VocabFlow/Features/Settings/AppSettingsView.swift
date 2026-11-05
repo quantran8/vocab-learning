@@ -4,8 +4,11 @@ struct AppSettingsView: View {
     @Environment(AppSettingsStore.self) private var settings
     @Environment(TemplateSandboxStore.self) private var sandbox
     @Environment(AuthStore.self) private var auth
+    @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
     @State private var isConfirmingDeletion = false
+    @State private var isChoosingLanguage = false
+    @State private var pickedLanguage: AppLanguage?
 
     var body: some View {
         @Bindable var settings = settings
@@ -24,6 +27,19 @@ struct AppSettingsView: View {
                 }
 
                 group("App") {
+                    Button {
+                        isChoosingLanguage = true
+                    } label: {
+                        SettingRow(systemImage: "globe", title: "Language", subtitle: "The language of the app’s interface") {
+                            HStack(spacing: Spacing.xs) {
+                                Text(verbatim: currentLanguage.nativeName)
+                                Image(systemName: "chevron.right")
+                                    .font(.subheadline.weight(.bold))
+                                    .accessibilityHidden(true)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
                     SettingRow(systemImage: "circle.lefthalf.filled", title: "Appearance", subtitle: "Light theme") {
                         Text("Light")
                     }
@@ -69,6 +85,12 @@ struct AppSettingsView: View {
         }
         .background(Color.canvas)
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isChoosingLanguage, onDismiss: applyPickedLanguage) {
+            LanguageSheet(selected: currentLanguage) { language in
+                pickedLanguage = language
+                isChoosingLanguage = false
+            }
+        }
         .alert("Delete your account?", isPresented: $isConfirmingDeletion) {
             Button("Delete account", role: .destructive) {
                 Task { await auth.deleteAccount() }
@@ -77,6 +99,17 @@ struct AppSettingsView: View {
         } message: {
             Text("Your progress, words and settings will be permanently deleted. This can’t be undone.")
         }
+    }
+
+    private var currentLanguage: AppLanguage {
+        settings.language ?? .device
+    }
+
+    /// The task isn't tied to this view: changing the language rebuilds the screen.
+    private func applyPickedLanguage() {
+        guard let pickedLanguage, pickedLanguage != settings.language else { return }
+        settings.chooseLanguage(pickedLanguage)
+        Task { await learner.languageDidChange() }
     }
 
     private func group<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {

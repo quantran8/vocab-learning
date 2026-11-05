@@ -58,8 +58,8 @@ struct NotificationReminderScheduler: ReminderScheduling {
         guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = String(localized: "Time for your flow")
-        content.body = String(localized: "\(preferences.wordsPerDay) new words are waiting.")
+        content.title = String(localized: "Time for your flow", bundle: .appLanguage)
+        content.body = String(localized: "\(preferences.wordsPerDay) new words are waiting.", bundle: .appLanguage)
         content.sound = .default
 
         for weekday in preferences.learningDays {
@@ -105,6 +105,12 @@ final class LearningPlanStore {
         storage.preferences = preferences
         self.preferences = preferences
         let reminders = reminders
+        Task { await reminders.apply(preferences) }
+    }
+
+    func rescheduleReminders() {
+        let reminders = reminders
+        let preferences = current
         Task { await reminders.apply(preferences) }
     }
 

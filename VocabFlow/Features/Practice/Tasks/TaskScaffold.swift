@@ -80,17 +80,17 @@ enum TaskFeedbackCopy {
         case .answering, .recorded:
             return nil
         case .solved:
-            return FeedbackCopy(kind: .success, title: String(localized: "Correct!"),
-                                message: answer ?? String(localized: "All pairs matched."))
+            return FeedbackCopy(kind: .success, title: String(localized: "Correct!", bundle: .appLanguage),
+                                message: answer ?? String(localized: "All pairs matched.", bundle: .appLanguage))
         case .wrong:
-            return FeedbackCopy(kind: .error, title: String(localized: "Not quite"),
-                                message: String(localized: "Try again, or show the answer."))
+            return FeedbackCopy(kind: .error, title: String(localized: "Not quite", bundle: .appLanguage),
+                                message: String(localized: "Try again, or show the answer.", bundle: .appLanguage))
         case .revealed:
-            return FeedbackCopy(kind: .info, title: String(localized: "Here’s the answer"),
+            return FeedbackCopy(kind: .info, title: String(localized: "Here’s the answer", bundle: .appLanguage),
                                 message: answer ?? attempt.allPairsText ?? "")
         case .exhausted:
             // The exercise keeps the learner's work; this panel is the only place the answer appears.
-            return FeedbackCopy(kind: .info, title: String(localized: "The correct answer"),
+            return FeedbackCopy(kind: .info, title: String(localized: "The correct answer", bundle: .appLanguage),
                                 message: answer ?? attempt.missedPairsText ?? "")
         }
     }

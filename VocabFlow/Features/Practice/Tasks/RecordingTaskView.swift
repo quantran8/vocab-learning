@@ -70,8 +70,8 @@ struct RecordingTaskView: View {
         guard case .assessed(let assessment) = store.recording else { return nil }
         guard assessment.isValid else {
             let title = attempt.canRecordAgain
-                ? String(localized: "We couldn’t hear you clearly. Try reading again.")
-                : String(localized: "We couldn’t hear you clearly.")
+                ? String(localized: "We couldn’t hear you clearly. Try reading again.", bundle: .appLanguage)
+                : String(localized: "We couldn’t hear you clearly.", bundle: .appLanguage)
             return FeedbackCopy(kind: .info, title: title, message: "")
         }
         let passed = assessment.passed == true
@@ -80,10 +80,10 @@ struct RecordingTaskView: View {
 
     private func resultTitle(passed: Bool) -> String {
         if attempt.hasTranscripts {
-            return passed ? String(localized: "Correct!") : String(localized: "Not quite")
+            return passed ? String(localized: "Correct!", bundle: .appLanguage) : String(localized: "Not quite", bundle: .appLanguage)
         }
-        if passed { return String(localized: "Great pronunciation!") }
-        return attempt.canRecordAgain ? String(localized: "Close. Try once more?") : String(localized: "Close. Keep practicing.")
+        if passed { return String(localized: "Great pronunciation!", bundle: .appLanguage) }
+        return attempt.canRecordAgain ? String(localized: "Close. Try once more?", bundle: .appLanguage) : String(localized: "Close. Keep practicing.", bundle: .appLanguage)
     }
 
     private func resultMessage(_ assessment: RecordingAssessment, passed: Bool) -> String {
@@ -91,7 +91,7 @@ struct RecordingTaskView: View {
             return score.formatted(.number.precision(.fractionLength(0)))
         }
         if let heard = assessment.heard, !passed {
-            return String(localized: "We heard “\(heard)”")
+            return String(localized: "We heard “\(heard)”", bundle: .appLanguage)
         }
         return ""
     }

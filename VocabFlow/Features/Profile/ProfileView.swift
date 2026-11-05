@@ -17,15 +17,7 @@ struct ProfileView: View {
                     Eyebrow(text: "Profile")
                     Spacer()
                     Button(action: onOpenSettings) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(Color.ink)
-                            .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Radii.tile - 1, style: .continuous)
-                                    .strokeBorder(Color.stroke, lineWidth: 1.5)
-                            )
-                            .contentShape(Rectangle())
+                        SystemBarButtonLabel(systemImage: "gearshape")
                     }
                     .buttonStyle(PressScaleButtonStyle())
                     .accessibilityLabel(Text("Settings"))
@@ -54,7 +46,7 @@ struct ProfileView: View {
     }
 
     private var identity: some View {
-        let name = String(localized: "Learner")
+        let name = String(localized: "Learner", bundle: .appLanguage)
         return HStack(spacing: Spacing.s) {
             RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
                 .fill(Color.selectedSurface)
@@ -187,10 +179,10 @@ struct ProfileView: View {
     }
 
     private func daysSummary(_ preferences: LearningPreferences) -> String {
-        if preferences.isEveryDay { return String(localized: "Every day") }
+        if preferences.isEveryDay { return String(localized: "Every day", bundle: .appLanguage) }
         return Weekday.ordered
             .filter { preferences.learningDays.contains($0.id) }
             .map(\.short)
-            .formatted(.list(type: .and, width: .narrow))
+            .formatted(.list(type: .and, width: .narrow).locale(AppLanguage.active.locale))
     }
 }

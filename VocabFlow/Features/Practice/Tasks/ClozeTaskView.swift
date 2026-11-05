@@ -216,7 +216,7 @@ private struct ClozeSentence: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.m)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: parts.before + (filled?.text ?? String(localized: "blank")) + parts.after))
+        .accessibilityLabel(Text(verbatim: parts.before + (filled?.text ?? String(localized: "blank", bundle: .appLanguage)) + parts.after))
         .accessibilityAction(named: Text("Remove answer"), onRemove)
     }
 

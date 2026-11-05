@@ -17,12 +17,19 @@ final class AppSettingsStore {
         didSet { defaults?.set(reduceMotion, forKey: Keys.reduceMotion) }
     }
 
+    /// `nil` until the learner has chosen, which is what puts the language step on screen.
+    private(set) var language: AppLanguage?
+
     @ObservationIgnored let feedback: SettingsAwareFeedback
     @ObservationIgnored private let defaults: UserDefaults?
 
     private enum Keys {
         static let haptics = "settings.haptics"
         static let reduceMotion = "settings.reduceMotion"
+        static let language = "settings.language"
+        /// The system's per-app language: read at launch for everything outside SwiftUI's
+        /// environment, such as permission prompts, and changed by iOS Settings › Vocab Flow.
+        static let systemLanguages = "AppleLanguages"
     }
 
     /// Pass `nil` defaults for an in-memory store (previews, tests).
@@ -32,5 +39,21 @@ final class AppSettingsStore {
         hapticsEnabled = defaults?.object(forKey: Keys.haptics) as? Bool ?? true
         reduceMotion = defaults?.bool(forKey: Keys.reduceMotion) ?? false
         feedback.isEnabled = hapticsEnabled
+        language = Self.savedLanguage(in: defaults)
+        if let language { AppLanguage.active = language }
+    }
+
+    /// Applies at once, and from the next launch on for what only reads the language at launch.
+    func chooseLanguage(_ language: AppLanguage) {
+        self.language = language
+        AppLanguage.active = language
+        defaults?.set(language.rawValue, forKey: Keys.language)
+        defaults?.set([language.rawValue], forKey: Keys.systemLanguages)
+    }
+
+    /// A change in iOS Settings relaunches the app and wins over the saved choice.
+    private static func savedLanguage(in defaults: UserDefaults?) -> AppLanguage? {
+        guard let saved = defaults?.string(forKey: Keys.language).flatMap(AppLanguage.init(rawValue:)) else { return nil }
+        return defaults?.stringArray(forKey: Keys.systemLanguages)?.first.flatMap(AppLanguage.init(languageTag:)) ?? saved
     }
 }

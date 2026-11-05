@@ -16,13 +16,15 @@ enum MotionTokens {
     static let shake = Animation.linear(duration: 0.4)
     static let transitionDuration: Double = 0.36
     static let transition = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: transitionDuration)
+    /// A step sliding in a flow that goes both ways: eases in and settles without overshoot, like a system push.
+    static let stepSlide = Animation.spring(response: 0.4, dampingFraction: 1)
     static let progress = Animation.easeOut(duration: 0.4)
     static let entrance = Animation.spring(response: 0.5, dampingFraction: 0.62)
     static let reducedCrossfade = Animation.easeInOut(duration: 0.15)
     /// Time for the shimmer band to cross a button.
-    static let shimmerSweep: Double = 1.8
+    static let shimmerSweep: Double = 1.4
     /// Time from one shimmer sweep to the next, including the pause between them.
-    static let shimmerCycle: Double = 6
+    static let shimmerCycle: Double = 4
 
     // Word introduction recipes (visual only — never a navigation gate)
     static let introLetter = Animation.spring(response: 0.38, dampingFraction: 0.82)

@@ -69,7 +69,7 @@ struct RecallView: View {
                 .font(Typography.body)
                 .foregroundStyle(Color.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
-                .accessibilityLabel(Text(prompt.sentence.replacingOccurrences(of: BuildChallenge.blank, with: resolved ? word.term : String(localized: "blank"))))
+                .accessibilityLabel(Text(prompt.sentence.replacingOccurrences(of: BuildChallenge.blank, with: resolved ? word.term : String(localized: "blank", bundle: .appLanguage))))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, Spacing.s)

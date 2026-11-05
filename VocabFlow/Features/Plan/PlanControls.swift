@@ -2,6 +2,48 @@ import SwiftUI
 
 /// Learning-plan inputs shared by onboarding and the Profile plan editor.
 
+/// One CEFR level with a short plain-language name, for the level grids.
+struct LevelTile: View {
+    let level: CEFRLevel
+    let isSelected: Bool
+    let action: () -> Void
+
+    private var summary: LocalizedStringKey {
+        switch level {
+        case .a1: "Beginner"
+        case .a2: "Elementary"
+        case .b1: "Intermediate"
+        case .b2: "Upper-intermediate"
+        case .c1: "Advanced"
+        case .c2: "Proficient"
+        }
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Radii.card - 2, style: .continuous)
+        Button(action: action) {
+            VStack(spacing: Spacing.xxs) {
+                Text(verbatim: level.rawValue)
+                    .font(Typography.tileLarge.weight(.bold))
+                    .foregroundStyle(isSelected ? Color.selectedInk : Color.ink)
+                Text(summary)
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, Spacing.xs)
+            .padding(.vertical, Spacing.s)
+            .frame(maxWidth: .infinity, minHeight: 74)
+            .background(isSelected ? Color.selectedSurface : Color.surface, in: shape)
+            .overlay(shape.strokeBorder(isSelected ? Color.interactive : Color.stroke, lineWidth: 1.5))
+            .contentShape(shape)
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
 /// One card per collection; exactly one is selected.
 struct CollectionPicker: View {
     let selectedID: String
@@ -277,12 +319,14 @@ struct Weekday: Identifiable {
 
     static var ordered: [Weekday] {
         let calendar = Calendar.current
+        var names = calendar
+        names.locale = AppLanguage.active.locale
         return (0..<7).map { offset in
             let id = (calendar.firstWeekday - 1 + offset) % 7 + 1
             return Weekday(
                 id: id,
-                short: calendar.shortWeekdaySymbols[id - 1],
-                full: calendar.weekdaySymbols[id - 1]
+                short: names.shortWeekdaySymbols[id - 1],
+                full: names.weekdaySymbols[id - 1]
             )
         }
     }

@@ -9,6 +9,8 @@ struct AppRootView: View {
     @Environment(LearnerStore.self) private var learner
     @Environment(PracticeSessionStore.self) private var practice
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shellTab: MainTab = .home
+    @State private var profilePath: [ShellPage] = []
 
     var body: some View {
         let motion = MotionCoordinator(reduceMotion: reduceMotion || settings.reduceMotion)
@@ -18,27 +20,45 @@ struct AppRootView: View {
                 .id(route)
                 .transition(motion.routeTransition)
                 .environment(\.designZone, zone)
+                // Strings built with `String(localized:)` only update when their view is rebuilt.
+                .id(settings.language)
         }
         .environment(\.motion, motion)
+        .environment(\.locale, settings.language?.locale ?? .autoupdatingCurrent)
         .scrollBounceBehavior(.basedOnSize)
         .preferredColorScheme(.light)
         .task { await auth.restore() }
-        .task(id: auth.phase) {
-            if auth.phase == .signedIn { await learner.load() }
+        // Waits for the language step, so `load()` sends the chosen `uiLocale` before anything reads the catalog.
+        .task(id: canLoadLearner) {
+            if canLoadLearner { await learner.load() }
         }
+        .task(id: auth.phase) {
+            // The next account starts on Home.
+            if auth.phase == .signedOut {
+                shellTab = .home
+                profilePath = []
+            }
+        }
+    }
+
+    private var canLoadLearner: Bool {
+        auth.phase == .signedIn && settings.language != nil
     }
 
     private var zone: DesignZone {
         switch route {
         case .practice, .flow, .results: .lesson
         case .lab(let template): template == nil ? .product : .lesson
-        case .loading, .auth, .onboarding, .home: .product
+        case .loading, .auth, .language, .onboarding, .home: .product
         }
     }
 
     private var route: RouteID {
         guard auth.phase == .signedIn else {
             return auth.phase == .launching ? .loading : .auth
+        }
+        guard settings.language != nil else {
+            return .language
         }
         guard learner.phase == .ready else {
             return .loading
@@ -66,6 +86,8 @@ struct AppRootView: View {
             StatusScreen(title: "Vocab Flow", isBusy: true)
         } else if auth.phase == .signedOut {
             AuthView()
+        } else if settings.language == nil {
+            LanguageSelectionView()
         } else if case .failed(let message) = learner.phase {
             StatusScreen(title: "Couldn’t load your account", message: Text(verbatim: message)) {
                 PrimaryButton(title: "Try again") {
@@ -89,7 +111,7 @@ struct AppRootView: View {
             }
         } else {
             switch store.state.phase {
-            case .home: MainShellView()
+            case .home: MainShellView(tab: $shellTab, profilePath: $profilePath)
             case .learn, .build, .recall: SessionFlowView()
             case .results: ResultsView()
             }
@@ -100,6 +122,7 @@ struct AppRootView: View {
 private enum RouteID: Hashable {
     case loading
     case auth
+    case language
     case onboarding
     case practice(token: UUID)
     case home(token: UUID)
@@ -135,4 +158,5 @@ private enum RouteID: Hashable {
             transcriber: NoSpeechTranscriber()
         ))
         .environment(CustomWordStore(api: OfflineVocabAPI(), audio: SilentAudioClips()))
+        .environment(PlacementTestStore(api: OfflineVocabAPI(), haptics: NoOpFeedback()))
 }

@@ -56,7 +56,9 @@ final class LearnerStore {
 
     /// Runs whenever the main shell appears, so also after onboarding and every session.
     /// Non-fatal: Home keeps what it has if a refresh fails.
+    /// The profile is included because onboarding saves the level and scope after `load()` read it.
     func refresh() async {
+        async let profile: Void = reloadProfile()
         async let home = try? api.learnHome()
         async let challenges = try? api.checkpointChallenges()
         async let stats = try? api.wordStats()
@@ -65,6 +67,7 @@ final class LearnerStore {
         if let challenges = await challenges { self.challenges = challenges }
         if let stats = await stats { wordStats = stats }
         await library
+        await profile
     }
 
     /// Replaces the list with the first page for `query`. A failed reload keeps what is on screen,
@@ -128,6 +131,19 @@ final class LearnerStore {
     /// The level goes to the server first; the profile is re-read so Profile shows what the server kept.
     func updateLevel(_ level: CEFRLevel) async throws {
         try await api.updateLevels(level)
+        await reloadProfile()
+    }
+
+    /// The server holds the catalog's language, and scheduled reminders hold their text.
+    /// A failed save is retried by the next `load()`, which compares `uiLocale` with the server's.
+    func languageDidChange() async {
+        plan.rescheduleReminders()
+        try? await api.updateSettings(SettingsUpdate(uiLocale: AppLanguage.active.uiLocale))
+        if let catalog = try? await api.catalog() { TopicCatalog.update(with: catalog) }
+        await refresh()
+    }
+
+    func reloadProfile() async {
         if let profile = try? await api.profile() { self.profile = profile }
     }
 
@@ -149,7 +165,7 @@ final class LearnerStore {
     /// `timeZone` defines the learner's "day" for the daily goal; `uiLocale` localizes the catalog.
     private func syncDeviceSettings(_ settings: UserSettings) async {
         let timeZone = TimeZone.current.identifier
-        let uiLocale = Bundle.main.preferredLocalizations.first?.hasPrefix("vi") == true ? "vi-VN" : "en-US"
+        let uiLocale = AppLanguage.active.uiLocale
         guard settings.timeZone != timeZone || settings.uiLocale != uiLocale else { return }
         try? await api.updateSettings(SettingsUpdate(uiLocale: uiLocale, timeZone: timeZone))
     }

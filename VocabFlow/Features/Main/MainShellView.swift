@@ -21,9 +21,10 @@ enum MainTab: CaseIterable, Hashable {
     }
 }
 
-/// Pages the Profile tab pushes onto its navigation stack.
+/// Pages the tabs push onto their navigation stacks.
 enum ShellPage: Hashable {
     case settings
+    case randomPractice
 }
 
 /// Plan editors Profile presents as bottom sheets.
@@ -39,8 +40,11 @@ struct MainShellView: View {
     @Environment(LearningPlanStore.self) private var plan
     @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
-    @State private var tab: MainTab = .home
-    @State private var profilePath: [ShellPage] = []
+    /// Owned by the root: the route swap unmounts this view during a session, and closing one returns to this tab.
+    @Binding var tab: MainTab
+    /// Owned by the root too: changing the language rebuilds this view, and Settings must stay open.
+    @Binding var profilePath: [ShellPage]
+    @State private var wordsPath: [ShellPage] = []
     @State private var planSheet: PlanSheet?
     @State private var toast: String?
     @State private var toastToken = UUID()
@@ -52,8 +56,7 @@ struct MainShellView: View {
                 .tabItem { Label(MainTab.home.title, systemImage: MainTab.home.systemImage) }
                 .tag(MainTab.home)
 
-            MyWordsView()
-                .background(Color.canvas)
+            wordsStack
                 .tabItem { Label(MainTab.words.title, systemImage: MainTab.words.systemImage) }
                 .tag(MainTab.words)
 
@@ -64,6 +67,17 @@ struct MainShellView: View {
         .tint(Color.interactive)
         .minimizingTabBarOnScroll()
         .task { await learner.refresh() }
+    }
+
+    private var wordsStack: some View {
+        NavigationStack(path: $wordsPath) {
+            MyWordsView(onOpenRandomPractice: { wordsPath.append(.randomPractice) })
+                .background(Color.canvas)
+                // Hidden bar, but the title still labels the system back button on pushed pages.
+                .navigationTitle(MainTab.words.title)
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: ShellPage.self, destination: destination)
+        }
     }
 
     private var profileStack: some View {
@@ -103,6 +117,9 @@ struct MainShellView: View {
         case .settings:
             AppSettingsView()
                 .toolbar(.hidden, for: .tabBar)
+        case .randomPractice:
+            RandomPracticeView()
+                .toolbar(.hidden, for: .tabBar)
         }
     }
 
@@ -112,14 +129,17 @@ struct MainShellView: View {
         case .level:
             EditLevelView(initial: learner.profile?.proficiencyLevel) { level in
                 saveLevel(level)
+            } onPlaced: {
+                planSheet = nil
+                showToast(String(localized: "Level updated", bundle: .appLanguage))
             }
         case .focus:
             EditFocusView(initial: plan.current) { preferences in
-                save(preferences, toast: String(localized: "Focus updated"))
+                save(preferences, toast: String(localized: "Focus updated", bundle: .appLanguage))
             }
         case .routine:
             EditRoutineView(initial: plan.current) { preferences in
-                save(preferences, toast: String(localized: "Routine updated"))
+                save(preferences, toast: String(localized: "Routine updated", bundle: .appLanguage))
             }
         }
     }
@@ -141,7 +161,7 @@ struct MainShellView: View {
         Task {
             do {
                 try await learner.updateLevel(level)
-                showToast(String(localized: "Level updated"))
+                showToast(String(localized: "Level updated", bundle: .appLanguage))
             } catch {
                 showToast(error.asAPIError.userMessage)
             }

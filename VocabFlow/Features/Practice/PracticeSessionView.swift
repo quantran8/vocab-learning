@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Everything between tapping a practice button and returning Home.
+/// Everything between tapping a practice button and returning to the tab it was started from.
 struct PracticeSessionView: View {
     @Environment(PracticeSessionStore.self) private var store
     @Environment(\.motion) private var motion
@@ -14,7 +14,7 @@ struct PracticeSessionView: View {
         case .committing:
             StatusScreen(title: "Saving your progress", isBusy: true)
         case .empty:
-            StatusScreen(title: "Nothing to practise right now", message: store.isWeakPractice ? Text("Skills you need to practice again will show up here.") : Text("Check back after learning more words.")) {
+            StatusScreen(title: "Nothing to practise right now", message: emptyMessage) {
                 closeButton
             }
         case .reviewPreview(let words):
@@ -41,8 +41,20 @@ struct PracticeSessionView: View {
         }
     }
 
+    private var emptyMessage: Text {
+        if store.isWeakPractice { return Text("Skills you need to practice again will show up here.") }
+        switch store.practiceSkill {
+        case .speaking where !store.canRecord:
+            return Text("Allow microphone access in Settings to practice speaking.")
+        case .listening:
+            return Text("Listening practice needs sound and only uses words with audio. Check back after learning more words.")
+        default:
+            return Text("Check back after learning more words.")
+        }
+    }
+
     private var closeButton: some View {
-        SecondaryButton(title: "Back to home") {
+        SecondaryButton(title: "Close") {
             motion.perform(MotionTokens.transition) { store.close() }
         }
     }
@@ -140,7 +152,7 @@ private struct ReviewPreviewView: View {
                     .foregroundStyle(Color.ink)
                     .accessibilityAddTraits(.isHeader)
 
-                StreamingText(text: String(localized: "Let’s review these words you already learned before exploring new words.")) {
+                StreamingText(text: String(localized: "Let’s review these words you already learned before exploring new words.", bundle: .appLanguage)) {
                     hasLanded = true
                 }
                 .font(Typography.body)
@@ -166,7 +178,7 @@ private struct ReviewPreviewView: View {
                     PrimaryButton(title: "Continue") {
                         motion.perform(MotionTokens.transition) { store.continueToPractice() }
                     }
-                    SecondaryButton(title: "Back to home") {
+                    SecondaryButton(title: "Close") {
                         motion.perform(MotionTokens.transition) { store.close() }
                     }
                 }
@@ -530,7 +542,7 @@ struct PracticeResultsView: View {
         }
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
-                PrimaryButton(title: "Back to home") {
+                PrimaryButton(title: "Done") {
                     motion.perform(MotionTokens.transition) { store.close() }
                 }
             }

@@ -5,12 +5,19 @@ import Observation
 @MainActor
 final class OnboardingStore {
     enum Step: Int, CaseIterable {
-        case welcome, level, collection, topics, routine, ready
+        case welcome, level, placement, collection, topics, routine, ready
     }
 
-    private(set) var step: Step = .welcome
+    private(set) var step: Step = .welcome {
+        didSet { isMovingBack = step.rawValue < oldValue.rawValue }
+    }
+    /// Which way the last step change went, so the slide can follow it.
+    /// Read while a transition runs, which is why it needs no observing.
+    @ObservationIgnored private(set) var isMovingBack = false
     var draft: LearningPreferences
     private(set) var level: CEFRLevel?
+    /// What the server holds, so a level the placement test already saved isn't sent again.
+    private var savedLevel: CEFRLevel?
     /// A request is in flight; the step's action stays disabled until it answers.
     private(set) var isSaving = false
     private(set) var errorMessage: String?
@@ -39,20 +46,53 @@ final class OnboardingStore {
     func reset() {
         step = .welcome
         level = nil
+        savedLevel = nil
         errorMessage = nil
         draft = plan.current
     }
 
     func back() {
+        // The placement test is a detour off the level step, not a stop on the way back.
+        if step == .collection {
+            step = .level
+            return
+        }
         guard let previous = Step(rawValue: step.rawValue - 1) else { return }
         step = previous
+    }
+
+    func openPlacementTest() {
+        guard !isSaving else { return }
+        errorMessage = nil
+        step = .placement
+    }
+
+    /// The test saved the level already, so this only has the catalog left to load.
+    func acceptPlacement(_ result: PlacementResult) async {
+        adoptPlacement(result)
+        await continueToCollection()
+    }
+
+    /// Back to the level grid: the test had no content or failed, or the learner disagrees with its result.
+    func chooseLevelByHand(after result: PlacementResult?) {
+        if let result { adoptPlacement(result) }
+        errorMessage = nil
+        step = .level
+    }
+
+    private func adoptPlacement(_ result: PlacementResult) {
+        level = result.proficiencyLevel
+        savedLevel = result.proficiencyLevel
     }
 
     /// Saves the level, then loads the catalog, which needs the account the level was saved on.
     func continueToCollection() async {
         guard let level else { return }
         await save {
-            try await self.api.updateLevels(level)
+            if level != self.savedLevel {
+                try await self.api.updateLevels(level)
+                self.savedLevel = level
+            }
             let catalog = try await self.api.catalog()
             guard !catalog.isEmpty else { throw APIError.invalidResponse }
             TopicCatalog.update(with: catalog)
