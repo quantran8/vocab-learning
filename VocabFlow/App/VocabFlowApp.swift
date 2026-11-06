@@ -16,6 +16,7 @@ struct VocabFlowApp: App {
     @State private var placement: PlacementTestStore
 
     init() {
+        SystemBackButton.configureAppearance()
         let repository = DemoContentRepository()
         let content = repository.loadOrFail()
         let settings = AppSettingsStore(feedback: SettingsAwareFeedback(base: FeedbackHaptics()))

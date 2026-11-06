@@ -17,7 +17,7 @@ struct PunctuatedTitle: View {
 }
 
 /// An icon drawn like a system navigation bar button, for screens without a bar:
-/// a Liquid Glass circle on iOS 26+, a bare tinted icon before that.
+/// a Liquid Glass circle on iOS 26+, a bare black icon before that.
 struct SystemBarButtonLabel: View {
     let systemImage: String
 
@@ -29,8 +29,8 @@ struct SystemBarButtonLabel: View {
                 .glassEffect(.regular.interactive(), in: .circle)
         } else {
             icon
-                .foregroundStyle(Color.interactive)
-                .contentShape(Rectangle())
+                .foregroundStyle(Color.ink)
+                .contentShape(Circle())
         }
     }
 
@@ -52,7 +52,7 @@ struct StepHeader: View {
     var body: some View {
         ZStack {
             HStack {
-                Button(action: onBack) { backButtonLabel }
+                Button(action: onBack) { BackButtonLabel() }
                     .buttonStyle(PressScaleButtonStyle())
                     .accessibilityLabel(Text(backLabel))
 
@@ -73,24 +73,20 @@ struct StepHeader: View {
             }
         }
     }
+}
 
-    /// Matches the system's back button, which this header stands in for without a navigation bar:
-    /// a Liquid Glass circle on iOS 26+, a tinted chevron and "Back" before that.
-    @ViewBuilder
-    private var backButtonLabel: some View {
+/// Stands in for the system back button on screens without a navigation bar:
+/// a Liquid Glass circle on iOS 26+, a bare black chevron (no text) before that.
+struct BackButtonLabel: View {
+    var body: some View {
         if #available(iOS 26.0, *) {
             SystemBarButtonLabel(systemImage: "chevron.left")
         } else {
-            HStack(spacing: Spacing.xxs) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 20, weight: .semibold))
-                Text("Back")
-                    .font(Typography.body)
-            }
-            .foregroundStyle(Color.interactive)
-            .frame(minHeight: Spacing.minTouchTarget)
-            .contentShape(Rectangle())
-            .padding(.leading, -Spacing.xs)
+            Image(systemName: "chevron.left")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.ink)
+                .frame(width: Spacing.minTouchTarget, height: Spacing.minTouchTarget, alignment: .leading)
+                .contentShape(Rectangle())
         }
     }
 }

@@ -4,6 +4,7 @@ import SwiftUI
 struct ChoiceTileButton: View {
     let text: String
     let state: WordTileVisualState
+    var minHeight: CGFloat = Spacing.tileMinHeight
     let action: () -> Void
     @Environment(\.motion) private var motion
     @State private var bounce = 0
@@ -16,7 +17,7 @@ struct ChoiceTileButton: View {
             EmptyView()
         }
         // A quick tap inside a ScrollView often never reports isPressed, so the tile also sinks on tap.
-        .buttonStyle(ChoiceTilePressStyle(text: text, state: state, bounce: bounce))
+        .buttonStyle(ChoiceTilePressStyle(text: text, state: state, minHeight: minHeight, bounce: bounce))
         .disabled(state == .disabled || state == .correct)
         .accessibilityLabel(Text("\(text), option"))
         .accessibilityValue(choiceValue)
@@ -38,10 +39,11 @@ struct ChoiceTileButton: View {
 private struct ChoiceTilePressStyle: ButtonStyle {
     let text: String
     let state: WordTileVisualState
+    let minHeight: CGFloat
     let bounce: Int
 
     func makeBody(configuration: Configuration) -> some View {
         let canPress = state == .idle || state == .selected
-        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state, bounceTrigger: bounce, font: Typography.choice)
+        WordTile(text: text, visualState: configuration.isPressed && canPress ? .pressed : state, minHeight: minHeight, bounceTrigger: bounce, font: Typography.choice)
     }
 }

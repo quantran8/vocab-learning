@@ -185,10 +185,13 @@ struct WordMeaning: Decodable, Equatable {
 struct WordProgress: Decodable, Equatable, Identifiable {
     let wordId: String
     let lemma: String
+    /// Learned meanings only; `meaningCount` counts every meaning the word has. Absent from older servers.
     let meanings: [WordMeaning]
+    var meaningCount: Int? = nil
 
     var id: String { wordId }
     var meaningText: String { meanings.map(\.meaning.text).joined(separator: "; ") }
+    var ipa: String? { meanings.lazy.compactMap(\.meaning.ipa).first }
 }
 
 /// Library-wide figures, independent of paging and search.
@@ -197,13 +200,17 @@ struct WordStats: Decodable, Equatable {
     let needPracticeWords: Int
 }
 
+/// Every meaning of the word, including the ones not learned yet (`learnedAt == nil`).
 struct WordDetail: Decodable, Equatable {
     struct Meaning: Decodable, Equatable {
         let meaningId: String
+        let meaning: WordMeaning.Sense
         let learnedAt: Date?
         let skills: MeaningSkills
     }
 
+    let wordId: String
+    let lemma: String
     let meanings: [Meaning]
 }
 

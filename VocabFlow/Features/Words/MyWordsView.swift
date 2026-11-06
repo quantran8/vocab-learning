@@ -95,9 +95,9 @@ struct MyWordsView: View {
         }
         .sheet(item: $selected) { word in
             WordDetailSheet(
-                word: vocabulary(for: word),
                 wordID: word.wordId,
-                meaningID: word.meanings.first?.meaningId,
+                lemma: word.lemma,
+                ipa: word.ipa,
                 playAudio: word.meanings.compactMap(\.meaning.audio).first.map { clip in { practice.playClip(clip) } }
             )
         }
@@ -213,13 +213,19 @@ struct MyWordsView: View {
             HStack(spacing: Spacing.s) {
                 VStack(alignment: .leading, spacing: Spacing.xxs) {
                     Text(verbatim: word.lemma)
-                        .font(Typography.emphasis)
+                        .font(Typography.tileLarge.weight(.bold))
                         .foregroundStyle(Color.ink)
-                    Text(verbatim: word.meaningText)
-                        .font(Typography.secondary)
+                    if let ipa = word.ipa {
+                        Text(verbatim: ipa)
+                            .font(Typography.secondary)
+                            .foregroundStyle(Color.mutedInk)
+                    }
+                    meaningProgress(word)
+                        .font(Typography.micro.weight(.semibold))
                         .foregroundStyle(Color.mutedInk)
-                        .multilineTextAlignment(.leading)
+                        .padding(.top, Spacing.xxs)
                 }
+                .multilineTextAlignment(.leading)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.subheadline.weight(.medium))
@@ -235,25 +241,16 @@ struct MyWordsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleButtonStyle())
-        .accessibilityHint(Text("Shows the word introduction"))
+        .accessibilityHint(Text("Shows every meaning of the word"))
     }
 
-    private func vocabulary(for word: WordProgress) -> VocabularyItem {
-        let example = word.meanings.compactMap { $0.meaning.examples?.first }.first
-        var partsOfSpeech: [String] = []
-        for meaning in word.meanings where !partsOfSpeech.contains(meaning.meaning.partOfSpeech) {
-            partsOfSpeech.append(meaning.meaning.partOfSpeech)
+    /// The list holds learned meanings only; without the total from the server, it names them instead.
+    private func meaningProgress(_ word: WordProgress) -> Text {
+        let learned = word.meanings.count
+        guard let total = word.meaningCount, total >= learned else {
+            return Text(verbatim: word.meaningText)
         }
-        return VocabularyItem(
-            id: word.id,
-            term: word.lemma,
-            meaningVi: word.meaningText,
-            example: example?.text ?? "",
-            exampleTranslation: example?.translation,
-            definitionEN: word.meanings.compactMap(\.meaning.definition).first,
-            ipa: word.meanings.compactMap(\.meaning.ipa).first,
-            partsOfSpeech: partsOfSpeech
-        )
+        return total == 1 ? Text("1 of 1 meaning learned") : Text("\(learned) of \(total) meanings learned")
     }
 
     private var emptyState: some View {
@@ -365,147 +362,5 @@ private struct PracticeTile: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .cardSurface()
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// Bottom sheet that opens with the same introduction the word got in its learn step, with the word
-/// at rest instead of animated, followed by the learner's skill progress.
-struct WordDetailSheet: View {
-    private enum Progress: Equatable {
-        case loading, failed
-        case loaded(WordDetail.Meaning?)
-    }
-
-    let word: VocabularyItem
-    let wordID: String
-    let meaningID: String?
-    /// Plays recorded audio when there is some; otherwise the word is spoken by the device.
-    let playAudio: (() -> Void)?
-    @Environment(LearnerStore.self) private var learner
-    @State private var progress = Progress.loading
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack {
-                    Spacer()
-                    SheetCloseButton()
-                }
-
-                WordIntroContent(
-                    word: word,
-                    presentation: word.introPresentation,
-                    playAudio: playAudio,
-                    animatesWord: false
-                )
-                .padding(.top, Spacing.s)
-                .padding(.bottom, Spacing.m)
-
-                progressContent
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.m)
-            .padding(.bottom, Spacing.l)
-        }
-        .task { await loadProgress() }
-        .presentationDetents([.large])
-        .presentationDragIndicator(.visible)
-        .presentationBackground(Color.canvas)
-    }
-
-    /// A meaning that isn't learned yet has no progress to show.
-    @ViewBuilder
-    private var progressContent: some View {
-        switch progress {
-        case .loading:
-            section("Skills") {
-                ProgressView()
-            }
-        case .failed:
-            section("Skills") {
-                VStack(alignment: .leading, spacing: Spacing.s) {
-                    Text("Couldn’t load your skills")
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.errorInk)
-                    SecondaryButton(title: "Try again", systemImage: "arrow.clockwise") {
-                        Task { await loadProgress() }
-                    }
-                }
-            }
-        case .loaded(let meaning):
-            if let meaning, let learnedAt = meaning.learnedAt {
-                section("Skills") {
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        skillRow("Reading", meaning.skills.reading)
-                        skillRow("Writing", meaning.skills.writing)
-                        if let listening = meaning.skills.listening {
-                            skillRow("Listening", listening)
-                        }
-                        if let speaking = meaning.skills.speaking {
-                            skillRow("Speaking", speaking)
-                        }
-                    }
-                }
-                Text("Learned \(learnedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted, locale: AppLanguage.active.locale)))")
-                    .font(Typography.micro)
-                    .foregroundStyle(Color.mutedInk)
-            }
-        }
-    }
-
-    private func loadProgress() async {
-        progress = .loading
-        do {
-            let detail = try await learner.wordDetail(id: wordID)
-            progress = .loaded(detail.meanings.first { $0.meaningId == meaningID })
-        } catch {
-            guard !Task.isCancelled else { return }
-            progress = .failed
-        }
-    }
-
-    private func skillRow(_ name: LocalizedStringKey, _ skill: SkillState) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
-            Text(name)
-                .font(Typography.body)
-                .foregroundStyle(Color.ink)
-            Spacer(minLength: 0)
-            Text(skillLabel(skill))
-                .font(Typography.micro.weight(.semibold))
-                .foregroundStyle(skillColor(skill))
-                .multilineTextAlignment(.trailing)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    // Copy rules: memory skill-issue-display
-    private func skillLabel(_ skill: SkillState) -> LocalizedStringKey {
-        switch (skill.issue, skill.status) {
-        case (.failed, _): "Needs practice again"
-        case (.assisted, .verified): "Verified, but recently needed help"
-        case (.assisted, _): "Recently needed help"
-        case (nil, .verified): "Verified"
-        case (nil, .demonstrated): "Demonstrated"
-        case (nil, .notVerified): "Not verified"
-        }
-    }
-
-    private func skillColor(_ skill: SkillState) -> Color {
-        switch skill.issue {
-        case .failed: .errorInk
-        case .assisted: .selectedInk
-        case nil: .mutedInk
-        }
-    }
-
-    private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Eyebrow(text: title)
-                .accessibilityAddTraits(.isHeader)
-            content()
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, Spacing.xl)
     }
 }

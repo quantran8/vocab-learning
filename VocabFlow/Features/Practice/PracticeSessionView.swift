@@ -470,7 +470,10 @@ struct PracticeTaskView: View {
 private struct LearnCardStep: View {
     let card: LearnCard
     @Environment(PracticeSessionStore.self) private var store
+    @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
+    @State private var otherMeanings: [WordDetail.Meaning] = []
+    @State private var isShowingOtherMeanings = false
 
     var body: some View {
         let word = VocabularyItem(
@@ -484,11 +487,17 @@ private struct LearnCardStep: View {
             partsOfSpeech: card.partOfSpeech.map { [$0] } ?? []
         )
         ScrollView {
-            WordIntroContent(
-                word: word,
-                presentation: word.introPresentation,
-                playAudio: card.audio.map { clip in { store.playClip(clip) } }
-            )
+            VStack(spacing: 0) {
+                WordIntroContent(
+                    word: word,
+                    presentation: word.introPresentation,
+                    playAudio: card.audio.map { clip in { store.playClip(clip) } }
+                )
+                if !otherMeanings.isEmpty {
+                    OtherMeaningsLink(count: otherMeanings.count) { isShowingOtherMeanings = true }
+                        .transition(.opacity)
+                }
+            }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.xl)
             .padding(.bottom, Spacing.l)
@@ -500,6 +509,62 @@ private struct LearnCardStep: View {
                 }
             }
         }
+        .task(id: card.wordId) { await loadOtherMeanings() }
+        .sheet(isPresented: $isShowingOtherMeanings) {
+            OtherMeaningsSheet(lemma: card.word, meanings: otherMeanings)
+        }
+    }
+
+    /// Reference only, so a failed load just leaves the link out.
+    private func loadOtherMeanings() async {
+        guard let wordID = card.wordId, let detail = try? await learner.wordDetail(id: wordID) else { return }
+        let others = detail.meanings.filter { $0.meaningId != card.meaningId }
+        motion.perform(MotionTokens.transition) { otherMeanings = others }
+    }
+}
+
+private struct OtherMeaningsLink: View {
+    let count: Int
+    let action: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                Image(systemName: "info.circle")
+                    .accessibilityHidden(true)
+                Text("This lesson focuses on this meaning only.")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .font(Typography.secondary)
+            .foregroundStyle(Color.mutedInk)
+
+            Button(action: action) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: "book")
+                        .accessibilityHidden(true)
+                    Text("Other meanings")
+                    Text(count, format: .number)
+                        .font(Typography.micro.weight(.semibold))
+                        .foregroundStyle(Color.selectedInk)
+                        .padding(.horizontal, Spacing.xs)
+                        .padding(.vertical, Spacing.xxs / 2)
+                        .background(Color.selectedSurface, in: RoundedRectangle(cornerRadius: Radii.chip / 2, style: .continuous))
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.subheadline.weight(.medium))
+                        .accessibilityHidden(true)
+                }
+                .font(Typography.tile)
+                .foregroundStyle(Color.interactive)
+                .frame(minHeight: Spacing.minTouchTarget + Spacing.xs)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(PressScaleButtonStyle())
+            .accessibilityLabel(Text("Other meanings, \(count)"))
+            .accessibilityHint(Text("For reference only. Not part of this lesson."))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, Spacing.s)
     }
 }
 

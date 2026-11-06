@@ -62,6 +62,9 @@ struct LearnCard: Decodable, Equatable {
     let examples: [Example]?
     /// Optional: a plan started before the backend sent it has no value here.
     var partOfSpeech: String? = nil
+    /// Open the word's other meanings; absent from plans made before the backend sent them.
+    var wordId: String? = nil
+    var meaningId: String? = nil
 }
 
 enum TaskPhase: Equatable {

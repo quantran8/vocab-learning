@@ -38,7 +38,7 @@ struct PracticeLabView: View {
                 }
                 Spacer()
             }
-            .padding(.horizontal, Spacing.screenGutter - Spacing.xs)
+            .padding(.horizontal, Spacing.screenGutter)
             .background(Color.canvas)
         }
     }
@@ -93,18 +93,8 @@ struct BackButton: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.xxs) {
-                Image(systemName: "chevron.left")
-                    .font(.body.weight(.bold))
-                Text(label)
-                    .font(Typography.secondary.weight(.bold))
-            }
-            .foregroundStyle(Color.ink)
-            .padding(.horizontal, Spacing.xs)
-            .frame(minHeight: Spacing.minTouchTarget)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
+        Button(action: action) { BackButtonLabel() }
+            .buttonStyle(PressScaleButtonStyle())
+            .accessibilityLabel(Text(label))
     }
 }

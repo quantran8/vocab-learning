@@ -23,9 +23,10 @@ struct CustomWordsView: View {
         .onDisappear { store.stopAudio() }
         .sheet(item: $selected) { word in
             WordDetailSheet(
-                word: vocabulary(for: word),
                 wordID: word.wordId,
-                meaningID: word.meaningId,
+                lemma: word.lemma,
+                ipa: word.ipa,
+                focusMeaningID: word.meaningId,
                 playAudio: word.audioUrl == nil ? nil : { store.play(word) }
             )
         }
@@ -131,22 +132,9 @@ struct CustomWordsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(PressScaleButtonStyle())
-        .accessibilityHint(word.isEditable ? Text("Shows the word introduction") : Text(verbatim: ""))
+        .accessibilityHint(word.isEditable ? Text("Shows every meaning of the word") : Text(verbatim: ""))
         .opacity(store.busyMeaningIDs.contains(word.meaningId) ? 0.5 : 1)
         .disabled(store.busyMeaningIDs.contains(word.meaningId))
-    }
-
-    private func vocabulary(for word: CustomWord) -> VocabularyItem {
-        VocabularyItem(
-            id: word.meaningId,
-            term: word.lemma,
-            meaningVi: word.meaningText ?? "",
-            example: word.examples?.first?.text ?? "",
-            exampleTranslation: word.examples?.first?.translation,
-            definitionEN: word.definitionText,
-            ipa: word.ipa,
-            partsOfSpeech: [word.partOfSpeech]
-        )
     }
 
     @ViewBuilder

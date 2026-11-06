@@ -53,17 +53,14 @@ struct MatchTaskView: View {
     private func column(_ items: [TaskOption], isLeft: Bool, correct: [PairKey]) -> some View {
         VStack(spacing: Spacing.s) {
             ForEach(items) { item in
-                Button {
+                ChoiceTileButton(text: item.text, state: state(item.id, isLeft: isLeft, correct: correct), minHeight: tileHeight) {
                     pick(item.id, isLeft: isLeft)
-                } label: {
-                    WordTile(text: item.text, visualState: state(item.id, isLeft: isLeft, correct: correct), minHeight: tileHeight, font: Typography.choice)
-                        .onGeometryChange(for: CGFloat.self) { proxy in
-                            proxy.size.height - Spacing.tileDepth
-                        } action: { face in
-                            if face > tileHeight { tileHeight = face }
-                        }
                 }
-                .buttonStyle(.plain)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height - Spacing.tileDepth
+                } action: { face in
+                    if face > tileHeight { tileHeight = face }
+                }
                 .modifier(ShakeEffect(animatableData: isFlashing(item.id, isLeft: isLeft) ? shakePhase : 0))
                 .disabled(isMatched(item.id, isLeft: isLeft, correct: correct) || isOutOfTries(item.id, isLeft: isLeft, correct: correct) || attempt.isFinished)
             }

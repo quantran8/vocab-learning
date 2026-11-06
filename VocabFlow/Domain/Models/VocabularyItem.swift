@@ -23,7 +23,7 @@ struct VocabularyItem: Codable, Identifiable, Equatable {
         partsOfSpeech.isEmpty ? nil : partsOfSpeech.map(Self.localizedPartOfSpeech).joined(separator: " · ")
     }
 
-    private static func localizedPartOfSpeech(_ value: String) -> String {
+    static func localizedPartOfSpeech(_ value: String) -> String {
         switch value {
         case "noun": String(localized: "noun", bundle: .appLanguage)
         case "verb": String(localized: "verb", bundle: .appLanguage)

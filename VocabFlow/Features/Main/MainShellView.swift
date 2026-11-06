@@ -73,7 +73,7 @@ struct MainShellView: View {
         NavigationStack(path: $wordsPath) {
             MyWordsView(onOpenRandomPractice: { wordsPath.append(.randomPractice) })
                 .background(Color.canvas)
-                // Hidden bar, but the title still labels the system back button on pushed pages.
+                // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
                 .navigationTitle(MainTab.words.title)
                 .toolbar(.hidden, for: .navigationBar)
                 .navigationDestination(for: ShellPage.self, destination: destination)
@@ -89,7 +89,7 @@ struct MainShellView: View {
                 onOpenSettings: { profilePath.append(.settings) }
             )
             .background(Color.canvas)
-            // Hidden bar, but the title still labels the system back button on pushed pages.
+            // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
             .navigationTitle(MainTab.profile.title)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: ShellPage.self, destination: destination)
@@ -117,9 +117,11 @@ struct MainShellView: View {
         case .settings:
             AppSettingsView()
                 .toolbar(.hidden, for: .tabBar)
+                .iconOnlyBackButton()
         case .randomPractice:
             RandomPracticeView()
                 .toolbar(.hidden, for: .tabBar)
+                .iconOnlyBackButton()
         }
     }
 

@@ -29,7 +29,7 @@ struct WordTile: View {
             face.offset(y: min(faceDrop + sink, Spacing.tileDepth - 1))
         } keyframes: { _ in
             CubicKeyframe(Spacing.tileDepth - 1, duration: 0.07)
-            SpringKeyframe(0, duration: 0.25, spring: .bouncy(duration: 0.2, extraBounce: 0.05))
+            SpringKeyframe(0, duration: 0.15, spring: .bouncy(duration: 0.1, extraBounce: 0.05))
         }
         .background(shape.fill(depth).offset(y: Spacing.tileDepth))
         .padding(.bottom, Spacing.tileDepth)

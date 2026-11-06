@@ -14,7 +14,7 @@ struct WordIntroContent: View {
         VStack(spacing: 0) {
             VStack(spacing: Spacing.xs) {
                 IntroMotionHost(word: word.term, presentation: presentation, animates: animatesWord)
-                pronunciation
+                WordPronunciation(term: word.term, ipa: word.ipa, playAudio: playAudio)
             }
             // With the first section's top padding, this makes the 32pt gap between hero and information.
             .padding(.bottom, Spacing.m)
@@ -53,7 +53,7 @@ struct WordIntroContent: View {
                             .font(Typography.body)
                             .foregroundStyle(Color.ink)
                         if let translation = word.exampleTranslation, !translation.isEmpty {
-                            exampleTranslation(translation)
+                            ExampleTranslation(text: translation)
                         }
                     }
                 }
@@ -62,9 +62,34 @@ struct WordIntroContent: View {
         .onDisappear { speech.stop() }
     }
 
-    private var pronunciation: some View {
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.stroke)
+            .frame(height: 1)
+    }
+
+    private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Eyebrow(text: title)
+                .accessibilityAddTraits(.isHeader)
+            content()
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, Spacing.m)
+    }
+}
+
+/// IPA next to the play button. Plays recorded audio when there is some; otherwise the device speaks the word.
+struct WordPronunciation: View {
+    let term: String
+    let ipa: String?
+    var playAudio: (() -> Void)?
+    @Environment(SpeechPlayer.self) private var speech
+
+    var body: some View {
         HStack(spacing: Spacing.s) {
-            if let ipa = word.ipa {
+            if let ipa {
                 Text(verbatim: ipa)
                     .font(Typography.body)
                     .foregroundStyle(Color.mutedInk)
@@ -76,7 +101,7 @@ struct WordIntroContent: View {
                 if let playAudio {
                     playAudio()
                 } else {
-                    _ = speech.speak(word.term)
+                    _ = speech.speak(term)
                 }
             } label: {
                 Image(systemName: speech.isAvailable ? "speaker.wave.2" : "speaker.slash")
@@ -95,33 +120,23 @@ struct WordIntroContent: View {
             .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
         }
     }
+}
 
-    /// The icon only identifies the line as a translation; it isn't a control.
-    private func exampleTranslation(_ translation: String) -> some View {
+/// The icon only identifies the line as a translation; it isn't a control.
+struct ExampleTranslation: View {
+    let text: String
+    var showsIcon = true
+
+    var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-            Image(systemName: "translate")
-                .accessibilityLabel(Text("Translation"))
-            Text(verbatim: translation)
+            if showsIcon {
+                Image(systemName: "translate")
+                    .accessibilityLabel(Text("Translation"))
+            }
+            Text(verbatim: text)
         }
         .font(Typography.secondary)
         .foregroundStyle(Color.mutedInk)
         .accessibilityElement(children: .combine)
-    }
-
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.stroke)
-            .frame(height: 1)
-    }
-
-    private func section<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Eyebrow(text: title)
-                .accessibilityAddTraits(.isHeader)
-            content()
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, Spacing.m)
     }
 }

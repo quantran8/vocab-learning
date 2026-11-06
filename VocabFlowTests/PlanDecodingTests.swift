@@ -30,6 +30,7 @@ final class PlanDecodingTests: XCTestCase {
         XCTAssertEqual(card.word, "clarify")
         XCTAssertNil(card.ipa)
         XCTAssertNil(card.partOfSpeech)
+        XCTAssertNil(card.wordId)
         XCTAssertEqual(card.audio?.locale, "en-US")
     }
 
@@ -155,9 +156,11 @@ final class PlanDecodingTests: XCTestCase {
     }
 
     func testDecodesLearnCardPartOfSpeech() throws {
-        let json = #"{"word":"clarify","meaning":"làm rõ","partOfSpeech":"verb"}"#
+        let json = #"{"word":"clarify","meaning":"làm rõ","partOfSpeech":"verb","wordId":"w","meaningId":"m"}"#
         let card = try APIClient.decoder.decode(LearnCard.self, from: Data(json.utf8))
         XCTAssertEqual(card.partOfSpeech, "verb")
+        XCTAssertEqual(card.wordId, "w")
+        XCTAssertEqual(card.meaningId, "m")
     }
 
     func testPartOfSpeechLabel() {
@@ -189,7 +192,10 @@ final class PlanDecodingTests: XCTestCase {
           "examples":[{"text":"Please clarify.","translation":"Hãy làm rõ."}]},
          "learnedAt":"2026-10-30T10:00:00.000Z","nextReviewAt":null}]}
         """#
-        let meaning = try APIClient.decoder.decode(WordProgress.self, from: Data(json.utf8)).meanings[0]
+        let word = try APIClient.decoder.decode(WordProgress.self, from: Data(json.utf8))
+        XCTAssertNil(word.meaningCount)
+        XCTAssertEqual(word.ipa, "/x/")
+        let meaning = word.meanings[0]
         XCTAssertEqual(meaning.meaningId, "m")
         XCTAssertEqual(meaning.meaning.definition, "To make clear.")
         XCTAssertEqual(meaning.meaning.audio?.locale, "en-US")
@@ -204,6 +210,7 @@ final class PlanDecodingTests: XCTestCase {
          "writing":{"status":"not_verified","needsPractice":true}}}]}
         """#
         let meaning = try APIClient.decoder.decode(WordDetail.self, from: Data(json.utf8)).meanings[0]
+        XCTAssertEqual(meaning.meaning.text, "làm rõ")
         XCTAssertNil(meaning.skills.listening)
         XCTAssertEqual(meaning.skills.reading.status, .verified)
         XCTAssertEqual(meaning.skills.writing.status, .notVerified)
