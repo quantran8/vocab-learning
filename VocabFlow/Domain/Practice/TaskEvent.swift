@@ -7,7 +7,8 @@ struct TaskEvent: Encodable, Equatable {
         case submitOption(Int)
         case submitValue(String)
         case submitTiles([Int])
-        case submitRepair(graphemeIndex: Int, replacement: String)
+        /// Surgery: every fix, sorted by index. An empty replacement deletes the grapheme.
+        case submitRepair([RepairEdit])
         case pair(leftID: Int, rightID: Int)
         case tapTile(Int)
         case removeTile(Int)
@@ -31,7 +32,7 @@ struct TaskEvent: Encodable, Equatable {
     let action: Action
 
     private enum CodingKeys: String, CodingKey {
-        case seq, action, optionId, value, tileIds, graphemeIndex, replacement
+        case seq, action, optionId, value, tileIds, graphemeIndex, replacement, edits
         case leftId, rightId, tileId, toIndex, assessmentReceiptId, reason, transcript
     }
 
@@ -48,10 +49,15 @@ struct TaskEvent: Encodable, Equatable {
         case .submitTiles(let ids):
             try container.encode("submit", forKey: .action)
             try container.encode(ids, forKey: .tileIds)
-        case .submitRepair(let index, let replacement):
+        case .submitRepair(let edits):
             try container.encode("submit", forKey: .action)
-            try container.encode(index, forKey: .graphemeIndex)
-            try container.encode(replacement, forKey: .replacement)
+            // One fix keeps the original shape, which backends without `edits` still accept.
+            if edits.count == 1 {
+                try container.encode(edits[0].graphemeIndex, forKey: .graphemeIndex)
+                try container.encode(edits[0].replacement, forKey: .replacement)
+            } else {
+                try container.encode(edits, forKey: .edits)
+            }
         case .pair(let left, let right):
             try container.encode("pair", forKey: .action)
             try container.encode(left, forKey: .leftId)
@@ -81,6 +87,11 @@ struct TaskEvent: Encodable, Equatable {
             try container.encode(transcript, forKey: .transcript)
         }
     }
+}
+
+struct RepairEdit: Encodable, Equatable {
+    let graphemeIndex: Int
+    let replacement: String
 }
 
 enum DeliveryMode: String, Encodable, Equatable {

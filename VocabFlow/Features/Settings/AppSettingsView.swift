@@ -9,6 +9,8 @@ struct AppSettingsView: View {
     @State private var isConfirmingDeletion = false
     @State private var isChoosingLanguage = false
     @State private var pickedLanguage: AppLanguage?
+    @State private var isPreviewingSyllie = false
+    @State private var isChangingPassword = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -53,12 +55,32 @@ struct AppSettingsView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    SettingRow(systemImage: "info.circle", title: "About Vocab Flow", subtitle: "Color Pop concept") {
+                    Button {
+                        isPreviewingSyllie = true
+                    } label: {
+                        SettingRow(systemImage: "play.circle", title: "Syllie animations", subtitle: "Preview the mascot’s Rive animations") {
+                            Image(systemName: "chevron.right")
+                                .font(.subheadline.weight(.bold))
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    SettingRow(systemImage: "info.circle", title: "About Syll", subtitle: "Color Pop concept") {
                         Text(verbatim: "v\(appVersion)")
                     }
                 }
 
                 group("Account") {
+                    Button {
+                        isChangingPassword = true
+                    } label: {
+                        SettingRow(systemImage: "key", title: "Change password", subtitle: "Set a new password for logging in") {
+                            Image(systemName: "chevron.right")
+                                .font(.subheadline.weight(.bold))
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .buttonStyle(.plain)
                     VStack(spacing: Spacing.s) {
                         SecondaryButton(title: "Log out", systemImage: "rectangle.portrait.and.arrow.right") {
                             Task { await auth.signOut() }
@@ -69,7 +91,7 @@ struct AppSettingsView: View {
                         .accessibilityValue(auth.isDeletingAccount ? Text("Deleting your account") : Text(verbatim: ""))
                     }
                     .disabled(auth.isDeletingAccount)
-                    .padding(.top, Spacing.xs)
+                    .padding(.top, Spacing.m)
                     if let error = auth.accountDeletionError {
                         Text(verbatim: error)
                             .font(Typography.secondary)
@@ -90,6 +112,12 @@ struct AppSettingsView: View {
                 pickedLanguage = language
                 isChoosingLanguage = false
             }
+        }
+        .sheet(isPresented: $isPreviewingSyllie) {
+            SylliePreviewView()
+        }
+        .sheet(isPresented: $isChangingPassword) {
+            ChangePasswordSheet()
         }
         .alert("Delete your account?", isPresented: $isConfirmingDeletion) {
             Button("Delete account", role: .destructive) {

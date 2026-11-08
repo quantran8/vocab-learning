@@ -27,7 +27,8 @@ struct CustomWordsView: View {
                 lemma: word.lemma,
                 ipa: word.ipa,
                 focusMeaningID: word.meaningId,
-                playAudio: word.audioUrl == nil ? nil : { store.play(word) }
+                playAudio: word.audioUrl == nil ? nil : { store.play(word) },
+                isPlayingAudio: store.isPlayingAudio
             )
         }
         .sheet(item: $editing) { word in

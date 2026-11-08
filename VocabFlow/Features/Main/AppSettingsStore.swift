@@ -28,7 +28,7 @@ final class AppSettingsStore {
         static let reduceMotion = "settings.reduceMotion"
         static let language = "settings.language"
         /// The system's per-app language: read at launch for everything outside SwiftUI's
-        /// environment, such as permission prompts, and changed by iOS Settings › Vocab Flow.
+        /// environment, such as permission prompts, and changed by iOS Settings › Syll.
         static let systemLanguages = "AppleLanguages"
     }
 

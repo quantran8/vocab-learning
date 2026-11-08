@@ -11,6 +11,10 @@ struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shellTab: MainTab = .home
     @State private var profilePath: [ShellPage] = []
+    /// Set once the splash has been up for `MotionTokens.splashHold`.
+    @State private var splashHeld = false
+    /// Set once the splash is gone; it doesn't come back for the rest of the launch.
+    @State private var launched = false
 
     var body: some View {
         let motion = MotionCoordinator(reduceMotion: reduceMotion || settings.reduceMotion)
@@ -19,7 +23,6 @@ struct AppRootView: View {
             screen
                 .id(route)
                 .transition(motion.routeTransition)
-                .environment(\.designZone, zone)
                 // Strings built with `String(localized:)` only update when their view is rebuilt.
                 .id(settings.language)
         }
@@ -28,6 +31,12 @@ struct AppRootView: View {
         .scrollBounceBehavior(.basedOnSize)
         .preferredColorScheme(.light)
         .task { await auth.restore() }
+        .task {
+            try? await Task.sleep(for: .seconds(MotionTokens.splashHold))
+            splashHeld = true
+            endSplashIfReady(motion)
+        }
+        .onChange(of: isLaunchLoading) { _, _ in endSplashIfReady(motion) }
         // Waits for the language step, so `load()` sends the chosen `uiLocale` before anything reads the catalog.
         .task(id: canLoadLearner) {
             if canLoadLearner { await learner.load() }
@@ -41,19 +50,25 @@ struct AppRootView: View {
         }
     }
 
+    /// The account is still loading, which would otherwise show the loading screen.
+    private var isLaunchLoading: Bool {
+        auth.phase == .launching || (canLoadLearner && learner.phase == .loading)
+    }
+
+    private func endSplashIfReady(_ motion: MotionCoordinator) {
+        guard !launched, splashHeld, !isLaunchLoading else { return }
+        motion.perform(MotionTokens.transition) { launched = true }
+    }
+
     private var canLoadLearner: Bool {
         auth.phase == .signedIn && settings.language != nil
     }
 
-    private var zone: DesignZone {
-        switch route {
-        case .practice, .flow, .results: .lesson
-        case .lab(let template): template == nil ? .product : .lesson
-        case .loading, .auth, .language, .onboarding, .home: .product
-        }
+    private var route: RouteID {
+        launched ? appRoute : .splash
     }
 
-    private var route: RouteID {
+    private var appRoute: RouteID {
         guard auth.phase == .signedIn else {
             return auth.phase == .launching ? .loading : .auth
         }
@@ -82,8 +97,10 @@ struct AppRootView: View {
 
     @ViewBuilder
     private var screen: some View {
-        if auth.phase == .launching {
-            StatusScreen(title: "Vocab Flow", isBusy: true)
+        if !launched {
+            SplashView()
+        } else if auth.phase == .launching {
+            StatusScreen(title: "Syll", isBusy: true)
         } else if auth.phase == .signedOut {
             AuthView()
         } else if settings.language == nil {
@@ -98,7 +115,7 @@ struct AppRootView: View {
                 }
             }
         } else if learner.phase == .loading {
-            StatusScreen(title: "Vocab Flow", isBusy: true)
+            StatusScreen(title: "Syll", isBusy: true)
         } else if !plan.hasCompletedOnboarding {
             OnboardingView()
         } else if practice.isActive {
@@ -120,6 +137,7 @@ struct AppRootView: View {
 }
 
 private enum RouteID: Hashable {
+    case splash
     case loading
     case auth
     case language

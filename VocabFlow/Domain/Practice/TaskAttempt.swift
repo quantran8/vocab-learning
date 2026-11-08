@@ -45,6 +45,7 @@ struct TaskAttempt: Equatable {
     static let maxEvents = 200
     static let maxValueLength = 200
     static let maxReplacementLength = 32
+    static let maxRepairEdits = 64
     static let maxHints = HintSequence.maxHints
 
     let task: PracticeTask
@@ -155,16 +156,26 @@ struct TaskAttempt: Equatable {
         return finishSubmit(.submitTiles(placedTileIDs), isCorrect: PracticeAnswer.matches(text, accepted: accepted))
     }
 
-    /// An empty `replacement` deletes the grapheme.
+    /// `edits` maps grapheme index to its replacement; an empty one deletes the grapheme.
+    /// Like the backend, scores the repaired word, so any set of fixes that spells it right counts.
     @discardableResult
-    mutating func submitRepair(graphemeIndex: Int, replacement: String) -> Bool? {
-        guard canAnswer, case .surgery(let word, let wrongIndex, let expected) = task.body,
-              PracticeAnswer.graphemes(word).indices.contains(graphemeIndex)
+    mutating func submitRepair(edits: [Int: String]) -> Bool? {
+        guard canAnswer, case .surgery(let word, let wrongIndex, let expected) = task.body else { return nil }
+        let letters = PracticeAnswer.graphemes(word)
+        guard !edits.isEmpty, edits.count <= Self.maxRepairEdits, edits.keys.allSatisfy(letters.indices.contains)
         else { return nil }
-        let value = Self.truncated(replacement, to: Self.maxReplacementLength)
-        let isCorrect = graphemeIndex == wrongIndex
-            && PracticeAnswer.normalize(value) == PracticeAnswer.normalize(expected)
-        return finishSubmit(.submitRepair(graphemeIndex: graphemeIndex, replacement: value), isCorrect: isCorrect)
+        let fixes = edits.keys.sorted().map {
+            RepairEdit(graphemeIndex: $0, replacement: Self.truncated(edits[$0] ?? "", to: Self.maxReplacementLength))
+        }
+        let repaired = Self.applying(fixes, to: letters)
+        let correct = Self.applying([RepairEdit(graphemeIndex: wrongIndex, replacement: expected)], to: letters)
+        let isCorrect = PracticeAnswer.normalize(repaired) == PracticeAnswer.normalize(correct)
+        return finishSubmit(.submitRepair(fixes), isCorrect: isCorrect)
+    }
+
+    private static func applying(_ fixes: [RepairEdit], to letters: [String]) -> String {
+        let byIndex = Dictionary(fixes.map { ($0.graphemeIndex, $0.replacement) }) { $1 }
+        return letters.enumerated().map { byIndex[$0.offset] ?? $0.element }.joined()
     }
 
     /// Correct pairs lock. Tries count per left item. The task ends by itself once no left item is open.

@@ -101,7 +101,6 @@ private struct PlacementResultScreen<Actions: View>: View {
         }
         .padding(.horizontal, Spacing.screenGutter)
         .padding(.bottom, Spacing.m)
-        .environment(\.designZone, .product)
     }
 
     private var score: some View {

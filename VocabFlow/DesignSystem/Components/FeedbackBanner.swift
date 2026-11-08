@@ -14,6 +14,8 @@ struct FeedbackCopy: Equatable {
 /// With feedback present, the whole panel takes the semantic status color.
 struct FeedbackActionPanel<Action: View>: View {
     let feedback: FeedbackCopy?
+    /// Shows Syllie beside the action, reacting with this mood. Nil hides him.
+    var mascot: SyllieMood? = nil
     @ViewBuilder let action: Action
     @Environment(\.motion) private var motion
 
@@ -39,7 +41,20 @@ struct FeedbackActionPanel<Action: View>: View {
                 .accessibilityElement(children: .combine)
                 .transition(motion.reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
-            action
+            if let mascot {
+                HStack(alignment: .bottom, spacing: Spacing.xs) {
+                    // The `Syllie` artboard (520×430) leaves room around his body for the bigger gestures.
+                    // Negative padding lets that margin overlap the gutter and the button, so his body sits
+                    // on the gutter and close to the button; the artboard is transparent there.
+                    SyllieReactionView(reaction: mascot)
+                        .frame(width: 100, height: 83)
+                        .padding(.leading, -7)
+                        .padding(.trailing, -12)
+                    action
+                }
+            } else {
+                action
+            }
         }
         .padding(.horizontal, Spacing.screenGutter)
         .padding(.top, feedback == nil ? Spacing.s : Spacing.m + 2)

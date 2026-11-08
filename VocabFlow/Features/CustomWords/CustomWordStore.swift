@@ -190,6 +190,9 @@ final class CustomWordStore {
         Task { _ = await audio.play(url) }
     }
 
+    /// Whether a word's recorded audio is playing, for the speaker waves.
+    var isPlayingAudio: Bool { audio.isPlaying }
+
     func stopAudio() {
         audio.stop()
     }

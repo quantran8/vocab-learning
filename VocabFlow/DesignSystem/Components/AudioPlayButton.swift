@@ -10,8 +10,7 @@ struct AudioPlayButton: View {
     var body: some View {
         let size: CGFloat = isLarge ? 88 : 64
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: isLarge ? 34 : 24, weight: .bold))
+            icon
                 .foregroundStyle(isAvailable ? Color.selectedInk : Color.disabledInk)
                 .frame(width: size, height: size)
                 .background(isAvailable ? Color.selectedSurface : Color.disabledSurface, in: Circle())
@@ -24,8 +23,12 @@ struct AudioPlayButton: View {
         .accessibilityHint(isAvailable ? Text("Replays the word. You can play it as often as you like.") : Text("Use the written clue instead."))
     }
 
-    private var icon: String {
-        if !isAvailable { return "speaker.slash.fill" }
-        return isSpeaking ? "speaker.wave.3.fill" : "speaker.wave.2.fill"
+    @ViewBuilder private var icon: some View {
+        if isAvailable {
+            SpeakerWaveIcon(isPlaying: isSpeaking, side: isLarge ? 44 : 32)
+        } else {
+            Image(systemName: "speaker.slash.fill")
+                .font(.system(size: isLarge ? 34 : 24, weight: .bold))
+        }
     }
 }

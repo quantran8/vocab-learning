@@ -19,6 +19,10 @@ final class AuthStore {
     private(set) var accountDeletedNotice: String?
     /// Email awaiting confirmation after signing up.
     private(set) var pendingConfirmationEmail: String?
+    /// Email a reset-password code was just sent to; the sign-in screen then asks for the code.
+    private(set) var passwordResetEmail: String?
+    private(set) var isChangingPassword = false
+    private(set) var passwordChangeError: String?
     /// Clears per-account state. Runs on sign-out and when the session can't be refreshed.
     var onSignedOut: (@MainActor () -> Void)?
     /// Erases what this device remembers about the account, which signing out keeps.
@@ -44,10 +48,63 @@ final class AuthStore {
 
     /// The token comes from Google Sign-In; pass the raw nonce if one was hashed into its request.
     func logIn(googleIDToken: String, nonce: String?) async {
-        await submit {
+        await submit(rejectedMessage: Self.providerRejected()) {
             try await self.api.logIn(googleIDToken: googleIDToken, nonce: nonce)
             self.phase = .signedIn
         }
+    }
+
+    /// The token comes from Sign in with Apple; pass the raw nonce whose hash went into its request.
+    func logIn(appleIDToken: String, nonce: String?) async {
+        await submit(rejectedMessage: Self.providerRejected()) {
+            try await self.api.logIn(appleIDToken: appleIDToken, nonce: nonce)
+            self.phase = .signedIn
+        }
+    }
+
+    func requestPasswordReset(email: String) async {
+        await submit {
+            try await self.api.requestPasswordReset(email: email)
+            self.passwordResetEmail = email
+        }
+    }
+
+    func resetPassword(code: String, newPassword: String) async {
+        guard let email = passwordResetEmail else { return }
+        await submit {
+            try await self.api.resetPassword(email: email, code: code, newPassword: newPassword)
+            self.passwordResetEmail = nil
+            self.phase = .signedIn
+        }
+    }
+
+    func cancelPasswordReset() {
+        passwordResetEmail = nil
+        clearError()
+    }
+
+    /// Returns whether the password changed.
+    func changePassword(current: String, new: String) async -> Bool {
+        guard !isChangingPassword else { return false }
+        isChangingPassword = true
+        passwordChangeError = nil
+        defer { isChangingPassword = false }
+        do {
+            try await api.changePassword(current: current, new: new)
+            return true
+        } catch {
+            passwordChangeError = error.asAPIError.userMessage
+            return false
+        }
+    }
+
+    func clearPasswordChangeError() {
+        passwordChangeError = nil
+    }
+
+    /// A Google or Apple sign-in that failed before reaching the backend.
+    func providerSignInFailed(_ message: String? = nil) {
+        errorMessage = message ?? Self.providerRejected()
     }
 
     func signUp(email: String, password: String) async {
@@ -102,7 +159,12 @@ final class AuthStore {
         onSignedOut?()
     }
 
-    private func submit(_ work: @escaping () async throws -> Void) async {
+    private static func providerRejected() -> String {
+        String(localized: "Couldn’t sign in. Please try again.", bundle: .appLanguage)
+    }
+
+    /// `rejectedMessage` replaces "Wrong email or password." for a 401.
+    private func submit(rejectedMessage: String? = nil, _ work: @escaping () async throws -> Void) async {
         guard !isSubmitting else { return }
         isSubmitting = true
         errorMessage = nil
@@ -111,7 +173,7 @@ final class AuthStore {
         do {
             try await work()
         } catch let error as APIError where error.status == 401 {
-            errorMessage = String(localized: "Wrong email or password.", bundle: .appLanguage)
+            errorMessage = rejectedMessage ?? String(localized: "Wrong email or password.", bundle: .appLanguage)
         } catch {
             errorMessage = error.asAPIError.userMessage
         }

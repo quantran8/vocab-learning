@@ -7,6 +7,8 @@ struct WordIntroContent: View {
     let presentation: IntroductionPresentation
     /// Plays recorded audio when there is some; otherwise the word is spoken by the device.
     var playAudio: (() -> Void)?
+    /// Whether `playAudio`'s clip is playing right now, for the speaker waves.
+    var isPlayingAudio = false
     var animatesWord = true
     @Environment(SpeechPlayer.self) private var speech
 
@@ -14,7 +16,7 @@ struct WordIntroContent: View {
         VStack(spacing: 0) {
             VStack(spacing: Spacing.xs) {
                 IntroMotionHost(word: word.term, presentation: presentation, animates: animatesWord)
-                WordPronunciation(term: word.term, ipa: word.ipa, playAudio: playAudio)
+                WordPronunciation(term: word.term, ipa: word.ipa, playAudio: playAudio, isPlayingAudio: isPlayingAudio)
             }
             // With the first section's top padding, this makes the 32pt gap between hero and information.
             .padding(.bottom, Spacing.m)
@@ -85,7 +87,11 @@ struct WordPronunciation: View {
     let term: String
     let ipa: String?
     var playAudio: (() -> Void)?
+    /// Whether `playAudio`'s clip is playing right now. Without `playAudio` the device speech is watched instead.
+    var isPlayingAudio = false
     @Environment(SpeechPlayer.self) private var speech
+
+    private var isPlaying: Bool { playAudio == nil ? speech.isSpeaking : isPlayingAudio }
 
     var body: some View {
         HStack(spacing: Spacing.s) {
@@ -104,20 +110,23 @@ struct WordPronunciation: View {
                     _ = speech.speak(term)
                 }
             } label: {
-                Image(systemName: speech.isAvailable ? "speaker.wave.2" : "speaker.slash")
-                    .font(.system(size: 22, weight: .medium))
-                    .foregroundStyle(speech.isAvailable ? Color.interactive : Color.disabledInk)
-                    .frame(width: Spacing.audioButton, height: Spacing.audioButton)
-                    .background(
-                        speech.isAvailable ? Color.selectedSurface : Color.disabledSurface,
-                        in: RoundedRectangle(cornerRadius: Radii.audioButton, style: .continuous)
-                    )
-                    .contentShape(RoundedRectangle(cornerRadius: Radii.audioButton, style: .continuous))
+                Group {
+                    if speech.isAvailable {
+                        SpeakerWaveIcon(isPlaying: isPlaying, side: 26)
+                    } else {
+                        Image(systemName: "speaker.slash")
+                            .font(.system(size: 22, weight: .medium))
+                    }
+                }
+                .foregroundStyle(speech.isAvailable ? Color.interactive : Color.disabledInk)
+                .frame(width: Spacing.audioButton, height: Spacing.audioButton)
+                .background(speech.isAvailable ? Color.selectedSurface : Color.disabledSurface, in: Circle())
+                .contentShape(Circle())
             }
             .buttonStyle(PressScaleButtonStyle())
             .disabled(!speech.isAvailable)
             .accessibilityLabel(Text(speech.isAvailable ? "Play pronunciation" : "Audio unavailable"))
-            .accessibilityValue(speech.isSpeaking ? Text("Playing") : Text(verbatim: ""))
+            .accessibilityValue(isPlaying ? Text("Playing") : Text(verbatim: ""))
         }
     }
 }

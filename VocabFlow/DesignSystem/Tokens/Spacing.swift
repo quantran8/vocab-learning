@@ -12,6 +12,8 @@ enum Spacing {
     static let minTouchTarget: CGFloat = 44
     static let audioButton: CGFloat = 52
     static let tileMinHeight: CGFloat = 60
+    /// Sign in with Apple / Google buttons, the same height as `PrimaryButton`.
+    static let socialButtonHeight: CGFloat = 52
     static let tileDepth: CGFloat = 3
     static let buttonDepth: CGFloat = 4
     static let dropHitInset: CGFloat = 12

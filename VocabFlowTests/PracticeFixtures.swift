@@ -96,6 +96,10 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     func signUp(email: String, password: String) async throws -> SignupResult { SignupResult(session: nil, confirmationRequired: true) }
     func logIn(email: String, password: String) async throws {}
     func logIn(googleIDToken: String, nonce: String?) async throws {}
+    func logIn(appleIDToken: String, nonce: String?) async throws {}
+    func requestPasswordReset(email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
+    func changePassword(current: String, new: String) async throws {}
     func signOut() async { signOutCalls += 1 }
     func deleteAccount() async throws {
         deleteAccountCalls += 1

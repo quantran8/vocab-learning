@@ -84,7 +84,7 @@ struct DestructiveButton: View {
     }
 }
 
-/// Lesson zone: a thick edge the face sinks into. Product zone: flat, and shrinks slightly when pressed.
+/// Tactile everywhere: a thick edge the face sinks into when pressed.
 struct ActionButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, destructive }
 
@@ -92,13 +92,11 @@ struct ActionButtonStyle: ButtonStyle {
     var shimmers = false
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.motion) private var motion
-    @Environment(\.designZone) private var zone
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radii.primaryAction, style: .continuous)
         let pressed = configuration.isPressed && isEnabled
-        let isTactile = zone == .lesson
-        let depth = isTactile ? (kind == .primary ? Spacing.buttonDepth : Spacing.buttonDepth - 2) : 0
+        let depth = kind == .primary ? Spacing.buttonDepth : Spacing.buttonDepth - 2
         configuration.label
             .foregroundStyle(foreground)
             .background(face, in: shape)
@@ -108,10 +106,9 @@ struct ActionButtonStyle: ButtonStyle {
                 }
             }
             .overlay(shape.strokeBorder(kind == .secondary ? Color.stroke : .clear, lineWidth: 1.5))
-            .offset(y: pressed && isTactile ? depth - 1 : 0)
-            .background(shape.fill(isEnabled && isTactile ? depthColor : .clear).offset(y: depth))
+            .offset(y: pressed ? depth - 1 : 0)
+            .background(shape.fill(isEnabled ? depthColor : .clear).offset(y: depth))
             .padding(.bottom, depth)
-            .scaleEffect(pressed && !isTactile ? motion.pressedScale : 1)
             .contentShape(shape)
             .animation(motion.animation(MotionTokens.press), value: pressed)
     }

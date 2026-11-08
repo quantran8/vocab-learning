@@ -29,7 +29,7 @@ enum APIError: Error, Equatable {
     var userMessage: String {
         switch self {
         case .transport:
-            String(localized: "Can’t reach Vocab Flow. Check your connection and try again.", bundle: .appLanguage)
+            String(localized: "Can’t reach Syll. Check your connection and try again.", bundle: .appLanguage)
         case .invalidResponse:
             String(localized: "Something went wrong on our side. Please try again later.", bundle: .appLanguage)
         case .server(_, let code, let message, _, let requestID):
@@ -38,6 +38,10 @@ enum APIError: Error, Equatable {
                 String(localized: "This email already has an account. Try logging in.", bundle: .appLanguage)
             case "VALIDATION_FAILED":
                 message
+            case "RESET_CODE_INVALID":
+                String(localized: "That code is wrong or has expired. Check the latest email or send a new code.", bundle: .appLanguage)
+            case "WRONG_PASSWORD":
+                String(localized: "Your current password is wrong.", bundle: .appLanguage)
             case "CUSTOM_WORD_LIMIT_REACHED":
                 String(localized: "You can’t add more words right now. Please try again later.", bundle: .appLanguage)
             case "CUSTOM_WORD_UNAVAILABLE":

@@ -3,29 +3,24 @@ import SwiftUI
 struct BrandBar: View {
     var body: some View {
         HStack(spacing: Spacing.xs) {
-            RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
-                .fill(Color.ink)
+            // A downscaled copy of the app icon: an `.appiconset` can't be loaded as an image.
+            Image("BrandIcon")
+                .resizable()
+                .interpolation(.high)
                 .frame(width: 34, height: 34)
-                .overlay(alignment: .bottomTrailing) {
-                    Circle()
-                        .fill(Color.reward)
-                        .frame(width: 10, height: 10)
-                        .padding(6)
-                }
+                .clipShape(RoundedRectangle(cornerRadius: Radii.chip, style: .continuous))
                 .overlay(
-                    Text(verbatim: "v")
-                        .font(.system(size: 18, weight: .heavy))
-                        .foregroundStyle(.white)
-                        .offset(x: -3, y: -2)
+                    RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+                        .strokeBorder(Color.stroke, lineWidth: 1)
                 )
-            Text(verbatim: "vocab flow")
+            Text(verbatim: "syll")
                 .font(Typography.wordmark)
                 .tracking(-0.6)
                 .foregroundStyle(Color.ink)
             Spacer()
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: "Vocab Flow"))
+        .accessibilityLabel(Text(verbatim: "Syll"))
         .accessibilityAddTraits(.isHeader)
     }
 }

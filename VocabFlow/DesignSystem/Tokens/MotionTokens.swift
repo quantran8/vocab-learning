@@ -14,6 +14,9 @@ enum MotionTokens {
     static let feedback = Animation.spring(response: 0.36, dampingFraction: 0.68)
     /// One full wrong-answer shake.
     static let shake = Animation.linear(duration: 0.4)
+    /// One wave of `SpeakerWaveIcon` appearing, and the time between waves while it plays.
+    static let speakerWave = Animation.easeOut(duration: 0.18)
+    static let speakerWaveStep: Double = 0.28
     static let transitionDuration: Double = 0.36
     static let transition = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: transitionDuration)
     /// A step sliding in a flow that goes both ways: eases in and settles without overshoot, like a system push.
@@ -21,6 +24,8 @@ enum MotionTokens {
     static let progress = Animation.easeOut(duration: 0.4)
     static let entrance = Animation.spring(response: 0.5, dampingFraction: 0.62)
     static let reducedCrossfade = Animation.easeInOut(duration: 0.15)
+    /// Shortest time the launch splash stays up, so it reads as a splash rather than a flicker.
+    static let splashHold: Double = 1.4
     /// Time for the shimmer band to cross a button.
     static let shimmerSweep: Double = 1.4
     /// Time from one shimmer sweep to the next, including the pause between them.

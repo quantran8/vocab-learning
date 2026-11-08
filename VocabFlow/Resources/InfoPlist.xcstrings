@@ -8,13 +8,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Vocab Flow"
+            "value" : "Syll"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vocab Flow"
+            "value" : "Syll"
           }
         }
       }
@@ -26,13 +26,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "VocabFlow"
+            "value" : "Syll"
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "VocabFlow"
+            "value" : "Syll"
           }
         }
       }
@@ -44,7 +44,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Vocab Flow connects to your development server on the local network."
+            "value" : "Syll connects to your development server on the local network."
           }
         }
       }
@@ -56,13 +56,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Vocab Flow records you reading a word aloud to score your pronunciation. Audio is not stored."
+            "value" : "Syll records you reading a word aloud to score your pronunciation. Audio is not stored."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vocab Flow ghi âm khi bạn đọc to một từ để chấm điểm phát âm. Âm thanh không được lưu lại."
+            "value" : "Syll ghi âm khi bạn đọc to một từ để chấm điểm phát âm. Âm thanh không được lưu lại."
           }
         }
       }
@@ -74,13 +74,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Vocab Flow turns your reading into text on this device to check what you said."
+            "value" : "Syll turns your reading into text on this device to check what you said."
           }
         },
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vocab Flow chuyển giọng đọc của bạn thành văn bản ngay trên thiết bị để kiểm tra bạn đã nói gì."
+            "value" : "Syll chuyển giọng đọc của bạn thành văn bản ngay trên thiết bị để kiểm tra bạn đã nói gì."
           }
         }
       }

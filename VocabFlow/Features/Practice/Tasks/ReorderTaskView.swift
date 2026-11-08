@@ -15,6 +15,8 @@ struct ReorderTaskView: View {
     @State private var grabOffset: CGSize = .zero
     @State private var insertIndex: Int?
     @State private var frames: [Int: CGRect] = [:]
+    /// Tiles still travelling after a tap. Tapping one again mid-flight would send it straight back.
+    @State private var flyingIDs: Set<Int> = []
 
     private static let tileSize: CGFloat = 54
     private static let tileSpacing = Spacing.xxs
@@ -47,7 +49,7 @@ struct ReorderTaskView: View {
                                         .reportFrame(key: tile.id + Self.bankKeyOffset)
                                         // While dragged, the real id lives in the answer row preview.
                                         .matchedGeometryEffect(id: isDragged ? tile.id + Self.bankKeyOffset : tile.id, in: tileSpace)
-                                        .gesture(dragGesture(for: tile.id, fromBank: true) { animate { store.tapTile(tile.id) } })
+                                        .gesture(dragGesture(for: tile.id, fromBank: true) { fly(tile.id) { store.tapTile(tile.id) } })
                                 }
                             }
                     }
@@ -90,7 +92,7 @@ struct ReorderTaskView: View {
                     .padding(.bottom, Self.ruledLineGap)
                     .frame(height: rowHeight, alignment: .bottom)
                     .matchedGeometryEffect(id: tile.id, in: tileSpace)
-                    .gesture(dragGesture(for: tile.id, fromBank: false) { animate { store.removeTile(tile.id) } })
+                    .gesture(dragGesture(for: tile.id, fromBank: false) { fly(tile.id) { store.removeTile(tile.id) } })
             }
         }
         .animation(motion.travel(MotionTokens.snap), value: panelTiles.map(\.id))
@@ -148,6 +150,7 @@ struct ReorderTaskView: View {
             .onChanged { value in
                 guard attempt.status == .answering else { return }
                 if dragID == nil {
+                    guard !flyingIDs.contains(id) else { return }
                     guard hypot(value.translation.width, value.translation.height) >= 6 else { return }
                     let key = fromBank ? id + Self.bankKeyOffset : id
                     guard let frame = frames[key] else { return }
@@ -198,6 +201,18 @@ struct ReorderTaskView: View {
         }
         guard let current = store.currentAttempt?.placedTileIDs, current.contains(id) else { return }
         store.moveTile(id, to: min(index, current.count - 1))
+    }
+
+    /// Animates a tap move and ignores further taps or drags on that tile until it has landed.
+    private func fly(_ id: Int, _ body: () -> Void) {
+        guard !flyingIDs.contains(id) else { return }
+        guard motion.travel(MotionTokens.snap) != nil else { return body() }
+        flyingIDs.insert(id)
+        animate(body)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(MotionTokens.snapSettle))
+            flyingIDs.remove(id)
+        }
     }
 
     private func animate(_ body: () -> Void) {

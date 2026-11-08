@@ -1,155 +1,232 @@
 import SwiftUI
 
-/// Email sign-in and sign-up on one screen; only the pinned action and its wording change.
+/// Log in with email and password, Apple or Google, and reset a forgotten password.
+/// Creating an account is pushed as `SignUpView`.
 struct AuthView: View {
-    private enum Mode {
-        case logIn, signUp
+    private enum Field {
+        case email, code, password
     }
 
-    private enum Field {
-        case email, password
+    /// The reset has two steps; the store knows whether the code went out.
+    private enum Step {
+        case logIn, resetEmail, resetCode
     }
 
     @Environment(AuthStore.self) private var auth
     @Environment(\.motion) private var motion
-    @State private var mode = Mode.logIn
+    @State private var isResetting = false
+    @State private var isSigningUp = false
     @State private var email = ""
     @State private var password = ""
+    @State private var resetCode = ""
     @FocusState private var focus: Field?
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                BrandBar()
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.m) {
+                    BrandBar()
+                        .padding(.bottom, Spacing.l)
 
-                PunctuatedTitle(text: mode == .logIn ? "Welcome back" : "Create your account")
-                    .padding(.top, Spacing.xl + Spacing.s)
-                    .padding(.bottom, Spacing.l)
-
-                if let confirmation = auth.pendingConfirmationEmail {
-                    confirmationNotice(confirmation)
-                } else {
-                    form
-                }
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.s)
-            .padding(.bottom, Spacing.l)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom) {
-            if auth.pendingConfirmationEmail == nil {
-                PinnedActionBar {
-                    VStack(spacing: Spacing.xs) {
-                        PrimaryButton(
-                            title: mode == .logIn ? "Log in" : "Sign up",
-                            requirement: "Enter your email and a password of at least 8 characters",
-                            isEnabled: canSubmit
-                        ) {
-                            submit()
-                        }
-                        Button {
-                            auth.clearError()
-                            motion.perform(MotionTokens.snap) { mode = mode == .logIn ? .signUp : .logIn }
-                        } label: {
-                            Text(mode == .logIn ? "New here? Create an account" : "Already have an account? Log in")
-                                .font(Typography.secondary.weight(.bold))
-                                .foregroundStyle(Color.selectedInk)
-                                .frame(maxWidth: .infinity, minHeight: Spacing.minTouchTarget)
-                        }
+                    switch step {
+                    case .logIn: logInForm
+                    case .resetEmail: resetEmailForm
+                    case .resetCode: resetCodeForm
                     }
                 }
+                .padding(.horizontal, Spacing.screenGutter)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.l)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .background(Color.canvas)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $isSigningUp) {
+                SignUpView(email: $email)
             }
         }
+        .tint(Color.ink)
     }
 
-    private var form: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            field("Email") {
-                TextField("you@example.com", text: $email)
-                    .keyboardType(.emailAddress)
-                    .textContentType(.username)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .submitLabel(.next)
-                    .focused($focus, equals: .email)
-                    .onSubmit { focus = .password }
-            }
-            field("Password") {
-                SecureField("At least 8 characters", text: $password)
-                    .textContentType(mode == .logIn ? .password : .newPassword)
-                    .submitLabel(.go)
-                    .focused($focus, equals: .password)
-                    .onSubmit(submit)
-            }
-            if let notice = auth.accountDeletedNotice {
-                Text(verbatim: notice)
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if let error = auth.errorMessage {
-                Text(verbatim: error)
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.errorInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if auth.isSubmitting {
-                ProgressView()
-                    .frame(maxWidth: .infinity)
-            }
-        }
-    }
+    // MARK: - Steps
 
-    private func field<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radii.tile, style: .continuous)
-        return VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text(title)
+    @ViewBuilder
+    private var logInForm: some View {
+        emailField(submitLabel: .next) { focus = .password }
+        VStack(alignment: .trailing, spacing: Spacing.xxs) {
+            LabeledField("Password") {
+                PasswordInput(
+                    placeholder: "At least 8 characters",
+                    text: $password,
+                    contentType: .password,
+                    focus: $focus,
+                    field: .password,
+                    onSubmit: submit
+                )
+            }
+            Button("Forgot password?") { setResetting(true) }
                 .font(Typography.secondary.weight(.semibold))
-                .foregroundStyle(Color.ink)
-            content()
-                .font(Typography.body)
-                .foregroundStyle(Color.ink)
-                .padding(.horizontal, Spacing.m)
-                .frame(minHeight: Spacing.tileMinHeight)
-                .background(Color.surface, in: shape)
-                .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
+                .foregroundStyle(Color.selectedInk)
+                .frame(minHeight: Spacing.minTouchTarget)
+        }
+        messages
+        actions(
+            title: "Log in",
+            link: "New here? Create an account"
+        ) {
+            auth.clearError()
+            isSigningUp = true
+        }
+        SocialSignInButtons()
+            .padding(.top, Spacing.xs)
+    }
+
+    @ViewBuilder
+    private var resetEmailForm: some View {
+        PunctuatedTitle(text: "Reset your password")
+            .padding(.bottom, Spacing.xs)
+        emailField(submitLabel: .send, onSubmit: submit)
+        Text("Enter the email you signed up with. We’ll send you a code to set a new password.")
+            .font(Typography.secondary)
+            .foregroundStyle(Color.mutedInk)
+            .fixedSize(horizontal: false, vertical: true)
+        messages
+        actions(title: "Send code", link: "Back to log in") { setResetting(false) }
+    }
+
+    @ViewBuilder
+    private var resetCodeForm: some View {
+        PunctuatedTitle(text: "Reset your password")
+            .padding(.bottom, Spacing.xs)
+        Text("We sent a code to \(auth.passwordResetEmail ?? email). Enter it and choose a new password.")
+            .font(Typography.secondary)
+            .foregroundStyle(Color.mutedInk)
+            .fixedSize(horizontal: false, vertical: true)
+        VStack(alignment: .trailing, spacing: Spacing.xxs) {
+            LabeledField("Code") {
+                TextField("6-digit code", text: $resetCode)
+                    .keyboardType(.numberPad)
+                    .textContentType(.oneTimeCode)
+                    .focused($focus, equals: .code)
+            }
+            Button("Send a new code") {
+                Task { await auth.requestPasswordReset(email: auth.passwordResetEmail ?? email) }
+            }
+            .font(Typography.secondary.weight(.semibold))
+            .foregroundStyle(Color.selectedInk)
+            .frame(minHeight: Spacing.minTouchTarget)
+            .disabled(auth.isSubmitting)
+        }
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            LabeledField("New password") {
+                PasswordInput(
+                    placeholder: "Create a password",
+                    text: $password,
+                    contentType: .newPassword,
+                    focus: $focus,
+                    field: .password,
+                    onSubmit: submit
+                )
+            }
+            PasswordRuleList(password: password)
+        }
+        messages
+        actions(title: "Set new password", link: "Back to log in") { setResetting(false) }
+    }
+
+    // MARK: - Pieces
+
+    private func emailField(submitLabel: SubmitLabel, onSubmit: @escaping () -> Void) -> some View {
+        LabeledField("Email") {
+            TextField("you@example.com", text: $email)
+                .keyboardType(.emailAddress)
+                .textContentType(.username)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .submitLabel(submitLabel)
+                .focused($focus, equals: .email)
+                .onSubmit(onSubmit)
         }
     }
 
-    private func confirmationNotice(_ address: String) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            Text("Check your email")
-                .font(Typography.emphasis)
+    @ViewBuilder
+    private var messages: some View {
+        if let notice = auth.accountDeletedNotice {
+            Text(verbatim: notice)
+                .font(Typography.secondary)
                 .foregroundStyle(Color.ink)
-            Text("We sent a confirmation link to \(address). Open it, then log in.")
-                .font(Typography.body)
-                .foregroundStyle(Color.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
-            PrimaryButton(title: "Back to log in") {
-                motion.perform(MotionTokens.snap) {
-                    mode = .logIn
-                    auth.dismissConfirmation()
-                }
+        }
+        // Errors from the sign-up screen stay there.
+        if !isSigningUp, let error = auth.errorMessage {
+            Text(verbatim: error)
+                .font(Typography.secondary)
+                .foregroundStyle(Color.errorInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if auth.isSubmitting && !isSigningUp {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func actions(title: LocalizedStringKey, link: LocalizedStringKey, onLink: @escaping () -> Void) -> some View {
+        VStack(spacing: Spacing.xs) {
+            PrimaryButton(title: title, isEnabled: canSubmit, action: submit)
+            Button(action: onLink) {
+                Text(link)
+                    .font(Typography.secondary.weight(.bold))
+                    .foregroundStyle(Color.selectedInk)
+                    .frame(maxWidth: .infinity, minHeight: Spacing.minTouchTarget)
             }
         }
+        .padding(.top, Spacing.xs)
+    }
+
+    // MARK: - State
+
+    private var step: Step {
+        guard isResetting else { return .logIn }
+        return auth.passwordResetEmail == nil ? .resetEmail : .resetCode
+    }
+
+    private var trimmedEmail: String {
+        email.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var trimmedCode: String {
+        resetCode.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var canSubmit: Bool {
-        !auth.isSubmitting
-            && !email.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && AuthStore.passwordLength.contains(password.count)
+        guard !auth.isSubmitting else { return false }
+        switch step {
+        case .logIn: return !trimmedEmail.isEmpty && AuthStore.passwordLength.contains(password.count)
+        case .resetEmail: return !trimmedEmail.isEmpty
+        case .resetCode: return !trimmedCode.isEmpty && PasswordPolicy.accepts(password)
+        }
+    }
+
+    private func setResetting(_ resetting: Bool) {
+        if !resetting { auth.cancelPasswordReset() }
+        auth.clearError()
+        motion.perform(MotionTokens.snap) {
+            isResetting = resetting
+            // The reset's new password must not reuse what was typed to log in, or vice versa.
+            password = ""
+            resetCode = ""
+        }
     }
 
     private func submit() {
         guard canSubmit else { return }
         focus = nil
-        let email = email.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = trimmedEmail
         Task {
-            if mode == .logIn {
-                await auth.logIn(email: email, password: password)
-            } else {
-                await auth.signUp(email: email, password: password)
+            switch step {
+            case .logIn: await auth.logIn(email: email, password: password)
+            case .resetEmail: await auth.requestPasswordReset(email: email)
+            case .resetCode: await auth.resetPassword(code: trimmedCode, newPassword: password)
             }
         }
     }

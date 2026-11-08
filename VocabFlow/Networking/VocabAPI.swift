@@ -246,6 +246,12 @@ protocol VocabAPI: Sendable {
     func signUp(email: String, password: String) async throws -> SignupResult
     func logIn(email: String, password: String) async throws
     func logIn(googleIDToken: String, nonce: String?) async throws
+    func logIn(appleIDToken: String, nonce: String?) async throws
+    /// Emails a reset-password link. Succeeds whether or not the address has an account.
+    func requestPasswordReset(email: String) async throws
+    /// Checks the emailed reset code, sets the new password and signs in.
+    func resetPassword(email: String, code: String, newPassword: String) async throws
+    func changePassword(current: String, new: String) async throws
     func signOut() async
     /// Permanent. On failure nothing was deleted.
     func deleteAccount() async throws
@@ -321,9 +327,33 @@ struct LiveVocabAPI: VocabAPI {
 
     func logIn(googleIDToken: String, nonce: String?) async throws {
         let session: AuthSession = try await client.send(
-            try post("auth/google", GoogleCredentials(idToken: googleIDToken, nonce: nonce), requiresAuth: false)
+            try post("auth/google", IDTokenCredentials(idToken: googleIDToken, nonce: nonce), requiresAuth: false)
         )
         await client.store(session)
+    }
+
+    func logIn(appleIDToken: String, nonce: String?) async throws {
+        let session: AuthSession = try await client.send(
+            try post("auth/apple", IDTokenCredentials(idToken: appleIDToken, nonce: nonce), requiresAuth: false)
+        )
+        await client.store(session)
+    }
+
+    func requestPasswordReset(email: String) async throws {
+        _ = try await client.sendRaw(try post("auth/recover", PasswordReset(email: email), requiresAuth: false))
+    }
+
+    func resetPassword(email: String, code: String, newPassword: String) async throws {
+        let session: AuthSession = try await client.send(
+            try post("auth/recover/verify", ResetVerification(email: email, code: code, password: newPassword), requiresAuth: false)
+        )
+        await client.store(session)
+    }
+
+    func changePassword(current: String, new: String) async throws {
+        var request = try post("me/password", PasswordChange(currentPassword: current, newPassword: new))
+        request.method = .put
+        _ = try await client.sendRaw(request)
     }
 
     func signOut() async {
@@ -472,9 +502,24 @@ struct LiveVocabAPI: VocabAPI {
         let password: String
     }
 
-    private struct GoogleCredentials: Encodable {
+    private struct IDTokenCredentials: Encodable {
         let idToken: String
         let nonce: String?
+    }
+
+    private struct PasswordReset: Encodable {
+        let email: String
+    }
+
+    private struct ResetVerification: Encodable {
+        let email: String
+        let code: String
+        let password: String
+    }
+
+    private struct PasswordChange: Encodable {
+        let currentPassword: String
+        let newPassword: String
     }
 
     private struct Levels: Encodable {
@@ -514,6 +559,10 @@ struct OfflineVocabAPI: VocabAPI {
     }
     func logIn(email: String, password: String) async throws {}
     func logIn(googleIDToken: String, nonce: String?) async throws {}
+    func logIn(appleIDToken: String, nonce: String?) async throws {}
+    func requestPasswordReset(email: String) async throws {}
+    func resetPassword(email: String, code: String, newPassword: String) async throws {}
+    func changePassword(current: String, new: String) async throws {}
     func signOut() async {}
     func deleteAccount() async throws {}
 

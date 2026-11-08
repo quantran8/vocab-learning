@@ -128,14 +128,21 @@ final class TaskAttemptTests: XCTestCase {
         XCTAssertEqual(attempt.status, .solved)
     }
 
-    func testSurgeryNeedsPositionAndReplacement() {
+    func testSurgeryScoresTheRepairedWord() {
         var attempt = TaskAttempt(task: PracticeFixtures.surgery(), phase: .dueReview)
-        XCTAssertEqual(attempt.submitRepair(graphemeIndex: 3, replacement: ""), false)
+        XCTAssertNil(attempt.submitRepair(edits: [:]), "Nothing fixed yet")
+        XCTAssertNil(attempt.submitRepair(edits: [8: ""]), "Out of range")
+        XCTAssertEqual(attempt.submitRepair(edits: [4: "x"]), false)
         attempt.tryAgain()
-        XCTAssertEqual(attempt.submitRepair(graphemeIndex: 4, replacement: "x"), false)
+        XCTAssertEqual(attempt.submitRepair(edits: [4: "", 0: "k"]), false, "An extra change spoils it")
         attempt.tryAgain()
-        XCTAssertEqual(attempt.submitRepair(graphemeIndex: 4, replacement: "  "), true, "Blank means delete")
+        XCTAssertEqual(attempt.submitRepair(edits: [3: "  "]), true, "Blank means delete; either r spells it")
         XCTAssertEqual(attempt.solutionText, "clarify")
+        XCTAssertEqual(attempt.events.map(\.action), [
+            .submitRepair([RepairEdit(graphemeIndex: 4, replacement: "x")]),
+            .submitRepair([RepairEdit(graphemeIndex: 0, replacement: "k"), RepairEdit(graphemeIndex: 4, replacement: "")]),
+            .submitRepair([RepairEdit(graphemeIndex: 3, replacement: "  ")]),
+        ])
     }
 
     func testRecordingHasExactlyOneEvent() {
@@ -261,7 +268,11 @@ final class TaskAttemptTests: XCTestCase {
             (.submitOption(2), ["seq": 1, "action": "submit", "optionId": 2]),
             (.submitValue("x"), ["seq": 1, "action": "submit", "value": "x"]),
             (.submitTiles([2, 3]), ["seq": 1, "action": "submit", "tileIds": [2, 3]]),
-            (.submitRepair(graphemeIndex: 4, replacement: ""), ["seq": 1, "action": "submit", "graphemeIndex": 4, "replacement": ""]),
+            (.submitRepair([RepairEdit(graphemeIndex: 4, replacement: "")]), ["seq": 1, "action": "submit", "graphemeIndex": 4, "replacement": ""]),
+            (
+                .submitRepair([RepairEdit(graphemeIndex: 1, replacement: "a"), RepairEdit(graphemeIndex: 4, replacement: "")]),
+                ["seq": 1, "action": "submit", "edits": [["graphemeIndex": 1, "replacement": "a"], ["graphemeIndex": 4, "replacement": ""]]]
+            ),
             (.pair(leftID: 1, rightID: 5), ["seq": 1, "action": "pair", "leftId": 1, "rightId": 5]),
             (.tapTile(1), ["seq": 1, "action": "tap_tile", "tileId": 1]),
             (.removeTile(1), ["seq": 1, "action": "remove_tile", "tileId": 1]),

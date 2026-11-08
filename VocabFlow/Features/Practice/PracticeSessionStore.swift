@@ -245,8 +245,8 @@ final class PracticeSessionStore {
     func submitText(_ text: String) { score { $0.submitText(text) } }
     func submitTiles() { score { $0.submitTiles() } }
 
-    func submitRepair(graphemeIndex: Int, replacement: String) {
-        score { $0.submitRepair(graphemeIndex: graphemeIndex, replacement: replacement) }
+    func submitRepair(edits: [Int: String]) {
+        score { $0.submitRepair(edits: edits) }
     }
 
     func submitPair(leftID: Int, rightID: Int) {

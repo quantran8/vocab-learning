@@ -16,6 +16,41 @@ private actor AudioSessionActivator {
         try session.setCategory(category, mode: mode, options: options)
         try session.setActive(true)
     }
+
+    private struct Configuration {
+        let category: AVAudioSession.Category
+        let mode: AVAudioSession.Mode
+        let options: AVAudioSession.CategoryOptions
+    }
+
+    /// The session from before the current recording; nil while not recording.
+    private var beforeRecording: Configuration?
+    private var recordingID = 0
+
+    /// Switches to recording and returns the ID that `endRecording` needs to restore the session.
+    func beginRecording() throws -> Int {
+        let session = AVAudioSession.sharedInstance()
+        if beforeRecording == nil {
+            beforeRecording = Configuration(category: session.category, mode: session.mode, options: session.categoryOptions)
+        }
+        recordingID += 1
+        do {
+            try activate(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
+        } catch {
+            endRecording(recordingID)
+            throw error
+        }
+        return recordingID
+    }
+
+    /// `measurement` turns off output processing and `playAndRecord` plays at a lower volume,
+    /// so leaving them on after a take makes every later sound quieter.
+    /// Skipped when a newer recording has already started.
+    func endRecording(_ id: Int) {
+        guard id == recordingID, let saved = beforeRecording else { return }
+        beforeRecording = nil
+        try? AVAudioSession.sharedInstance().setCategory(saved.category, mode: saved.mode, options: saved.options)
+    }
 }
 
 @MainActor
@@ -101,45 +136,53 @@ protocol SoundEffectsPlaying: AnyObject {
 /// Short UI cues bundled in `Resources/Sounds`. Loaded once so they play without delay.
 @MainActor
 final class SoundEffects: SoundEffectsPlaying {
-    /// Built off the main thread and handed over once, so the players are never shared while in use.
-    private struct Cues: @unchecked Sendable {
-        let correct = Cues.load("vocab_correct")
-        let wrong = Cues.load("vocab_wrong")
-        let click = Cues.load("click1")
-
-        private static func load(_ name: String) -> AVAudioPlayer? {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "wav"),
-                  let player = try? AVAudioPlayer(contentsOf: url)
-            else { return nil }
-            player.prepareToPlay()
-            return player
-        }
-    }
-
-    private var cues: Cues?
+    private let player = CuePlayer()
 
     /// Preparing a player acquires audio hardware, which shouldn't hold up launch. A cue due before that finishes is skipped.
     init() {
-        Task {
-            cues = await Task.detached(priority: .userInitiated) { Cues() }.value
-        }
+        Task { [player] in await player.load() }
     }
 
-    func playCorrect() { playAnswer(cues?.correct) }
-    func playWrong() { playAnswer(cues?.wrong) }
+    func playCorrect() { Task { [player] in await player.playAnswer(.correct) } }
+    func playWrong() { Task { [player] in await player.playAnswer(.wrong) } }
+    func playClick() { Task { [player] in await player.playClick() } }
+}
+
+/// Owns the cue players off the main thread: `play()` activates the audio session when it isn't active,
+/// which blocks until the audio hardware answers.
+private actor CuePlayer {
+    enum Answer { case correct, wrong }
+
+    private var correct: AVAudioPlayer?
+    private var wrong: AVAudioPlayer?
+    private var click: AVAudioPlayer?
+
+    func load() {
+        correct = Self.load("vocab_correct")
+        wrong = Self.load("vocab_wrong")
+        click = Self.load("click2")
+    }
 
     func playClick() {
-        cues?.click?.currentTime = 0
-        cues?.click?.play()
+        click?.currentTime = 0
+        click?.play()
     }
 
     /// An answer cue replaces the previous one instead of overlapping it.
-    private func playAnswer(_ player: AVAudioPlayer?) {
-        guard let player else { return }
-        cues?.correct?.stop()
-        cues?.wrong?.stop()
+    func playAnswer(_ answer: Answer) {
+        guard let player = answer == .correct ? correct : wrong else { return }
+        correct?.stop()
+        wrong?.stop()
         player.currentTime = 0
         player.play()
+    }
+
+    private static func load(_ name: String) -> AVAudioPlayer? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "wav"),
+              let player = try? AVAudioPlayer(contentsOf: url)
+        else { return nil }
+        player.prepareToPlay()
+        return player
     }
 }
 
@@ -179,6 +222,8 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     private static let levelRelease: TimeInterval = 0.25
 
     private var recorder: AVAudioRecorder?
+    /// Set while the audio session is switched to recording.
+    private var recordingSessionID: Int?
     private var smoothedLevel = 0.0
     private var lastLevelTime: TimeInterval = 0
     private let fileURL = FileManager.default.temporaryDirectory.appending(path: "vocabflow-recording.wav")
@@ -206,27 +251,34 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     }
 
     func start() async throws {
-        try await AudioSessionActivator.shared.activate(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker])
-        let recorder = try AVAudioRecorder(url: fileURL, settings: [
-            AVFormatIDKey: kAudioFormatLinearPCM,
-            AVSampleRateKey: 16_000,
-            AVNumberOfChannelsKey: 1,
-            AVLinearPCMBitDepthKey: 16,
-            AVLinearPCMIsFloatKey: false,
-            AVLinearPCMIsBigEndianKey: false,
-        ])
-        recorder.delegate = self
-        recorder.isMeteringEnabled = true
-        smoothedLevel = 0
-        guard recorder.record(forDuration: Self.maxDuration) else {
-            throw CocoaError(.fileWriteUnknown)
+        let sessionID = try await AudioSessionActivator.shared.beginRecording()
+        recordingSessionID = sessionID
+        do {
+            let recorder = try AVAudioRecorder(url: fileURL, settings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: 16_000,
+                AVNumberOfChannelsKey: 1,
+                AVLinearPCMBitDepthKey: 16,
+                AVLinearPCMIsFloatKey: false,
+                AVLinearPCMIsBigEndianKey: false,
+            ])
+            recorder.delegate = self
+            recorder.isMeteringEnabled = true
+            smoothedLevel = 0
+            guard recorder.record(forDuration: Self.maxDuration) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
+            self.recorder = recorder
+        } catch {
+            restoreSession()
+            throw error
         }
-        self.recorder = recorder
     }
 
     func stop() -> RecordedAudio? {
         recorder?.stop()
         recorder = nil
+        restoreSession()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         guard let data = try? Data(contentsOf: fileURL), !data.isEmpty else { return nil }
         return RecordedAudio(data: data)
@@ -235,7 +287,14 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     func cancel() {
         recorder?.stop()
         recorder = nil
+        restoreSession()
         try? FileManager.default.removeItem(at: fileURL)
+    }
+
+    private func restoreSession() {
+        guard let id = recordingSessionID else { return }
+        recordingSessionID = nil
+        Task { await AudioSessionActivator.shared.endRecording(id) }
     }
 }
 

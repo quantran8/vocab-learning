@@ -10,9 +10,9 @@ struct PracticeSessionView: View {
         case .idle:
             EmptyView()
         case .planning:
-            StatusScreen(title: "Preparing your session", isBusy: true)
+            StatusScreen(title: "Preparing your session", isBusy: true, showsFlyingSyllie: true)
         case .committing:
-            StatusScreen(title: "Saving your progress", isBusy: true)
+            StatusScreen(title: "Saving your progress", isBusy: true, showsFlyingSyllie: true)
         case .empty:
             StatusScreen(title: "Nothing to practise right now", message: emptyMessage) {
                 closeButton
@@ -67,18 +67,19 @@ struct PracticeSessionView: View {
 }
 
 /// Centered status with optional spinner and actions. Also used while the account loads.
+/// `showsFlyingSyllie` swaps the spinner for Syllie flying in place, except with reduced motion.
 struct StatusScreen<Actions: View>: View {
     let title: LocalizedStringKey
     var message: Text?
     var isBusy = false
+    var showsFlyingSyllie = false
     @ViewBuilder var actions: Actions
 
     var body: some View {
         VStack(spacing: Spacing.m) {
             Spacer()
             if isBusy {
-                ProgressView()
-                    .controlSize(.large)
+                BusyIndicator(showsFlyingSyllie: showsFlyingSyllie)
             }
             Text(title)
                 .font(Typography.screenTitle)
@@ -98,13 +99,28 @@ struct StatusScreen<Actions: View>: View {
         }
         .padding(.horizontal, Spacing.screenGutter)
         .padding(.bottom, Spacing.m)
-        .environment(\.designZone, .product)
     }
 }
 
 extension StatusScreen where Actions == EmptyView {
-    init(title: LocalizedStringKey, message: Text? = nil, isBusy: Bool = false) {
-        self.init(title: title, message: message, isBusy: isBusy) { EmptyView() }
+    init(title: LocalizedStringKey, message: Text? = nil, isBusy: Bool = false, showsFlyingSyllie: Bool = false) {
+        self.init(title: title, message: message, isBusy: isBusy, showsFlyingSyllie: showsFlyingSyllie) { EmptyView() }
+    }
+}
+
+/// Spinner, or Syllie flying in place when asked for and motion is allowed.
+private struct BusyIndicator: View {
+    let showsFlyingSyllie: Bool
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        if showsFlyingSyllie && !motion.reduceMotion {
+            SyllieLoadingView()
+                .frame(width: 240, height: 240)
+        } else {
+            ProgressView()
+                .controlSize(.large)
+        }
     }
 }
 
@@ -120,6 +136,8 @@ private struct ReviewPreviewView: View {
     @State private var trainOrigin = ReviewPreviewView.trainOrigins.randomElement() ?? .zero
     /// Bumped per word to replay its wiggle.
     @State private var wiggles: [String: Int] = [:]
+    /// Idle during the intro, watching the list while the words fly in, then one scan once they've landed.
+    @State private var syllieReaction = SyllieMood.idle
 
     private enum Entrance: CaseIterable {
         case scattered, wordTrain
@@ -159,6 +177,14 @@ private struct ReviewPreviewView: View {
                 .foregroundStyle(Color.mutedInk)
                 .padding(.top, Spacing.xs)
 
+                // Between the intro and the list: he scans the words as they fly in (left to right, looping), and once
+                // every word has landed he finishes the sweep he's on and nods he's ready, then idles (scrolling
+                // doesn't retrigger it, and it never repeats while the screen is up).
+                SyllieReactionView(reaction: syllieReaction)
+                    .frame(width: 150, height: 118)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, Spacing.m)
+
                 FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
                     ForEach(Array(words.enumerated()), id: \.element.id) { index, word in
                         tile(word, index: index)
@@ -172,6 +198,7 @@ private struct ReviewPreviewView: View {
             .padding(.bottom, Spacing.l)
         }
         .task(id: hasLanded) { await wiggleWords() }
+        .task(id: hasLanded) { await scanWhenSettled() }
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
                 VStack(spacing: Spacing.s) {
@@ -184,6 +211,24 @@ private struct ReviewPreviewView: View {
                 }
             }
         }
+    }
+
+    /// Syllie scans the list while the words fly in. Once they've settled he finishes the sweep he's on (the loop
+    /// ends with his eyes centred, the nod's first pose) and nods he's ready.
+    private func scanWhenSettled() async {
+        guard hasLanded else { return }
+        if !motion.reduceMotion {
+            syllieReaction = .reviewWatch
+            let loop = SyllieMood.reviewWatchLoop
+            let settled = entranceDuration + MotionTokens.reviewSettle
+            let loopsNeeded = max(1, (settled / loop).rounded(.up))
+            do {
+                try await Task.sleep(for: .seconds(loopsNeeded * loop))
+            } catch {
+                return
+            }
+        }
+        syllieReaction = .reviewReady
     }
 
     /// After the entrance, a random word stirs every so often until the screen goes away.
@@ -265,12 +310,10 @@ private struct ReviewFinishedView: View {
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
 
-                    Image(systemName: "checkmark")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(Color.successInk)
-                        .frame(width: 64, height: 64)
-                        .background(Color.successSurface, in: RoundedRectangle(cornerRadius: Radii.card, style: .continuous))
-                        .accessibilityHidden(true)
+                    // Proud of the finished review, a curious look down at the new words, then ready to go;
+                    // he idles after that until "Learn new words" is tapped. Reduced motion: just idle.
+                    SyllieReactionView(reaction: motion.reduceMotion ? .idle : .reviewToLearn)
+                        .frame(width: 150, height: 118)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -401,10 +444,13 @@ private struct PracticeFlowView: View {
         ZStack {
             if let step = store.currentStep {
                 stepView(step)
+                    .environment(\.stepActionBarHost, store.stepIndex)
                     .id(store.stepIndex)
                     .transition(motion.stepTransition)
             }
         }
+        // Only the step content slides; its bottom bar is drawn here and stays in place.
+        .hostsStepActionBar()
         .safeAreaInset(edge: .top) {
             let progress = store.partProgress
             FlowHeader(
@@ -491,7 +537,8 @@ private struct LearnCardStep: View {
                 WordIntroContent(
                     word: word,
                     presentation: word.introPresentation,
-                    playAudio: card.audio.map { clip in { store.playClip(clip) } }
+                    playAudio: card.audio.map { clip in { store.playClip(clip) } },
+                    isPlayingAudio: store.audio.isPlaying
                 )
                 if !otherMeanings.isEmpty {
                     OtherMeaningsLink(count: otherMeanings.count) { isShowingOtherMeanings = true }
@@ -502,7 +549,7 @@ private struct LearnCardStep: View {
             .padding(.top, Spacing.xl)
             .padding(.bottom, Spacing.l)
         }
-        .safeAreaInset(edge: .bottom) {
+        .stepActionBar {
             PinnedActionBar {
                 PrimaryButton(title: "Continue") {
                     motion.perform(MotionTokens.transition) { store.advance() }
@@ -573,37 +620,42 @@ struct PracticeResultsView: View {
     @Environment(PracticeSessionStore.self) private var store
     @Environment(\.motion) private var motion
     @State private var hasAppeared = false
+    @State private var showsConfetti = false
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                BrandBar()
+        GeometryReader { viewport in
+            ScrollView {
+                // The content sits at the bottom so the top of the screen stays clear for Syllie's celebration.
+                VStack(spacing: 0) {
+                    BrandBar()
 
-                CelebrationBadge()
-                    .padding(.top, Spacing.xl)
+                    Spacer(minLength: Spacing.xl)
 
-                Chip(text: "Flow complete", fill: .reward)
-                    .padding(.top, Spacing.l)
+                    // Without motion there is no Syllie, so the badge stands in for him.
+                    if motion.reduceMotion {
+                        CelebrationBadge()
+                            .padding(.bottom, Spacing.l)
+                    }
 
-                Text("Nice work.")
-                    .font(Typography.display)
-                    .tracking(-1.4)
-                    .foregroundStyle(Color.ink)
-                    .multilineTextAlignment(.center)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, Spacing.s)
+                    Chip(text: "Flow complete", fill: .reward)
 
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.s), GridItem(.flexible())], spacing: Spacing.s) {
-                    stat("Exercises done", value: summary.practiceTasks, index: 0)
-                    stat("Right first time", value: store.firstTryCount, index: 1)
-                    stat("Meanings reviewed", value: summary.reviewedMeanings, index: 2)
-                    stat("New words", value: summary.newWordGoalSlots, index: 3)
+                    Text("Nice work.")
+                        .font(Typography.display)
+                        .tracking(-1.4)
+                        .foregroundStyle(Color.ink)
+                        .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
+                        .padding(.top, Spacing.s)
+
+                    statGrid
+                        .padding(.top, Spacing.xl)
                 }
-                .padding(.top, Spacing.xl)
+                .padding(.horizontal, Spacing.screenGutter + 4)
+                .padding(.top, Spacing.s)
+                .padding(.bottom, Spacing.l)
+                .frame(minHeight: viewport.size.height)
             }
-            .padding(.horizontal, Spacing.screenGutter + 4)
-            .padding(.top, Spacing.s)
-            .padding(.bottom, Spacing.l)
+            .scrollBounceBehavior(.basedOnSize)
         }
         .safeAreaInset(edge: .bottom) {
             PinnedActionBar {
@@ -612,8 +664,56 @@ struct PracticeResultsView: View {
                 }
             }
         }
-        .overlay { ConfettiBurst() }
+        .overlay {
+            if !motion.reduceMotion {
+                SyllieCelebrationView()
+                    .ignoresSafeArea()
+            }
+        }
+        .overlay {
+            if showsConfetti {
+                ConfettiBurst()
+            }
+        }
         .onAppear { hasAppeared = true }
+        .task {
+            // The confetti bursts as Syllie nears the top of his loop.
+            if !motion.reduceMotion {
+                try? await Task.sleep(for: SyllieCelebrationView.confettiCue)
+            }
+            showsConfetti = true
+        }
+    }
+
+    private struct Stat {
+        let label: LocalizedStringKey
+        let value: Int
+    }
+
+    /// Only the stats this session actually moved; zeros would just distract.
+    private var stats: [Stat] {
+        [
+            Stat(label: "Exercises done", value: summary.practiceTasks),
+            Stat(label: "Right first time", value: store.firstTryCount),
+            Stat(label: "Meanings reviewed", value: summary.reviewedMeanings),
+            Stat(label: "New words", value: summary.newWordGoalSlots),
+        ]
+        .filter { $0.value > 0 }
+    }
+
+    /// Two per row; a stat left on its own takes the full row.
+    private var statGrid: some View {
+        let stats = stats
+        return VStack(spacing: Spacing.s) {
+            ForEach(Array(stride(from: 0, to: stats.count, by: 2)), id: \.self) { start in
+                HStack(spacing: Spacing.s) {
+                    ForEach(start..<min(start + 2, stats.count), id: \.self) { index in
+                        stat(stats[index].label, value: stats[index].value, index: index)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func stat(_ label: LocalizedStringKey, value: Int, index: Int) -> some View {
@@ -626,7 +726,7 @@ struct PracticeResultsView: View {
                 .foregroundStyle(Color.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .padding(Spacing.l - 4)
         .cardSurface(radius: Radii.tile)
         .accessibilityElement(children: .combine)

@@ -193,6 +193,8 @@ struct WordDetailSheet: View {
     var focusMeaningID: String?
     /// Plays recorded audio when there is some; otherwise the word is spoken by the device.
     let playAudio: (() -> Void)?
+    /// Whether `playAudio`'s clip is playing right now, for the speaker waves.
+    var isPlayingAudio = false
     @Environment(LearnerStore.self) private var learner
     @Environment(SpeechPlayer.self) private var speech
     @Environment(\.motion) private var motion
@@ -213,7 +215,7 @@ struct WordDetailSheet: View {
                         presentation: VocabularyItem(id: wordID, term: lemma, meaningVi: "", example: "").introPresentation,
                         animates: false
                     )
-                    WordPronunciation(term: lemma, ipa: ipa, playAudio: playAudio)
+                    WordPronunciation(term: lemma, ipa: ipa, playAudio: playAudio, isPlayingAudio: isPlayingAudio)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.bottom, Spacing.l)

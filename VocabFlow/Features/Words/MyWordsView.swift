@@ -98,7 +98,8 @@ struct MyWordsView: View {
                 wordID: word.wordId,
                 lemma: word.lemma,
                 ipa: word.ipa,
-                playAudio: word.meanings.compactMap(\.meaning.audio).first.map { clip in { practice.playClip(clip) } }
+                playAudio: word.meanings.compactMap(\.meaning.audio).first.map { clip in { practice.playClip(clip) } },
+                isPlayingAudio: practice.audio.isPlaying
             )
         }
         .sheet(item: $customWordSheet) { sheet in

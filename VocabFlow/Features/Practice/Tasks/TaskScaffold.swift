@@ -7,6 +7,12 @@ struct TaskScaffold<Content: View, Action: View>: View {
     var feedback: FeedbackCopy? = nil
     @ViewBuilder let content: Content
     @ViewBuilder let action: Action
+    /// The reactions for the next right and wrong answer, picked ahead so they're ready before the answer renders.
+    /// Stored, not computed: a random value read in `body` would change on every render and restart the reaction.
+    @State private var happyMood: SyllieMood?
+    @State private var oopsMood: SyllieMood?
+    /// The loop while the question is unanswered (`thinking` or `deepThought`), stored for the same reason.
+    @State private var thinkingMood: SyllieMood?
 
     var body: some View {
         ScrollView {
@@ -25,9 +31,50 @@ struct TaskScaffold<Content: View, Action: View>: View {
             .padding(.bottom, Spacing.l)
         }
         .scrollDismissesKeyboard(.interactively)
-        .safeAreaInset(edge: .bottom) {
-            FeedbackActionPanel(feedback: feedback ?? TaskFeedbackCopy.make(attempt)) { action }
+        .stepActionBar {
+            FeedbackActionPanel(feedback: feedback ?? TaskFeedbackCopy.make(attempt), mascot: mascotMood) { action }
         }
+        .onAppear {
+            if happyMood == nil { happyMood = SyllieMood.nextHappyReaction() }
+            if oopsMood == nil { oopsMood = SyllieMood.nextOopsReaction() }
+            if thinkingMood == nil { thinkingMood = SyllieMood.nextThinking() }
+        }
+        .onChange(of: attempt.status) { old, new in
+            // Re-pick once a reaction is over, so the pick is ready before the next one renders.
+            // Wrong → exhausted keeps the same oops instead of starting a second one.
+            if old == .solved { happyMood = SyllieMood.nextHappyReaction() }
+            if Self.isMiss(old), !Self.isMiss(new) { oopsMood = SyllieMood.nextOopsReaction() }
+            // Back to answering after "Try again": a fresh pick, so a retry may show the other loop.
+            if old != .answering, new == .answering { thinkingMood = SyllieMood.nextThinking() }
+        }
+        .onChange(of: feedback?.kind) { old, _ in
+            // Recording: each take's result comes through `feedback` while the status stays `answering`.
+            if old == .success { happyMood = SyllieMood.nextHappyReaction() }
+            if old == .error { oopsMood = SyllieMood.nextOopsReaction() }
+        }
+    }
+
+    /// A random thinking loop (`thinking` / `deepThought`) while the question is unanswered, the next happy variant on a right answer, the next oops on a miss;
+    /// `SyllieReactionView` settles the one-shot reactions back to idle.
+    private var mascotMood: SyllieMood {
+        // A take's result (Recording) is shown through `feedback` before the status changes.
+        if let feedback, attempt.status == .answering {
+            switch feedback.kind {
+            case .success: return happyMood ?? .happy
+            case .error: return oopsMood ?? .oops
+            case .info: return .idle
+            }
+        }
+        return switch attempt.status {
+        case .solved: happyMood ?? .happy
+        case .wrong, .exhausted: oopsMood ?? .oops
+        case .answering: thinkingMood ?? .thinking
+        case .recorded, .revealed: .idle
+        }
+    }
+
+    private static func isMiss(_ status: TaskAttempt.Status) -> Bool {
+        status == .wrong || status == .exhausted
     }
 }
 
