@@ -197,35 +197,48 @@ final class PracticeSessionStoreTests: XCTestCase {
 
     func testSkillPracticeAsksForRandomPracticeOnThatSkill() async {
         let store = makeStore(steps: learnAndChoice)
-        await store.startPractice(.listening)
+        await store.startPractice([.listening])
         let request = api.planRequests.first
         XCTAssertEqual(request?.mode, .randomPractice)
-        XCTAssertEqual(request?.skill, .listening)
-        XCTAssertEqual(store.practiceSkill, .listening)
+        XCTAssertEqual(request?.skills, [.listening])
+        XCTAssertEqual(store.practiceSkills, [.listening])
+    }
+
+    func testSkillPracticeSendsEveryChosenSkill() async {
+        let store = makeStore(steps: learnAndChoice)
+        await store.startPractice([.reading, .listening])
+        XCTAssertEqual(api.planRequests.first?.skills, [.reading, .listening])
+    }
+
+    func testSkillPracticeWithNoSkillIsMixedPractice() async {
+        let store = makeStore(steps: learnAndChoice)
+        await store.startPractice([])
+        XCTAssertEqual(api.planRequests.first?.mode, .randomPractice)
+        XCTAssertNil(api.planRequests.first?.skills)
     }
 
     func testRetryingAFailedSkillPlanKeepsTheSkill() async {
         let store = makeStore(steps: learnAndChoice)
         api.plan = .failure(.transport)
-        await store.startPractice(.writing)
+        await store.startPractice([.writing, .speaking])
         await store.retry()
-        XCTAssertEqual(api.planRequests.map(\.skill), [.writing, .writing])
+        XCTAssertEqual(api.planRequests.map(\.skills), [[.writing, .speaking], [.writing, .speaking]])
     }
 
     func testOtherModesSendNoSkillAfterASkillSession() async {
         let store = makeStore(steps: learnAndChoice)
-        await store.startPractice(.reading)
+        await store.startPractice([.reading])
         store.close()
         await store.start(.daily)
         XCTAssertEqual(api.planRequests.last?.mode, .daily)
-        XCTAssertNil(api.planRequests.last?.skill)
-        XCTAssertNil(store.practiceSkill)
+        XCTAssertNil(api.planRequests.last?.skills)
+        XCTAssertNil(store.practiceSkills)
     }
 
     func testEmptySkillPlanEndsAtTheEmptyStage() async {
         let store = makeStore(steps: [])
         api.plan = .success(SessionPlan(sessionID: nil, mode: .randomPractice, steps: []))
-        await store.startPractice(.speaking)
+        await store.startPractice([.speaking])
         XCTAssertEqual(store.stage, .empty)
     }
 

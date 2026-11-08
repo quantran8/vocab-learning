@@ -92,7 +92,7 @@ struct ChangePasswordSheet: View {
 
     private var canSubmit: Bool {
         !auth.isChangingPassword
-            && AuthStore.passwordLength.contains(current.count)
+            && PasswordPolicy.length.contains(current.count)
             && PasswordPolicy.accepts(new)
     }
 

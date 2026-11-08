@@ -26,12 +26,12 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Syll"
+            "value" : "VocabFlow"
           }
         },
         "vi" : {
           "stringUnit" : {
-            "state" : "translated",
+            "state" : "needs_review",
             "value" : "Syll"
           }
         }

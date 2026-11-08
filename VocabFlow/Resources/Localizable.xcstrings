@@ -1003,7 +1003,7 @@
         }
       }
     },
-    "Choose a skill" : {
+    "Choose skills" : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
@@ -3446,6 +3446,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "cụm động từ"
+          }
+        }
+      }
+    },
+    "Pick one or more" : {
+      "comment" : "Hint under the title of the skill picker for random practice.",
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn một hoặc nhiều kỹ năng"
           }
         }
       }

@@ -7,7 +7,7 @@ enum SessionMode: String, Codable, Equatable {
     case weakWordsPractice = "weak_words_practice"
 }
 
-/// Focuses `random_practice` on one skill. The backend rejects it with any other mode.
+/// Focuses `random_practice` on the chosen skills. The backend rejects it with any other mode.
 enum PracticeSkill: String, Codable, Equatable, CaseIterable, Identifiable {
     case reading, writing, listening, speaking
 
@@ -23,7 +23,8 @@ struct PlanRequest: Encodable, Equatable {
     let mode: SessionMode
     let capabilities: Capabilities
     var challengeId: String?
-    var skill: PracticeSkill?
+    /// Nil is mixed practice; never empty (the backend rejects an empty list).
+    var skills: [PracticeSkill]?
 }
 
 struct SessionPlan: Decodable, Equatable {

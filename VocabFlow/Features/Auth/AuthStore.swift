@@ -8,8 +8,6 @@ final class AuthStore {
         case launching, signedOut, signedIn
     }
 
-    static let passwordLength = 8...72
-
     private(set) var phase: Phase = .launching
     private(set) var isSubmitting = false
     private(set) var errorMessage: String?

@@ -201,7 +201,7 @@ struct AuthView: View {
     private var canSubmit: Bool {
         guard !auth.isSubmitting else { return false }
         switch step {
-        case .logIn: return !trimmedEmail.isEmpty && AuthStore.passwordLength.contains(password.count)
+        case .logIn: return !trimmedEmail.isEmpty && PasswordPolicy.length.contains(password.count)
         case .resetEmail: return !trimmedEmail.isEmpty
         case .resetCode: return !trimmedCode.isEmpty && PasswordPolicy.accepts(password)
         }

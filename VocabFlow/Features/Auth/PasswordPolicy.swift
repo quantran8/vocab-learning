@@ -3,6 +3,9 @@ import SwiftUI
 /// Rules for a password the learner creates (sign up, reset, change). Logging in only checks length,
 /// so accounts made before these rules keep working. The backend enforces the same rules.
 enum PasswordPolicy {
+    /// Allowed password length. Logging in checks only this, so accounts made before the other rules keep working.
+    static let length = 8...72
+
     enum Rule: CaseIterable, Identifiable {
         case length, letter, digit
 
@@ -18,7 +21,7 @@ enum PasswordPolicy {
 
         func isMet(by password: String) -> Bool {
             switch self {
-            case .length: password.count >= AuthStore.passwordLength.lowerBound
+            case .length: password.count >= PasswordPolicy.length.lowerBound
             case .letter: password.unicodeScalars.contains { CharacterSet.letters.contains($0) }
             case .digit: password.unicodeScalars.contains { CharacterSet.decimalDigits.contains($0) }
             }
@@ -26,7 +29,7 @@ enum PasswordPolicy {
     }
 
     static func isTooLong(_ password: String) -> Bool {
-        password.count > AuthStore.passwordLength.upperBound
+        password.count > PasswordPolicy.length.upperBound
     }
 
     static func accepts(_ password: String) -> Bool {

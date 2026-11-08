@@ -1,0 +1,1442 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Syll — Học đúng từ, nhớ thật lâu</title>
+<meta name="description" content="Syll: học từ vựng tiếng Anh theo mục tiêu của bạn. Ôn từ sắp quên, luyện kỹ năng còn yếu, trong một app được làm tỉ mỉ đến từng chi tiết.">
+<link rel="icon" href="assets/app-icon.png">
+<!-- TEMP ẢNH: ảnh chia sẻ mạng xã hội, 1200×630 -->
+<meta property="og:title" content="Syll — Học đúng từ, nhớ thật lâu">
+<meta property="og:description" content="Bộ từ, chủ đề và từ của riêng bạn. Ôn đúng lúc, luyện đúng chỗ yếu.">
+<meta property="og:image" content="assets/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+/* Tokens mirror VocabFlow/DesignSystem/Tokens (Colors, Radii, Spacing, Typography). */
+:root {
+  --canvas: #FFFFFF;
+  --ink: #171717;
+  --muted: #5C606B;
+  --primary: #303030;
+  --primary-depth: #080808;
+  --interactive: #4775F5;
+  --interactive-depth: #2B55CE;
+  --reward: #FFD23F;
+  --reward-depth: #B89528;
+  --success: #2BC86A;
+  --error: #FF795D;
+  --neutral: #F5F5F5;
+  --quiet: #FAFAFA;
+  --stroke: #E1E4EB;
+  --tile-depth: #CDD2DC;
+  --sel-bg: #EAF0FF;
+  --sel-ink: #234EAE;
+  --sel-depth: #B2C5F5;
+  --ok-bg: #E5FAED;
+  --ok-ink: #12673A;
+  --ok-depth: #9EE5B8;
+  --err-bg: #FFF0EA;
+  --err-ink: #943727;
+  --err-depth: #FFB5A5;
+  --dis-bg: #F1F2F4;
+  --dis-ink: #707783;
+  --slot-target: #D9E4FF;
+
+  --r-chip: 10px;
+  --r-tile: 14px;
+  --r-btn: 16px;
+  --r-card: 20px;
+  --r-hero: 24px;
+
+  --press: 120ms;
+  --lift: 240ms;
+  --ease: cubic-bezier(.25,.8,.25,1);
+  --panel-spring: cubic-bezier(.34,1.4,.64,1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--canvas); color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 17px; line-height: 1.45; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+img { display: block; max-width: 100%; }
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 2px solid var(--interactive); outline-offset: 3px; border-radius: 10px; }
+
+.wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
+
+/* ---------- Type (Typography.swift) ---------- */
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.display { font-weight: 800; letter-spacing: -.035em; line-height: 1.04; }
+.display .mark { color: var(--interactive); }
+h1.display { font-size: clamp(46px, 6.4vw, 76px); }
+h2.display { font-size: clamp(34px, 4.4vw, 52px); }
+.screen-title { font-size: 22px; font-weight: 700; letter-spacing: -.6px; line-height: 1.2; }
+.emphasis { font-weight: 700; }
+.secondary { font-size: 15px; color: var(--muted); }
+.lead { font-size: 19px; color: var(--muted); max-width: 32em; }
+
+/* ---------- Product-zone buttons: flat, press = scale .97 ---------- */
+.fbtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 24px; border-radius: var(--r-btn);
+  background: var(--primary); color: #fff; font-weight: 700; font-size: 17px; text-decoration: none;
+  transition: transform var(--press) var(--ease);
+}
+.fbtn:active { transform: scale(.97); }
+.fbtn.secondary { background: #fff; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--stroke); }
+.fbtn.small { min-height: 40px; padding: 0 16px; font-size: 15px; border-radius: 12px; }
+.textlink { color: var(--interactive); font-weight: 700; text-decoration: none; }
+
+/* ---------- Lesson-zone buttons: thick edge (ActionButtonStyle) ---------- */
+.pbtn {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; min-height: 52px; border-radius: var(--r-btn); overflow: hidden;
+  background: var(--primary); color: #fff; font-weight: 700; font-size: 17px; text-decoration: none;
+  box-shadow: 0 4px 0 var(--primary-depth); margin-bottom: 4px;
+  transition: transform var(--press) var(--ease), box-shadow var(--press) var(--ease);
+}
+.pbtn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 var(--primary-depth); }
+.pbtn:disabled { background: var(--dis-bg); color: var(--dis-ink); box-shadow: none; cursor: default; }
+.pbtn.inline { display: inline-flex; width: auto; padding: 0 28px; }
+.pbtn.shimmer::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.35) 45%, transparent 60%);
+  transform: translateX(-120%); animation: shimmer 3.2s ease-in-out infinite;
+}
+@keyframes shimmer { 0% { transform: translateX(-120%); } 35%, 100% { transform: translateX(120%); } }
+
+/* ---------- Card surface: 1.5 stroke, no shadow ---------- */
+.card { background: #fff; border-radius: var(--r-card); box-shadow: inset 0 0 0 1.5px var(--stroke); }
+
+/* ---------- Nav ---------- */
+nav.top { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,.9); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: 1px solid transparent; transition: border-color .2s; }
+nav.top.scrolled { border-color: var(--stroke); }
+nav.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); }
+.brand img { width: 34px; height: 34px; border-radius: var(--r-chip); box-shadow: 0 0 0 1px var(--stroke); }
+.brand span { font-size: 20px; font-weight: 800; letter-spacing: -.6px; }
+.nav-links { display: flex; gap: 28px; }
+.nav-links a { color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px; }
+.nav-links a:hover { color: var(--ink); }
+@media (max-width: 860px) { .nav-links { display: none; } }
+
+/* ---------- Sections ---------- */
+section { padding: 112px 0; }
+section.tint { background: var(--quiet); border-block: 1px solid var(--stroke); }
+.sec-head { max-width: 680px; margin-bottom: 56px; }
+.sec-head .display { margin: 12px 0 16px; }
+.sec-head.center { text-align: center; margin-inline: auto; }
+.sec-head.center .lead { margin-inline: auto; }
+@media (max-width: 760px) { section { padding: 80px 0; } .sec-head { margin-bottom: 40px; } }
+
+/* ---------- Hero ---------- */
+.hero { padding: 64px 0 104px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 64px; align-items: center; }
+.hero h1 { margin: 14px 0 12px; }
+.hero .tagline { font-size: 24px; font-weight: 700; letter-spacing: -.6px; margin-bottom: 18px; }
+.hero .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin-top: 32px; }
+.hero .hint { margin-top: 20px; font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.hero .hint::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--interactive); flex: none; }
+@media (max-width: 980px) { .hero { padding: 40px 0 80px; } .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 48px; justify-items: center; } .hero .copy { justify-self: stretch; } }
+
+/* ---------- Device + lesson screen ---------- */
+.device {
+  width: 372px; height: 760px; max-width: 100%; border-radius: 54px; padding: 10px; background: var(--ink);
+  box-shadow: 0 40px 80px -40px rgba(23,23,23,.45);
+}
+.screen { position: relative; width: 100%; height: 100%; border-radius: 44px; background: var(--canvas); overflow: hidden; display: flex; flex-direction: column; }
+.island { flex: none; height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; font-size: 15px; font-weight: 600; }
+.island::after { content: ""; position: absolute; top: 11px; left: 50%; translate: -50% 0; width: 104px; height: 30px; border-radius: 99px; background: var(--ink); }
+.island i { width: 54px; height: 12px; border-radius: 4px; background: linear-gradient(90deg, var(--ink) 0 26px, transparent 26px 32px, var(--ink) 32px); opacity: .9; }
+@media (max-width: 420px) { .device { width: 100%; height: 720px; border-radius: 46px; } .screen { border-radius: 36px; } }
+
+.flow-head { flex: none; display: flex; align-items: center; gap: 16px; padding: 2px 20px 0 8px; }
+.flow-head .x { width: 44px; height: 44px; display: grid; place-items: center; color: var(--muted); }
+.flow-head .x svg { width: 18px; height: 18px; }
+.track { flex: 1; height: 8px; border-radius: 99px; background: var(--stroke); overflow: hidden; }
+.track > i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--interactive); transition: width 400ms var(--ease); }
+.segments { flex: 1; display: flex; gap: 4px; }
+.segments i { flex: 1; height: 6px; border-radius: 99px; background: var(--stroke); transition: background .3s; }
+.segments i.on { background: var(--interactive); }
+.flow-head .count { font-size: 12px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.task-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 24px; display: flex; flex-direction: column; gap: 24px; scrollbar-width: none; }
+.task-body::-webkit-scrollbar { display: none; }
+.task-body.enter { animation: stepIn 360ms var(--ease); }
+@keyframes stepIn { from { opacity: 0; transform: translateX(28px); } }
+.task-body.locked .ex { pointer-events: none; }
+.prompt { font-size: 28px; font-weight: 800; letter-spacing: -.6px; text-align: center; line-height: 1.2; padding: 4px 0; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.prompt.small { font-size: 22px; }
+
+/* AudioPlayButton: round, selectedSurface */
+.audio { width: 64px; height: 64px; border-radius: 50%; background: var(--sel-bg); color: var(--sel-ink); display: grid; place-items: center; box-shadow: inset 0 0 0 2px transparent; transition: box-shadow .2s; }
+.audio.playing { box-shadow: inset 0 0 0 2px var(--interactive); }
+.audio svg { width: 30px; height: 30px; }
+.audio.lg { width: 88px; height: 88px; }
+.audio.lg svg { width: 40px; height: 40px; }
+
+/* WordTile: 60 min, radius 14, 3pt depth */
+.tile {
+  --face: #fff; --bd: var(--stroke); --depth: var(--tile-depth); --fg: var(--ink);
+  position: relative; display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 60px; padding: 12px 14px; border-radius: var(--r-tile);
+  background: var(--face); color: var(--fg); border: 2px solid var(--bd);
+  box-shadow: 0 3px 0 var(--depth); margin-bottom: 3px;
+  font-size: 17px; font-weight: 600; line-height: 1.25;
+  transition: transform var(--press) var(--ease), box-shadow var(--press) var(--ease), background var(--lift) var(--ease), border-color var(--lift) var(--ease), color var(--lift) var(--ease), opacity var(--lift);
+}
+.tile.choice { font-size: 22px; font-weight: 400; width: 100%; }
+.tile:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--depth); --bd: var(--interactive); }
+.tile.sel { --face: var(--sel-bg); --bd: var(--interactive); --depth: var(--sel-depth); --fg: var(--sel-ink); }
+.tile.ok { --face: var(--ok-bg); --bd: var(--success); --depth: var(--ok-depth); --fg: var(--ok-ink); }
+.tile.bad { --face: var(--err-bg); --bd: var(--error); --depth: var(--err-depth); --fg: var(--err-ink); }
+.tile.dim { opacity: .6; --fg: var(--dis-ink); }
+.tile.placed { --face: var(--neutral); --bd: var(--neutral); --depth: var(--neutral); color: transparent; pointer-events: none; }
+.tile.shake { animation: shake 400ms; }
+@keyframes shake { 15%, 55% { translate: -7px 0; } 35%, 75% { translate: 7px 0; } }
+.stack { display: grid; gap: 12px; }
+.flow { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.flow .tile { min-width: 72px; }
+
+/* Cloze */
+.sentence { font-size: 22px; font-weight: 700; line-height: 1.7; letter-spacing: -.3px; }
+.blank { display: inline-flex; align-items: flex-end; justify-content: center; min-width: 132px; min-height: 1.3em; padding: 0 6px; margin: 0 2px; border-bottom: 2.5px solid var(--ink); color: var(--sel-ink); font: inherit; vertical-align: baseline; line-height: 1.2; }
+.blank.filled { animation: land 220ms var(--ease); }
+.blank.ok { color: var(--ok-ink); border-color: var(--success); }
+.blank.bad { color: var(--err-ink); border-color: var(--error); }
+@keyframes land { from { transform: translateY(-10px); opacity: 0; } }
+.translation { font-size: 15px; color: var(--muted); text-align: center; }
+
+/* Typing (RecallInput) */
+.field label { display: block; margin-bottom: 8px; }
+.field input { width: 100%; min-height: 56px; padding: 0 16px; font-size: 22px; font-weight: 600; border-radius: var(--r-tile); border: 2px solid var(--stroke); outline: none; background: #fff; transition: border-color var(--lift); }
+.field input:focus { border-color: var(--interactive); }
+.field input.ok { border-color: var(--success); background: var(--ok-bg); color: var(--ok-ink); }
+.field input.bad { border-color: var(--error); background: var(--err-bg); color: var(--err-ink); }
+
+/* Letter reorder */
+.lines { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; min-height: 60px; }
+.line { width: 34px; height: 52px; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6px; border-bottom: 3px solid var(--stroke); font-size: 26px; font-weight: 700; cursor: pointer; }
+.line.filled { border-color: var(--ink); animation: land 220ms var(--ease); }
+.lines.ok .line { color: var(--ok-ink); border-color: var(--success); }
+.lines.bad .line { color: var(--err-ink); border-color: var(--error); }
+.letters { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.letters .tile { width: 48px; min-height: 56px; padding: 0; font-size: 22px; }
+
+/* Match */
+.match { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.match .tile { font-size: 19px; font-weight: 400; min-height: 64px; }
+
+/* Surgery */
+.boxes { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+.box { width: 36px; height: 50px; border-radius: 10px; display: grid; place-items: center; font-size: 24px; font-weight: 700; border: 2px solid var(--stroke); background: #fff; transition: border-color var(--lift), background var(--lift), color var(--lift); }
+.box.sel { border-color: var(--interactive); background: var(--sel-bg); }
+.box.fixed { color: var(--interactive); }
+.box.gone { color: transparent; border-style: dashed; }
+.boxes.ok .box.fixed { border-color: var(--success); background: var(--ok-bg); color: var(--ok-ink); }
+.boxes.bad .box.fixed { border-color: var(--error); background: var(--err-bg); color: var(--err-ink); }
+.keyboard { padding: 12px 6px; animation: rise 240ms var(--ease); }
+.keyboard .eyebrow { padding: 0 4px 8px; }
+.keys { display: grid; grid-template-columns: repeat(10, 1fr); gap: 5px; }
+.key { height: 40px; border-radius: 8px; background: #fff; border: 1.5px solid var(--stroke); box-shadow: 0 2px 0 var(--tile-depth); font-size: 17px; font-weight: 600; transition: transform var(--press); }
+.key:active { transform: translateY(2px); box-shadow: none; }
+.key.del { grid-column: span 2; font-size: 14px; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+
+/* Recording */
+.rec { display: flex; flex-direction: column; align-items: center; gap: 22px; padding-top: 8px; }
+.mic { width: 88px; height: 88px; border-radius: 50%; background: var(--primary); color: #fff; display: grid; place-items: center; box-shadow: 0 4px 0 var(--primary-depth); animation: breathe 2.6s ease-in-out infinite; }
+.mic svg { width: 36px; height: 36px; }
+.mic.live { background: var(--interactive); box-shadow: 0 4px 0 var(--interactive-depth); animation: none; }
+@keyframes breathe { 50% { transform: scale(1.04); } }
+.wave { display: flex; align-items: center; gap: 4px; height: 44px; }
+.wave i { width: 5px; height: 6px; border-radius: 3px; background: var(--stroke); transition: height 110ms; }
+.wave.live i { background: var(--interactive); }
+
+/* FeedbackActionPanel: pinned, top corners 20, whole panel takes status color */
+.panel { flex: none; position: relative; border-radius: var(--r-card) var(--r-card) 0 0; padding: 12px 20px 22px; background: var(--canvas); transition: background 300ms var(--ease); }
+.panel.success { background: var(--ok-bg); }
+.panel.error { background: var(--err-bg); }
+.panel.info { background: var(--sel-bg); }
+.fb { display: none; margin: 6px 0 14px; }
+.panel.success .fb, .panel.error .fb, .panel.info .fb { display: block; animation: panelIn 360ms var(--panel-spring); }
+@keyframes panelIn { from { opacity: 0; transform: translateY(24px); } }
+.fb .t { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.fb .t svg { width: 20px; height: 20px; flex: none; }
+.fb .m { font-size: 15px; margin-top: 4px; }
+.panel.success .fb { color: var(--ok-ink); } .panel.success .fb svg { color: var(--success); }
+.panel.error .fb { color: var(--err-ink); } .panel.error .fb svg { color: var(--error); }
+.panel.info .fb { color: var(--sel-ink); } .panel.info .fb svg { color: var(--interactive); }
+.act-row { display: flex; align-items: flex-end; gap: 6px; }
+/* FeedbackActionPanel(mascot:): `Syllie` artboard (520×430) at 100×83, its margin overlapping gutter and button */
+.act-row .mascot { width: 100px; height: 83px; flex: none; margin: 0 -12px 0 -7px; }
+.actions { flex: 1; display: grid; gap: 4px; }
+.reveal-link { justify-self: end; min-height: 36px; font-size: 15px; font-weight: 700; color: var(--muted); }
+.requirement { min-height: 52px; display: grid; place-items: center; text-align: center; font-size: 15px; color: var(--muted); }
+
+/* ---------- Rive host: canvas over a PNG fallback ----------
+   The PNG shows until syllie.riv has loaded (and stays if it can't, e.g. opened via file://). */
+.rive { position: relative; }
+.rive canvas { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 200ms; }
+.rive.ready canvas { opacity: 1; }
+.rive .fallback { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 72%; }
+.rive.ready .fallback { display: none; }
+
+/* Results: content at the bottom, top kept clear for the `Celebrate` artboard */
+.results { position: absolute; inset: 46px 0 0; display: flex; flex-direction: column; background: var(--canvas); }
+.results .content { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; text-align: center; padding: 12px 24px 24px; }
+.results .brand-row { align-self: stretch; display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; letter-spacing: -.6px; }
+.results .brand-row img { width: 34px; height: 34px; border-radius: var(--r-chip); box-shadow: 0 0 0 1px var(--stroke); }
+.results .spacer { flex: 1; min-height: 32px; }
+.results .chip { display: inline-block; padding: 5px 10px; border-radius: 99px; background: var(--reward); font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.results .title { font-size: 34px; font-weight: 800; letter-spacing: -1.4px; margin-top: 12px; }
+.results .bar { padding: 12px 20px 22px; }
+.celebrate { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.badge { width: 96px; height: 96px; border-radius: 50%; background: var(--reward); box-shadow: 0 5px 0 var(--reward-depth); display: grid; place-items: center; margin-bottom: 24px; }
+.badge svg { width: 46px; height: 46px; color: var(--ink); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; margin-top: 32px; }
+.stat { padding: 14px; text-align: left; opacity: 0; animation: fadeUp 360ms var(--ease) forwards; animation-delay: 700ms; }
+.stat:nth-child(2) { animation-delay: 840ms; }
+.stat b { display: block; font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.confetti { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 3; }
+.confetti i { position: absolute; top: -14px; width: 8px; height: 12px; border-radius: 2px; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(800px) rotate(600deg); } }
+
+/* ---------- Strip ---------- */
+.strip { border-block: 1px solid var(--stroke); }
+.strip .wrap { display: grid; grid-template-columns: repeat(4, 1fr); }
+.strip .it { padding: 28px 24px; border-left: 1px solid var(--stroke); }
+.strip .it:first-child { border-left: 0; padding-left: 0; }
+.strip b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.6px; }
+.strip span { font-size: 15px; color: var(--muted); }
+@media (max-width: 760px) {
+  .strip .wrap { grid-template-columns: 1fr 1fr; }
+  .strip .it { padding: 22px 16px; }
+  .strip .it:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .strip .it:nth-child(n+3) { border-top: 1px solid var(--stroke); }
+}
+
+/* ---------- Session steps ---------- */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.step { padding: 28px; }
+.step .n { font-size: 15px; font-weight: 700; color: var(--interactive); font-variant-numeric: tabular-nums; }
+.step h3 { font-size: 22px; font-weight: 700; letter-spacing: -.6px; margin: 8px 0 8px; line-height: 1.2; }
+.step p { color: var(--muted); font-size: 15px; }
+.step .mini { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--stroke); display: grid; gap: 10px; }
+.row-word { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
+.row-word b { font-weight: 600; }
+.row-word span { color: var(--muted); }
+.step .mini .tile { min-height: 48px; font-size: 17px; }
+@media (max-width: 900px) { .steps { grid-template-columns: 1fr; } }
+
+/* ---------- Split rows ---------- */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 72px; align-items: center; }
+.split + .split { margin-top: 128px; }
+.split.flip > :first-child { order: 2; }
+.split .display { margin: 12px 0 16px; }
+.checks { list-style: none; margin-top: 24px; display: grid; gap: 12px; }
+.checks li { display: flex; gap: 12px; align-items: flex-start; }
+.checks li svg { width: 20px; height: 20px; color: var(--interactive); flex: none; margin-top: 3px; }
+.stage { display: grid; place-items: center; }
+@media (max-width: 960px) {
+  .split { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .split.flip > :first-child { order: 0; }
+  .split + .split { margin-top: 96px; }
+}
+
+/* Word intro */
+.intro-hero { text-align: center; padding: 18px 0 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.intro-word { font-size: 40px; font-weight: 800; letter-spacing: -1.2px; display: flex; }
+.intro-word span { display: inline-block; animation: letterUp 420ms var(--ease) backwards; }
+@keyframes letterUp { from { opacity: 0; transform: translateY(18px); } }
+.ipa { color: var(--muted); font-size: 17px; }
+.intro-sec { padding: 16px 0; border-top: 1px solid var(--stroke); }
+.intro-sec:first-of-type { border-top: 0; }
+.intro-sec .eyebrow { margin-bottom: 6px; }
+.intro-sec .meaning { font-size: 22px; font-weight: 600; }
+.intro-sec mark { background: none; color: var(--interactive); font-weight: 700; }
+.intro-sec .tr { margin-top: 10px; padding-left: 12px; border-left: 2px solid var(--stroke); color: var(--muted); font-size: 15px; }
+
+/* Template picker */
+.play { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 64px; align-items: start; }
+.tpl-list { display: grid; gap: 8px; }
+.tpl { display: flex; gap: 14px; align-items: flex-start; text-align: left; padding: 14px 16px; border-radius: var(--r-tile); box-shadow: inset 0 0 0 1.5px transparent; transition: background var(--lift), box-shadow var(--lift); }
+.tpl:hover { background: var(--quiet); }
+.tpl .ic { width: 40px; height: 40px; border-radius: 12px; background: var(--neutral); color: var(--ink); display: grid; place-items: center; flex: none; transition: background var(--lift), color var(--lift); }
+.tpl .ic svg { width: 20px; height: 20px; }
+.tpl b { display: block; font-weight: 700; }
+.tpl small { display: block; font-size: 15px; color: var(--muted); }
+.tpl[aria-selected="true"] { background: var(--sel-bg); box-shadow: inset 0 0 0 2px var(--interactive); }
+.tpl[aria-selected="true"] b { color: var(--sel-ink); }
+.tpl[aria-selected="true"] .ic { background: var(--interactive); color: #fff; }
+@media (max-width: 980px) {
+  .play { grid-template-columns: minmax(0, 1fr); gap: 28px; justify-items: center; }
+  .tpl-list { grid-auto-flow: column; grid-auto-columns: max-content; overflow-x: auto; justify-self: stretch; margin: 0 -20px; padding: 2px 20px 8px; scrollbar-width: none; }
+  .tpl-list::-webkit-scrollbar { display: none; }
+  .tpl { padding: 8px 14px 8px 8px; align-items: center; border-radius: 99px; box-shadow: inset 0 0 0 1.5px var(--stroke); }
+  .tpl .ic { width: 32px; height: 32px; border-radius: 99px; }
+  .tpl small { display: none; }
+}
+
+/* Level + routine (onboarding controls) */
+.panel-card { padding: 28px; width: min(460px, 100%); }
+.q-title { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-bottom: 20px; }
+.q-title .mark { color: var(--interactive); }
+.levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.opt { min-height: 56px; border-radius: var(--r-tile); background: #fff; box-shadow: inset 0 0 0 1.5px var(--stroke); font-weight: 700; font-size: 19px; transition: background var(--lift), box-shadow var(--lift), color var(--lift), transform var(--press); }
+.opt:active { transform: scale(.97); }
+.opt[aria-pressed="true"] { background: var(--sel-bg); color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--interactive); }
+.level-note { margin-top: 18px; min-height: 22px; }
+.test-link { margin-top: 14px; display: inline-flex; min-height: 44px; align-items: center; }
+.group + .group { margin-top: 24px; }
+.group .eyebrow { margin-bottom: 10px; }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.seg .opt { font-size: 17px; min-height: 48px; }
+.days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.days .opt { aspect-ratio: 1; min-height: 0; font-size: 14px; border-radius: 12px; }
+.remind { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: var(--r-tile); box-shadow: inset 0 0 0 1.5px var(--stroke); }
+.switch { width: 51px; height: 31px; border-radius: 99px; background: var(--stroke); position: relative; transition: background var(--lift); flex: none; }
+.switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,.2); transition: transform var(--lift) var(--ease); }
+.switch[aria-checked="true"] { background: var(--success); }
+.switch[aria-checked="true"]::after { transform: translateX(20px); }
+
+/* Home replica */
+.home { width: min(400px, 100%); }
+.home .wordmark { font-size: 20px; font-weight: 800; letter-spacing: -.6px; }
+.home .ptitle { font-size: 34px; font-weight: 800; letter-spacing: -1.2px; margin: 28px 0 20px; }
+.home .ptitle .mark, .home .stitle .mark { color: var(--interactive); }
+.daily { padding: 18px; display: grid; gap: 22px; }
+.daily .top { display: flex; align-items: flex-end; gap: 16px; }
+.daily .stats-col { flex: 1; display: grid; gap: 14px; }
+.daily .stat-row span { display: block; font-size: 15px; color: var(--muted); }
+.daily .stat-row b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* LessonMascot: `HomeSyllie` artboard at 124×134 standing on a soft ellipse */
+.daily .pet { width: 124px; position: relative; display: flex; flex-direction: column; align-items: center; }
+.daily .pet .rive { width: 124px; height: 134px; margin-bottom: 8px; position: relative; z-index: 1; }
+.daily .pet .shadow { position: absolute; bottom: 0; width: 96px; height: 12px; border-radius: 50%; background: var(--neutral); }
+.daily .pet.can-wake { cursor: pointer; }
+.home .stitle { font-size: 22px; font-weight: 700; letter-spacing: -.6px; margin: 40px 0 12px; }
+.checkpoint { padding: 18px; display: grid; gap: 14px; }
+.checkpoint .head { display: flex; justify-content: space-between; font-weight: 700; }
+.checkpoint .head span { font-weight: 600; font-variant-numeric: tabular-nums; }
+.tabbar { margin-top: 28px; display: flex; justify-content: space-around; padding-top: 10px; border-top: 1px solid var(--stroke); font-size: 11px; font-weight: 600; color: var(--muted); }
+.tabbar span { display: grid; justify-items: center; gap: 2px; }
+.tabbar span.on { color: var(--interactive); }
+.tabbar svg { width: 24px; height: 24px; }
+
+/* Screenshot placeholders */
+.shot { position: relative; margin: 0; overflow: hidden; display: grid; place-items: center; width: min(260px, 100%); aspect-ratio: 1179 / 2556; border-radius: 42px; border: 9px solid var(--ink); background: repeating-linear-gradient(-45deg, var(--neutral) 0 14px, var(--quiet) 14px 28px); }
+.shot::before { content: attr(data-ph); padding: 16px; max-width: 80%; text-align: center; white-space: pre-line; color: var(--muted); font-size: 14px; font-weight: 600; line-height: 1.4; }
+.shot img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; justify-items: center; }
+.gallery figure { display: grid; gap: 16px; justify-items: center; text-align: center; }
+.gallery figcaption b { display: block; font-weight: 700; }
+.gallery figcaption span { color: var(--muted); font-size: 15px; }
+@media (max-width: 960px) {
+  .gallery { grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 230px; overflow-x: auto; justify-content: start; margin: 0 -20px; padding: 0 20px 12px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .gallery figure { scroll-snap-align: center; }
+}
+
+/* Syllie */
+.meet { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: center; padding: 56px; }
+.moods { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+.moods .opt { min-height: 44px; padding: 0 16px; font-size: 15px; border-radius: 99px; }
+.pet-stage { display: grid; justify-items: center; align-content: center; min-height: 340px; position: relative; }
+.pet-stage .rive { width: min(420px, 100%); aspect-ratio: 520 / 430; cursor: pointer; }
+.pet-stage .hint { margin-top: 4px; }
+@media (max-width: 900px) { .meet { grid-template-columns: minmax(0, 1fr); padding: 32px 24px; gap: 24px; } .pet-stage { min-height: 260px; order: -1; } }
+
+/* FAQ */
+.faq { max-width: 760px; margin: 0 auto; }
+.faq details { border-bottom: 1px solid var(--stroke); }
+.faq summary { list-style: none; cursor: pointer; padding: 22px 0; display: flex; justify-content: space-between; gap: 16px; font-weight: 700; font-size: 19px; letter-spacing: -.3px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary svg { width: 20px; height: 20px; color: var(--muted); flex: none; margin-top: 3px; transition: transform var(--lift) var(--ease); }
+.faq details[open] summary svg { transform: rotate(180deg); }
+.faq details p { padding: 0 0 22px; color: var(--muted); max-width: 40em; }
+
+/* Final + footer */
+.final { text-align: center; padding: 128px 0; }
+.final .rive { width: 200px; aspect-ratio: 520 / 430; margin: 0 auto 16px; }
+.final .lead { margin: 16px auto 32px; }
+.store { display: inline-flex; align-items: center; gap: 10px; text-align: left; line-height: 1.1; }
+.store small { display: block; font-size: 11px; font-weight: 600; opacity: .8; }
+.store b { font-size: 19px; }
+.store svg { width: 26px; height: 26px; }
+footer { border-top: 1px solid var(--stroke); padding: 32px 0 48px; font-size: 15px; color: var(--muted); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+footer nav { display: flex; gap: 22px; flex-wrap: wrap; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--ink); }
+
+/* Product-zone entrance: short, no bounce */
+.in-view { opacity: 0; transform: translateY(12px); transition: opacity 360ms var(--ease), transform 360ms var(--ease); }
+.in-view.shown { opacity: 1; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition-duration: 150ms !important; scroll-behavior: auto !important; }
+  .in-view { opacity: 1; transform: none; }
+  .stat { opacity: 1; }
+}
+
+/* =========================================================
+   v3: marketing sections around three values
+   ========================================================= */
+.eyebrow .no { color: var(--interactive); }
+.hero .values { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px; border-radius: 99px; background: var(--quiet); box-shadow: inset 0 0 0 1.5px var(--stroke); font-size: 15px; font-weight: 600; color: var(--ink); text-decoration: none; transition: box-shadow var(--lift); }
+.pill:hover { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--interactive); }
+.pill:nth-child(2) i { background: var(--success); }
+.pill:nth-child(3) i { background: var(--reward); }
+
+/* Promise strip */
+.promises { border-block: 1px solid var(--stroke); }
+.promises .wrap { display: grid; grid-template-columns: repeat(3, 1fr); }
+.promise { padding: 32px 28px; border-left: 1px solid var(--stroke); text-decoration: none; color: inherit; transition: background var(--lift); }
+.promise:first-child { border-left: 0; padding-left: 0; }
+.promise .n { font-size: 15px; font-weight: 700; color: var(--interactive); font-variant-numeric: tabular-nums; }
+.promise b { display: block; font-size: 22px; font-weight: 700; letter-spacing: -.6px; margin: 6px 0; line-height: 1.2; }
+.promise > span:last-child { font-size: 15px; color: var(--muted); }
+@media (max-width: 860px) {
+  .promises .wrap { grid-template-columns: minmax(0, 1fr); }
+  .promise { border-left: 0; padding: 22px 0; border-top: 1px solid var(--stroke); }
+  .promise:first-child { border-top: 0; }
+}
+
+/* ---------- 01 Builder ---------- */
+.builder { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 20px; align-items: stretch; }
+.builder > .card { padding: 28px; }
+.b-step + .b-step { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--stroke); }
+.b-step > .eyebrow { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.b-step > .eyebrow em { font-style: normal; width: 22px; height: 22px; border-radius: 50%; background: var(--interactive); color: #fff; display: grid; place-items: center; font-size: 12px; letter-spacing: 0; }
+.collections { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-btn { min-height: 44px; padding: 0 16px; border-radius: 99px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--stroke); font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: background var(--lift), box-shadow var(--lift), color var(--lift), transform var(--press) var(--ease); }
+.chip-btn:active { transform: scale(.97); }
+.chip-btn[aria-pressed="true"] { background: var(--sel-bg); color: var(--sel-ink); box-shadow: inset 0 0 0 2px var(--interactive); }
+.chip-btn.big { min-height: 56px; padding: 0 8px; font-size: 17px; font-weight: 700; border-radius: var(--r-tile); }
+.chip-btn.ghost { min-height: 36px; padding: 0 12px; font-size: 14px; color: var(--muted); background: var(--quiet); }
+.suggest { margin-top: 10px; }
+.add-row { display: flex; gap: 8px; }
+.add-row input { flex: 1; min-width: 0; min-height: 52px; padding: 0 16px; font-size: 17px; font-weight: 600; border-radius: var(--r-tile); border: 2px solid var(--stroke); outline: none; background: #fff; transition: border-color var(--lift); }
+.add-row input:focus { border-color: var(--interactive); }
+.add-row .fbtn { min-height: 52px; flex: none; padding: 0 18px; }
+.add-note { margin-top: 10px; min-height: 22px; }
+.add-note.bad { color: var(--err-ink); }
+.add-note.ok { color: var(--ok-ink); }
+@media (max-width: 520px) { .collections { grid-template-columns: repeat(2, 1fr); } }
+
+.today { display: flex; flex-direction: column; background: var(--quiet); }
+.today .head { display: flex; justify-content: space-between; align-items: baseline; margin: 6px 0 16px; }
+.today .head b { font-size: 22px; font-weight: 700; letter-spacing: -.6px; }
+.today-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.today-sum > div { background: #fff; border-radius: var(--r-tile); padding: 12px 14px; box-shadow: inset 0 0 0 1.5px var(--stroke); }
+.today-sum span { display: block; }
+.today-sum b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.today-list { display: grid; gap: 8px; margin-top: 16px; flex: 1; align-content: start; }
+.tword { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: var(--r-tile); background: #fff; box-shadow: inset 0 0 0 1.5px var(--stroke); animation: tIn 320ms var(--ease) backwards; }
+.tword .w { flex: 1; min-width: 0; }
+.tword b { display: block; font-weight: 700; }
+.tword .m { display: block; color: var(--muted); font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@keyframes tIn { from { opacity: 0; transform: translateY(8px); } }
+.tag { flex: none; font-size: 12px; font-weight: 700; padding: 4px 9px; border-radius: 99px; background: var(--neutral); color: var(--muted); white-space: nowrap; }
+.tag.mine { background: #FFF4CC; color: #6E5408; }
+.today-foot { margin-top: 16px; }
+@media (max-width: 960px) { .builder { grid-template-columns: minmax(0, 1fr); } }
+
+.trio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 20px; }
+.feat { padding: 28px; }
+.feat .ic, .bento .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--sel-bg); color: var(--interactive); display: grid; place-items: center; }
+.feat .ic svg { width: 22px; height: 22px; }
+.feat h3 { font-size: 19px; font-weight: 700; letter-spacing: -.3px; margin: 16px 0 6px; }
+.feat p { color: var(--muted); font-size: 15px; }
+@media (max-width: 900px) { .trio { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- 02 Smart loop ---------- */
+.loop { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 40px; align-items: center; }
+.loop-steps { display: grid; gap: 8px; position: relative; }
+.lstep { position: relative; text-align: left; display: flex; gap: 16px; padding: 16px 18px 20px; border-radius: var(--r-tile); transition: background var(--lift), box-shadow var(--lift); }
+.lstep:hover { background: #fff; }
+.lstep .num { width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center; font-weight: 800; font-size: 15px; background: #fff; box-shadow: inset 0 0 0 1.5px var(--stroke); color: var(--muted); transition: background var(--lift), color var(--lift), box-shadow var(--lift); }
+.lstep b { display: block; font-size: 19px; font-weight: 700; letter-spacing: -.3px; }
+.lstep small { display: block; font-size: 15px; color: var(--muted); margin-top: 2px; }
+.lstep[aria-selected="true"] { background: #fff; box-shadow: inset 0 0 0 2px var(--interactive); }
+.lstep[aria-selected="true"] .num { background: var(--interactive); color: #fff; box-shadow: none; }
+.lstep .prog { position: absolute; left: 70px; right: 18px; bottom: 9px; height: 3px; border-radius: 99px; background: var(--stroke); overflow: hidden; opacity: 0; }
+.lstep.auto[aria-selected="true"] .prog { opacity: 1; }
+.lstep .prog i { display: block; height: 100%; width: 0; background: var(--interactive); }
+.lstep.auto[aria-selected="true"] .prog i { animation: fillbar 5s linear forwards; }
+@keyframes fillbar { to { width: 100%; } }
+.loop-again { display: flex; align-items: center; gap: 8px; padding: 4px 18px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.loop-again svg { width: 16px; height: 16px; }
+.loop-stage { min-height: 500px; padding: 28px; display: flex; flex-direction: column; }
+.viz { flex: 1; display: flex; flex-direction: column; animation: stepIn 360ms var(--ease); }
+.viz h4 { font-size: 22px; font-weight: 700; letter-spacing: -.6px; margin: 8px 0 4px; line-height: 1.2; }
+.viz > p.secondary { margin-bottom: 20px; }
+.viz .grow { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+@media (max-width: 960px) { .loop { grid-template-columns: minmax(0, 1fr); gap: 24px; } .loop-stage { min-height: 0; } }
+
+/* Forgetting curve */
+.curve { width: 100%; height: auto; overflow: visible; }
+.curve .axis { stroke: var(--stroke); stroke-width: 1.5; }
+.curve path { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.curve .forget { stroke: var(--error); stroke-dasharray: 6 7; opacity: .75; }
+.curve .remember { stroke: var(--interactive); stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 1.8s var(--ease) .2s forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.curve circle { fill: var(--interactive); stroke: #fff; stroke-width: 3; opacity: 0; animation: pop 300ms var(--panel-spring) forwards; transform-box: fill-box; transform-origin: center; }
+@keyframes pop { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
+.curve text { font-size: 12px; fill: var(--muted); font-weight: 600; font-family: inherit; }
+.curve text.lab { fill: var(--ink); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; font-size: 14px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 18px; height: 3px; border-radius: 2px; background: var(--interactive); }
+.legend i.f { background: repeating-linear-gradient(90deg, var(--error) 0 5px, transparent 5px 9px); }
+
+/* Review → learn */
+.rl .eyebrow { margin-top: 4px; }
+.rl .eyebrow + .rrow { margin-top: 10px; }
+.rrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-tile); background: #fff; box-shadow: inset 0 0 0 1.5px var(--stroke); }
+.rrow + .rrow { margin-top: 8px; }
+.rrow .w { flex: 1; } .rrow b { font-weight: 700; } .rrow .m { color: var(--muted); font-size: 15px; margin-left: 8px; }
+.ck { width: 24px; height: 24px; border-radius: 50%; background: var(--stroke); display: grid; place-items: center; color: #fff; flex: none; animation: ckOn 300ms var(--ease) forwards; }
+.ck svg { width: 14px; height: 14px; opacity: 0; animation: fadeIn 200ms forwards; animation-delay: inherit; }
+@keyframes ckOn { to { background: var(--success); } }
+@keyframes fadeIn { to { opacity: 1; } }
+.rrow.new { opacity: 0; animation: fadeUp 360ms var(--ease) forwards; }
+.rrow .tag.new { background: var(--sel-bg); color: var(--sel-ink); }
+.rl .gap { margin-top: 22px; }
+
+/* Skill bars */
+.skill-word { display: flex; align-items: baseline; gap: 10px; margin-bottom: 18px; }
+.skill-word b { font-size: 28px; font-weight: 800; letter-spacing: -.6px; }
+.skills { display: grid; gap: 14px; }
+.skill { display: grid; grid-template-columns: 52px minmax(0, 1fr) 44px; gap: 12px; align-items: center; font-weight: 600; }
+.skill .bar { height: 12px; border-radius: 99px; background: var(--neutral); overflow: hidden; }
+.skill .bar i { display: block; height: 100%; border-radius: 99px; background: var(--success); width: var(--w); animation: grow 900ms var(--ease) backwards; }
+.skill.mid .bar i { background: var(--reward); }
+.skill.weak .bar i { background: var(--error); }
+.skill .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.skill.weak .v { color: var(--err-ink); font-weight: 700; }
+@keyframes grow { from { width: 0; } }
+.mapping { display: grid; gap: 8px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--stroke); font-size: 15px; }
+.mapping div { display: flex; justify-content: space-between; gap: 12px; }
+.mapping span { color: var(--muted); }
+
+/* Weak practice */
+.weak-card { padding: 18px; border-radius: var(--r-card); box-shadow: inset 0 0 0 1.5px var(--stroke); background: #fff; }
+.weak-card .top { display: flex; align-items: center; gap: 14px; }
+.weak-card .ic { width: 44px; height: 44px; border-radius: 12px; background: var(--err-bg); color: var(--err-ink); display: grid; place-items: center; flex: none; }
+.weak-card .ic svg { width: 22px; height: 22px; }
+.weak-card .chips { margin: 16px 0 14px; }
+.weak-card .chip-btn { min-height: 36px; font-size: 14px; pointer-events: none; }
+.queue { display: grid; gap: 8px; }
+.qrow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--quiet); font-size: 15px; opacity: 0; animation: fadeUp 360ms var(--ease) forwards; }
+.qrow .qi { width: 32px; height: 32px; border-radius: 10px; background: #fff; display: grid; place-items: center; box-shadow: inset 0 0 0 1.5px var(--stroke); flex: none; }
+.qrow .qi svg { width: 16px; height: 16px; }
+.qrow b { font-weight: 700; }
+.qrow span { color: var(--muted); margin-left: auto; }
+
+/* ---------- 03 Craft ---------- */
+.sub-head { margin-bottom: 32px; scroll-margin-top: 88px; }
+.sub-head h3 { font-size: 26px; font-weight: 800; letter-spacing: -.8px; margin-bottom: 4px; }
+.bento { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 112px; }
+.bento > .card { padding: 28px; position: relative; overflow: hidden; }
+.bento .wide { grid-column: span 2; }
+.bento h3 { font-size: 24px; font-weight: 800; letter-spacing: -.8px; margin: 8px 0 8px; line-height: 1.2; }
+.bento h3 .mark { color: var(--interactive); }
+.bento p { color: var(--muted); font-size: 15px; }
+.bento .meet { padding: 36px; gap: 24px; }
+.bento .meet .pet-stage { min-height: 300px; }
+.home-card { display: flex; flex-direction: column; }
+.home-pet { position: relative; margin-top: auto; padding-top: 16px; display: flex; flex-direction: column; align-items: center; }
+.home-pet .rive { width: 160px; height: 172px; margin-bottom: 8px; position: relative; z-index: 1; }
+.home-pet .shadow { position: absolute; bottom: 0; width: 120px; height: 14px; border-radius: 50%; background: var(--neutral); }
+.home-pet.can-wake { cursor: pointer; }
+.fdemo { margin-top: 20px; }
+.fdemo .tile { width: 100%; }
+.celebrate-card { display: flex; flex-direction: column; }
+.celebrate-card .pbtn { margin-top: auto; }
+.celebrate-card p { margin-bottom: 24px; }
+@media (max-width: 960px) {
+  .bento { grid-template-columns: minmax(0, 1fr); margin-top: 88px; }
+  .bento .wide { grid-column: auto; }
+  .bento .meet { padding: 28px 24px; }
+}
+
+
+/* Bento: user moments */
+.bento-head { margin-top: 112px; }
+.bento-head + .bento { margin-top: 0; }
+.moments { display: grid; gap: 8px; margin-top: 24px; }
+.moment { display: grid; text-align: left; gap: 2px; padding: 12px 16px; border-radius: var(--r-tile); box-shadow: inset 0 0 0 1.5px var(--stroke); background: #fff; transition: background var(--lift), box-shadow var(--lift), transform var(--press) var(--ease); }
+.moment:active { transform: scale(.98); }
+.moment b { font-weight: 700; }
+.moment span { font-size: 15px; color: var(--muted); }
+.moment[aria-pressed="true"] { background: var(--sel-bg); box-shadow: inset 0 0 0 2px var(--interactive); }
+.moment[aria-pressed="true"] b { color: var(--sel-ink); }
+
+/* Compare */
+.compare { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; max-width: 920px; margin: 0 auto; }
+.compare .col { padding: 28px; }
+.compare .us { box-shadow: inset 0 0 0 2px var(--interactive); }
+.compare .us .eyebrow { color: var(--interactive); }
+.compare ul { list-style: none; display: grid; gap: 16px; margin-top: 20px; }
+.compare li { display: flex; gap: 12px; align-items: flex-start; }
+.compare li svg { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+.compare .them li { color: var(--muted); }
+.compare .them svg { color: var(--dis-ink); width: 16px; height: 16px; margin: 4px 2px 0; }
+.compare .us svg { color: var(--success); }
+@media (max-width: 760px) { .compare { grid-template-columns: minmax(0, 1fr); } }
+.compare.single { grid-template-columns: minmax(0, 1fr); max-width: 640px; }
+.compare.single ul { margin-top: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .curve .remember { stroke-dashoffset: 0; }
+  .curve circle, .rrow.new, .qrow, .ck svg { opacity: 1; }
+  .ck { background: var(--success); }
+}
+
+/* Screenshots instead of live tasks */
+.shot.hero-shot { width: min(340px, 100%); border-radius: 52px; border-width: 10px; box-shadow: 0 40px 80px -40px rgba(23,23,23,.45); }
+.gallery.tasks { display: flex; flex-wrap: wrap; justify-content: center; gap: 40px 24px; }
+@media (max-width: 960px) {
+  .gallery.tasks { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; margin: 0 -20px; padding: 4px 20px 16px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .gallery.tasks figure { flex: none; }
+}
+.gallery.tasks::-webkit-scrollbar { display: none; }
+.gallery.tasks figure { scroll-snap-align: start; }
+.gallery.tasks .shot { width: 220px; border-radius: 36px; border-width: 8px; }
+.gallery figcaption .tpl-ic { width: 32px; height: 32px; border-radius: 10px; background: var(--sel-bg); color: var(--interactive); display: grid; place-items: center; margin: 0 auto 8px; }
+.gallery figcaption .tpl-ic svg { width: 16px; height: 16px; }
+.fb-mini { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--r-tile); background: var(--ok-bg); color: var(--ok-ink); font-size: 15px; }
+.fb-mini svg { width: 20px; height: 20px; color: var(--success); flex: none; margin-top: 1px; }
+.fb-mini b { display: block; }
+
+</style>
+</head>
+<body>
+
+<!-- SVG symbols -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M7 12.5l3.3 3.3L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-err" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2zM9 20h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1z" fill="currentColor"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-speaker" viewBox="0 0 24 24"><path d="M3 9.5v5h3.5L11 19V5L6.5 9.5H3z" fill="currentColor"/><path d="M14.5 9a4 4 0 0 1 0 6M17 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="8.5" y="2.5" width="7" height="12" rx="3.5" fill="currentColor"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="t-select" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 6h10M10 12h10M10 18h10"/><path d="M3.5 6l1.3 1.3L7 5" stroke-linejoin="round"/><circle cx="5" cy="12" r="1.3"/><circle cx="5" cy="18" r="1.3"/></g></symbol>
+  <symbol id="t-cloze" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 15h4M17 15h4M9.5 17h5"/><path d="M12 5v8M10 5h4M10 13h4"/></g></symbol>
+  <symbol id="t-typing" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2.5" y="6" width="19" height="12" rx="3"/><path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M8 14h8"/></g></symbol>
+  <symbol id="t-reorder" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="2.5" y="4" width="8" height="8" rx="2"/><rect x="13.5" y="12" width="8" height="8" rx="2"/><path d="M14 7h4.5l-1.5-1.5M10 17H5.5L7 18.5" stroke-linecap="round"/></g></symbol>
+  <symbol id="t-match" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h11l-3-3M20 17H9l3 3"/></g></symbol>
+  <symbol id="t-surgery" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="8.5" width="18" height="7" rx="3.5" transform="rotate(-45 12 12)"/><path d="M10.5 12h.01M13.5 12h.01M12 10.5h.01M12 13.5h.01" stroke-linecap="round" stroke-width="2.4"/></g></symbol>
+  <symbol id="t-recording" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="8.5" y="3" width="7" height="11" rx="3.5"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></g></symbol>
+  <symbol id="tab-home" viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" fill="currentColor"/></symbol>
+  <symbol id="tab-words" viewBox="0 0 24 24"><path d="M5 3h11a3 3 0 0 1 3 3v15l-4-2-4 2-4-2-2 1V3z" fill="currentColor"/></symbol>
+  <symbol id="tab-me" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.5" fill="currentColor"/><path d="M3.5 21a8.5 8.5 0 0 1 17 0z" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5" stroke-linecap="round"/></g></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.6" fill="currentColor" stroke="none"/></g></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></g></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15"/><path d="M4 20v-5h5"/></g></symbol>
+</svg>
+
+<nav class="top" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="Syll"><img src="assets/brand-icon.png" alt=""><span>syll</span></a>
+    <div class="nav-links">
+      <a href="#ca-nhan">Của riêng bạn</a>
+      <a href="#thong-minh">Học thông minh</a>
+      <a href="#trai-nghiem">Trải nghiệm</a>
+      <a href="#faq">Câu hỏi</a>
+    </div>
+    <a class="fbtn small" href="#tai">Tải app</a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero">
+  <div class="wrap">
+    <div class="copy">
+      <span class="eyebrow">Từ vựng tiếng Anh cho người Việt</span>
+      <h1 class="display">Học đúng từ.<br>Nhớ thật lâu<span class="mark">.</span></h1>
+      <p class="tagline">Và muốn mở app mỗi ngày.</p>
+      <p class="lead">Syll xây phiên học từ chính mục tiêu của bạn, biết bạn sắp quên từ nào và đang yếu kỹ năng nào. Phần còn lại, từ cú chạm đến lời khen, được làm tỉ mỉ để việc học thành niềm vui.</p>
+      <div class="cta">
+        <a class="pbtn inline shimmer" href="#tai">Tải Syll</a>
+        <a class="fbtn secondary" href="#thong-minh">Xem cách Syll dạy</a>
+      </div>
+      <div class="values">
+        <a class="pill" href="#ca-nhan"><i></i>Của riêng bạn</a>
+        <a class="pill" href="#thong-minh"><i></i>Học thông minh</a>
+        <a class="pill" href="#trai-nghiem"><i></i>Trau chuốt từng chi tiết</a>
+      </div>
+    </div>
+
+    <!-- TEMP ẢNH -->
+    <div class="shot hero-shot" data-ph="Screenshot: Bài tập đang làm&#10;1179×2556&#10;assets/shots/practice.png"><img src="assets/shots/practice.png" alt="Một bài tập trong Syll" onerror="this.remove()"></div>
+  </div>
+</header>
+
+<div class="promises">
+  <div class="wrap">
+    <a class="promise" href="#ca-nhan"><span class="n">01</span><b>Học từ bạn thật sự cần</b><span>Bộ từ theo mục tiêu, chủ đề bạn thích và cả những từ bạn tự thêm.</span></a>
+    <a class="promise" href="#thong-minh"><span class="n">02</span><b>Ôn đúng lúc, luyện đúng chỗ</b><span>Ôn từ sắp quên trước, học mới sau, rồi luyện kỹ năng còn yếu.</span></a>
+    <a class="promise" href="#trai-nghiem"><span class="n">03</span><b>Đẹp, mượt và vui đến lạ</b><span>Chăm chút như một sản phẩm cao cấp, từ cú chạm đầu tiên đến màn ăn mừng cuối phiên. Học xong vẫn muốn thêm một phiên.</span></a>
+  </div>
+</div>
+
+<!-- ============ 01 PERSONAL ============ -->
+<section id="ca-nhan">
+  <div class="wrap">
+    <div class="sec-head in-view">
+      <span class="eyebrow"><span class="no">01</span> · Của riêng bạn</span>
+      <h2 class="display">Lộ trình chỉ dành cho bạn<span class="mark">.</span></h2>
+      <p class="lead">Ôn IELTS, chuẩn bị phỏng vấn, hay chỉ muốn nói chuyện tự nhiên hơn? Chọn bộ từ theo mục tiêu, chọn chủ đề bạn quan tâm, rồi thêm bất kỳ từ nào bạn gặp trên phim, trong sách hay ở chỗ làm. Syll gom tất cả vào phiên học mỗi ngày.</p>
+    </div>
+
+    <div class="builder in-view">
+      <div class="card">
+        <div class="b-step">
+          <div class="eyebrow"><em>1</em>Bộ từ vựng</div>
+          <div class="collections" id="collections" role="group" aria-label="Bộ từ vựng"></div>
+        </div>
+        <div class="b-step">
+          <div class="eyebrow"><em>2</em>Chủ đề bạn quan tâm</div>
+          <div class="chips" id="topics" role="group" aria-label="Chủ đề"></div>
+          <p class="secondary add-note" id="topicNote" aria-live="polite"></p>
+        </div>
+        <div class="b-step">
+          <div class="eyebrow"><em>3</em>Thêm từ của bạn</div>
+          <form class="add-row" id="addForm" autocomplete="off">
+            <input id="addInput" type="text" placeholder="Gõ một từ tiếng Anh" aria-label="Từ muốn thêm" autocapitalize="off" spellcheck="false" maxlength="32">
+            <button class="fbtn" type="submit"><svg width="18" height="18" aria-hidden="true"><use href="#i-plus"/></svg>Thêm</button>
+          </form>
+          <div class="chips suggest" id="suggest" aria-label="Gợi ý"></div>
+          <p class="secondary add-note" id="addNote" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div class="card today" aria-live="polite">
+        <span class="eyebrow">Xem trước</span>
+        <div class="head"><b>Phiên hôm nay</b><span class="secondary" id="todayCount"></span></div>
+        <div class="today-sum">
+          <div><span class="secondary">Từ cần ôn</span><b>12</b></div>
+          <div><span class="secondary">Từ mới</span><b id="todayNew">0</b></div>
+        </div>
+        <div class="today-list" id="todayList"></div>
+        <p class="secondary today-foot">Thay đổi bên trái, phiên học thay đổi theo.</p>
+      </div>
+    </div>
+
+    <div class="trio">
+      <div class="feat card in-view">
+        <span class="ic"><svg><use href="#i-layers"/></svg></span>
+        <h3>Bộ từ theo mục tiêu</h3>
+        <p>Hằng ngày, IELTS, TOEIC hay Kinh doanh. Đổi bộ từ bất cứ lúc nào trong Hồ sơ.</p>
+      </div>
+      <div class="feat card in-view">
+        <span class="ic"><svg><use href="#i-tag"/></svg></span>
+        <h3>Chủ đề bạn thích</h3>
+        <p>Du lịch, công nghệ, phỏng vấn… Bạn chỉ học từ của những chủ đề mình chọn.</p>
+      </div>
+      <div class="feat card in-view">
+        <span class="ic"><svg><use href="#i-pen"/></svg></span>
+        <h3>Từ của riêng bạn</h3>
+        <p>Gõ một từ, Syll tra nghĩa tiếng Việt, phát âm và câu ví dụ. Sửa nghĩa theo ý bạn, chỉ bạn thấy thay đổi đó.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 02 SMART ============ -->
+<section class="tint" id="thong-minh">
+  <div class="wrap">
+    <div class="sec-head in-view">
+      <span class="eyebrow"><span class="no">02</span> · Học thông minh</span>
+      <h2 class="display">Mỗi phiên biết bạn cần gì<span class="mark">.</span></h2>
+      <p class="lead">Syll theo dõi từng từ và từng kỹ năng của bạn, rồi quyết định hôm nay nên ôn gì, học gì và luyện gì. Thời gian của bạn dành đúng cho những gì cần nhất.</p>
+    </div>
+    <div class="loop in-view">
+      <div class="loop-steps" id="loopSteps" role="tablist" aria-label="Cách Syll lên phiên học"></div>
+      <div class="card loop-stage" id="loopStage" role="tabpanel"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 CRAFT ============ -->
+<section id="trai-nghiem">
+  <div class="wrap">
+    <div class="sec-head in-view">
+      <span class="eyebrow"><span class="no">03</span> · Trau chuốt từng chi tiết</span>
+      <h2 class="display">Cảm nhận được ngay từ cú chạm đầu tiên<span class="mark">.</span></h2>
+      <p class="lead">Mỗi màn hình trong Syll đều được thiết kế và chỉnh sửa nhiều lần cho đến khi thật vừa tay. Kết quả là một app học từ vựng mà bạn thấy thích cầm lên, như một món đồ được làm kỹ, và muốn mở lại mỗi ngày.</p>
+    </div>
+
+    <div class="sub-head in-view" id="dang-bai">
+      <h3>Bảy cách gặp lại một từ</h3>
+      <p class="secondary">Nhận ra một từ khác với tự viết ra được nó. Syll đưa bạn qua từng dạng, từ nhận diện đến tự nhớ.</p>
+    </div>
+    <!-- TEMP ẢNH: mỗi dạng bài một screenshot -->
+    <div class="gallery tasks in-view">
+      <figure>
+        <div class="shot" data-ph="Screenshot: Chọn đáp án&#10;1179×2556&#10;assets/shots/task-select.png"><img src="assets/shots/task-select.png" alt="Chọn đáp án" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-select"/></svg></span><b>Chọn đáp án</b><span>Chọn đúng nghĩa hoặc đúng từ</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Điền từ&#10;1179×2556&#10;assets/shots/task-cloze.png"><img src="assets/shots/task-cloze.png" alt="Điền từ" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-cloze"/></svg></span><b>Điền từ</b><span>Hiểu nghĩa qua ngữ cảnh</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Gõ từ&#10;1179×2556&#10;assets/shots/task-typing.png"><img src="assets/shots/task-typing.png" alt="Gõ từ" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-typing"/></svg></span><b>Gõ từ</b><span>Tự nhớ lại và gõ ra</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Xếp chữ&#10;1179×2556&#10;assets/shots/task-reorder.png"><img src="assets/shots/task-reorder.png" alt="Xếp chữ" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-reorder"/></svg></span><b>Xếp chữ</b><span>Viết lại từng chữ cái</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Nối cặp&#10;1179×2556&#10;assets/shots/task-match.png"><img src="assets/shots/task-match.png" alt="Nối cặp" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-match"/></svg></span><b>Nối cặp</b><span>Nối từ với nghĩa</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Sửa chính tả&#10;1179×2556&#10;assets/shots/task-surgery.png"><img src="assets/shots/task-surgery.png" alt="Sửa chính tả" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-surgery"/></svg></span><b>Sửa chính tả</b><span>Tìm chữ sai và sửa</span></figcaption>
+      </figure>
+      <figure>
+        <div class="shot" data-ph="Screenshot: Đọc to&#10;1179×2556&#10;assets/shots/task-recording.png"><img src="assets/shots/task-recording.png" alt="Đọc to" onerror="this.remove()" loading="lazy"></div>
+        <figcaption><span class="tpl-ic"><svg><use href="#t-recording"/></svg></span><b>Đọc to</b><span>Phát âm được chấm điểm</span></figcaption>
+      </figure>
+    </div>
+
+    <div class="sub-head in-view bento-head">
+      <h3>Lý do bạn muốn mở app mỗi ngày</h3>
+      <p class="secondary">Bỏ cuộc thường không phải vì từ khó, mà vì học thấy chán và cô đơn. Syll được làm để điều đó không xảy ra.</p>
+    </div>
+    <div class="bento">
+      <div class="card meet wide in-view">
+        <div>
+          <span class="eyebrow">Không học một mình</span>
+          <h3>Luôn có người học cùng bạn<span class="mark">.</span></h3>
+          <p>Syllie ở cạnh bạn trong từng câu hỏi và phản ứng như một người bạn học thật sự. Bạn sẽ thấy mình được cổ vũ, kể cả những hôm chỉ học được năm phút.</p>
+          <div class="moments" role="group" aria-label="Syllie phản ứng cùng bạn" id="moods">
+            <button class="moment" data-mood="thinking" aria-pressed="false"><b>Khi bạn phân vân</b><span>Syllie nghĩ cùng bạn</span></button>
+            <button class="moment" data-mood="happy" aria-pressed="false"><b>Khi bạn trả lời đúng</b><span>Syllie reo lên mừng cho bạn</span></button>
+            <button class="moment" data-mood="oops" aria-pressed="false"><b>Khi bạn lỡ sai</b><span>Syllie tiếc cùng bạn, rồi vui lại ngay</span></button>
+          </div>
+        </div>
+        <div class="pet-stage" id="petStage">
+          <p class="secondary hint" id="petHint" aria-live="polite">Chạm một tình huống để xem Syllie phản ứng.</p>
+        </div>
+      </div>
+
+      <div class="card in-view home-card">
+        <span class="eyebrow">Mở app là thấy vui</span>
+        <h3>Được chào đón, không bị giục giã.</h3>
+        <p>Trang chủ không phải danh sách việc phải làm. Mở app là gặp Syllie đang chơi đùa chờ bạn. Lâu không gặp thì ngủ gật, chạm một cái là thức dậy.</p>
+        <div class="home-pet" id="homePet"><div class="shadow"></div></div>
+      </div>
+
+      <div class="card in-view">
+        <span class="eyebrow">Hiểu ngay lúc học</span>
+        <h3>Biết mình đúng hay sai, ngay lập tức.</h3>
+        <p>Không phải đợi cuối bài. Mỗi câu có đáp án và nghĩa đầy đủ ngay bên dưới, nên bạn sửa sai và nhớ từ ngay trong lúc học.</p>
+        <div class="stack fdemo" aria-hidden="true">
+          <div class="tile ok">trân trọng</div>
+          <div class="fb-mini"><svg><use href="#i-ok"/></svg><span><b>Chính xác!</b>appreciate: trân trọng, đánh giá cao</span></div>
+        </div>
+      </div>
+
+      <div class="card in-view celebrate-card" id="celebrateCard">
+        <span class="eyebrow">Cảm giác hoàn thành</span>
+        <h3>Học xong là thấy mình giỏi lên.</h3>
+        <p>Mỗi phiên khép lại bằng một màn ăn mừng và con số cho thấy bạn đã làm được gì. Chính cảm giác đó kéo bạn quay lại vào ngày mai.</p>
+        <button class="pbtn" id="celebrateBtn">Ăn mừng thử</button>
+      </div>
+
+      <div class="card in-view">
+        <span class="eyebrow">Không áp lực</span>
+        <h3>Sai cũng không sao.</h3>
+        <p>Không mất tim, không bị trừ điểm, không bảng xếp hạng. Thử lại hoặc xem đáp án rồi đi tiếp. Bạn quay lại vì thích học, không phải vì sợ bị phạt.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SUMMARY ============ -->
+<section class="tint" id="tom-lai">
+  <div class="wrap">
+    <div class="sec-head center in-view">
+      <span class="eyebrow">Tóm lại</span>
+      <h2 class="display">Những gì bạn nhận được<span class="mark">.</span></h2>
+    </div>
+    <div class="compare single in-view">
+      <div class="card col us">
+        <ul>
+          <li><svg><use href="#i-check"/></svg>Học đúng bộ từ, chủ đề và cả những từ của riêng bạn</li>
+          <li><svg><use href="#i-check"/></svg>Bảy dạng bài: chọn, điền, gõ, xếp chữ, nối, sửa chính tả, đọc to</li>
+          <li><svg><use href="#i-check"/></svg>Từ sắp quên được gọi lại đúng lúc</li>
+          <li><svg><use href="#i-check"/></svg>Biết mình mạnh, yếu ở Đọc, Nghe, Viết hay Nói, và luyện đúng chỗ còn yếu</li>
+          <li><svg><use href="#i-check"/></svg>Một app đẹp, mượt, có Syllie đi cùng mỗi phiên</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head center in-view">
+      <span class="eyebrow">Câu hỏi</span>
+      <h2 class="display">Trước khi bắt đầu<span class="mark">.</span></h2>
+    </div>
+    <div class="faq in-view">
+      <details open><summary>Tôi có tự chọn từ để học được không?<svg><use href="#i-chev"/></svg></summary><p>Có. Chọn bộ từ (Hằng ngày, IELTS, TOEIC, Kinh doanh) và những chủ đề bạn quan tâm. Gặp từ nào hay, bạn thêm vào: Syll tra nghĩa, phát âm và ví dụ, rồi đưa từ đó vào phiên học của bạn.</p></details>
+      <details><summary>Syll biết tôi sắp quên từ nào bằng cách nào?<svg><use href="#i-chev"/></svg></summary><p>Mỗi từ có lịch ôn riêng, dựa trên việc bạn trả lời đúng hay sai. Từ đến hạn được đưa vào đầu phiên học, trước khi bạn gặp từ mới.</p></details>
+      <details><summary>“Luyện kỹ năng yếu” là gì?<svg><use href="#i-chev"/></svg></summary><p>Mỗi bài tập luyện một kỹ năng: Đọc, Nghe, Viết hoặc Nói. Syll ghi lại kết quả theo từng kỹ năng của từng từ, nên phần Từ còn yếu cho bạn luyện lại đúng kỹ năng và đúng những từ bạn đang hụt.</p></details>
+      <details><summary>Mỗi phiên học gồm những gì?<svg><use href="#i-chev"/></svg></summary><p>Bạn ôn những từ đến hạn, gặp từ mới với nghĩa, phát âm và ví dụ, rồi luyện qua bảy dạng bài: chọn nghĩa, điền vào câu, tự gõ, xếp chữ, nối cặp, sửa chính tả và đọc to, có phản hồi ngay sau mỗi câu.</p></details>
+      <details><summary>Mỗi ngày học bao lâu?<svg><use href="#i-chev"/></svg></summary><p>Bạn tự chọn số từ mới mỗi ngày, những ngày học và giờ nhắc. Đổi lại được bất cứ lúc nào.</p></details>
+      <details><summary>Syll dành cho trình độ nào?<svg><use href="#i-chev"/></svg></summary><p>Từ A1 đến C2. Bạn chọn trình độ lúc bắt đầu, hoặc làm bài test ngắn để Syll xếp giúp.</p></details>
+      <details><summary>App có trên Android không?<svg><use href="#i-chev"/></svg></summary><p>Hiện Syll có trên iPhone, iOS 17 trở lên.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL ============ -->
+<section class="final tint" id="tai">
+  <div class="wrap in-view">
+    <div id="finalPet"></div>
+    <h2 class="display">Học đúng từ. Nhớ thật lâu<span class="mark">.</span></h2>
+    <p class="lead">Tải Syll, chọn mục tiêu của bạn và bắt đầu phiên học đầu tiên hôm nay.</p>
+    <!-- TEMP: thay href bằng link App Store; có thể thay cả nút bằng badge chính thức của Apple -->
+    <a class="fbtn store" href="#" aria-label="Tải trên App Store">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.37 12.6c-.02-2.3 1.880-3.4 1.96-3.46-1.07-1.56-2.73-1.78-3.32-1.8-1.41-.14-2.76.83-3.48.83-.72 0-1.82-.81-3-.79-1.54.02-2.96.9-3.760 2.28-1.6 2.78-.41 6.9 1.15 9.16.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74 1.38 0 1.78.74 2.99.72 1.24-.02 2.02-1.12 2.77-2.23.88-1.28 1.24-2.52 1.26-2.59-.03-.01-2.4-.92-2.4-3.68zM14.1 5.86c.63-.77 1.06-1.83.94-2.89-.91.04-2.02.61-2.67 1.37-.58.67-1.1 1.76-.96 2.8 1.02.08 2.06-.52 2.69-1.28z"/></svg>
+      <span><small>Tải trên</small><b>App Store</b></span>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="#"><img src="assets/brand-icon.png" alt=""><span>syll</span></a>
+    <nav>
+      <span>© 2026 Syll</span>
+      <!-- TEMP: link thật -->
+      <a href="#">Quyền riêng tư</a>
+      <a href="#">Điều khoản</a>
+      <a href="#">Liên hệ</a>
+    </nav>
+  </div>
+</footer>
+
+<!-- Rive web runtime (Syllie). The .wasm is pointed at the same version in the script below. -->
+<script src="https://cdn.jsdelivr.net/npm/@rive-app/canvas@2.47.1/rive.js"></script>
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+  const icon = id => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
+  const shuffle = a => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
+  const restart = (node, cls) => { node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); };
+
+  /* Pronunciation: user-triggered only, never autoplays. */
+  function speak(text, btn) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = .9;
+    if (btn) { btn.classList.add('playing'); u.onend = u.onerror = () => btn.classList.remove('playing'); }
+    speechSynthesis.speak(u);
+  }
+  const audioButton = (text, large) => {
+    const b = el('button', 'audio' + (large ? ' lg' : ''), icon('i-speaker'));
+    b.setAttribute('aria-label', 'Phát âm');
+    b.addEventListener('click', () => speak(text, b));
+    return b;
+  };
+
+  /* =========================================================
+     Syllie, live from assets/syllie.riv (the file the app ships).
+     Artboard / state machine / view-model names mirror SyllieView.swift,
+     HomeSyllieView.swift and SyllieCelebrationView.swift.
+     Falls back to the PNG when the runtime or file can't load (e.g. opened via file://)
+     and, like the app's reduced-motion path, under prefers-reduced-motion.
+     ========================================================= */
+  const RIVE = window.rive;
+  RIVE?.RuntimeLoader?.setWasmUrl('https://cdn.jsdelivr.net/npm/@rive-app/canvas@2.47.1/rive.wasm');
+  let rivBytes;
+  const loadRiv = () => rivBytes ??= (RIVE && !reduce
+    ? fetch('assets/syllie.riv').then(r => (r.ok ? r.arrayBuffer() : null)).catch(() => null)
+    : Promise.resolve(null));
+  // Offscreen artboards stop rendering.
+  const onScreen = new IntersectionObserver(es => es.forEach(e => {
+    const r = e.target._rive;
+    if (r) e.isIntersecting ? r.startRendering() : r.stopRendering();
+  }));
+
+  function mountRive(host, { artboard, stateMachine, enumPath, value, fallback = true, onFail }) {
+    host.classList.add('rive');
+    if (fallback) { const img = el('img', 'fallback'); img.src = 'assets/syllie.png'; img.alt = ''; host.append(img); }
+    const canvas = el('canvas'); canvas.setAttribute('aria-hidden', 'true'); host.append(canvas);
+    let r, prop, current = value, dead = false, sizer;
+    loadRiv().then(buf => {
+      if (dead) return;
+      if (!buf) { onFail?.(); return; }
+      r = new RIVE.Rive({
+        buffer: buf.slice(0), canvas, artboard, stateMachines: stateMachine,
+        autoplay: true, autoBind: true,
+        layout: new RIVE.Layout({ fit: RIVE.Fit.Contain, alignment: RIVE.Alignment.Center }),
+        onLoad: () => {
+          if (dead) return;
+          r.resizeDrawingSurfaceToCanvas();
+          prop = enumPath ? r.viewModelInstance?.enum(enumPath) : null;
+          if (prop && current) prop.value = current;
+          host.classList.add('ready');
+          canvas._rive = r; onScreen.observe(canvas);
+        },
+        onLoadError: () => onFail?.(),
+      });
+      sizer = new ResizeObserver(() => r.resizeDrawingSurfaceToCanvas());
+      sizer.observe(canvas);
+    });
+    return {
+      set(v) { current = v; if (prop) prop.value = v; },
+      fire(path) { r?.viewModelInstance?.trigger(path)?.trigger(); },
+      get value() { return current; },
+      destroy() { dead = true; sizer?.disconnect(); onScreen.unobserve(canvas); r?.cleanup(); },
+    };
+  }
+
+  /* SyllieMood + SyllieReactionView: one-shots settle back to idle; deepThought settles into deepThoughtHold. */
+  const ONE_SHOT = { happy: .95, excited: .95, oops: 1.5, happyPop: .95, happyWiggle: 1, happyPuff: 1, happyFloat: 1.1, proud: 1.3,
+    oopsSquish: 1.1, oopsWobble: 1.2, oopsFreeze: 1.4, oopsSlip: 1.35, wakeUp: 1, deepThought: 2.2 };
+  const HAPPY = ['happy', 'happyPop', 'happyWiggle', 'happyPuff', 'happyFloat'];
+  const OOPS = ['oops', 'oopsSquish', 'oopsWobble', 'oopsFreeze', 'oopsSlip'];
+  const THINKING = ['thinking', 'deepThought'];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+
+  function Syllie(host) {
+    const s = mountRive(host, { artboard: 'Syllie', stateMachine: 'Syllie', enumPath: 'mood', value: 'idle' });
+    let timer;
+    return {
+      react(mood, onSettle) {
+        clearTimeout(timer);
+        if (mood === s.value && ONE_SHOT[mood]) s.fire('react'); else s.set(mood);
+        const d = ONE_SHOT[mood];
+        if (d != null) timer = setTimeout(() => {
+          const settled = mood === 'deepThought' ? 'deepThoughtHold' : 'idle';
+          s.set(settled); onSettle?.(settled);
+        }, d * 1000);
+      },
+      replay: () => s.fire('react'),
+      get mood() { return s.value; },
+      destroy() { clearTimeout(timer); s.destroy(); },
+    };
+  }
+
+  /* Nav + entrance */
+  const nav = $('#nav');
+  addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 8), { passive: true });
+  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('shown'); io.unobserve(e.target); } }), { threshold: .12 });
+  document.querySelectorAll('.in-view').forEach(n => io.observe(n));
+
+  function confetti(host) {
+    const c = el('div', 'confetti'); host.append(c);
+    const colors = ['#FFD23F', '#4775F5', '#2BC86A', '#FF795D'];
+    for (let k = 0; k < 60; k++) {
+      const p = el('i');
+      p.style.left = Math.random() * 100 + '%';
+      p.style.background = colors[k % colors.length];
+      p.style.animationDuration = 2.4 + Math.random() * 2 + 's';
+      p.style.animationDelay = Math.random() * 1.2 + 's';
+      c.append(p);
+    }
+    setTimeout(() => c.remove(), 5000);
+  }
+
+  /* ---------- Home: LessonMascot on the `HomeSyllie` artboard ----------
+     idle for idleBeat (4 s) → one random play scene → sleepy (snoring). A tap plays wakeUp, then the cycle restarts.
+     Reduced motion skips the play. Starts when the Home replica scrolls into view. */
+  (function homeSyllie() {
+    const pet = $('#homePet');
+    const host = el('div');
+    pet.prepend(host);
+    const h = mountRive(host, { artboard: 'HomeSyllie', stateMachine: 'HomeSyllie', enumPath: 'scene', value: 'idle' });
+    const SCENE_DURATION = { wakeUp: 1.0, playLetters: 5.7, planeChase: 5.2 };
+    let timer;
+    function go(scene) {
+      clearTimeout(timer);
+      h.set(scene);
+      const asleep = scene === 'sleepy';
+      pet.classList.toggle('can-wake', asleep);
+      if (asleep) { pet.setAttribute('role', 'button'); pet.tabIndex = 0; pet.setAttribute('aria-label', 'Syllie đang ngủ. Chạm để đánh thức'); }
+      else { pet.removeAttribute('role'); pet.removeAttribute('tabindex'); pet.removeAttribute('aria-label'); }
+      if (scene === 'idle') timer = setTimeout(() => go(reduce ? 'sleepy' : pick(['playLetters', 'planeChase'])), 4000);
+      else if (SCENE_DURATION[scene]) timer = setTimeout(() => go(scene === 'wakeUp' ? 'idle' : 'sleepy'), SCENE_DURATION[scene] * 1000);
+    }
+    const wake = () => { if (h.value === 'sleepy') go(reduce ? 'idle' : 'wakeUp'); };
+    pet.addEventListener('click', wake);
+    pet.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); wake(); } });
+    const startOnView = new IntersectionObserver(es => { if (es[0].isIntersecting) { startOnView.disconnect(); go('idle'); } }, { threshold: .4 });
+    startOnView.observe(pet);
+  })();
+
+  /* ---------- Meet Syllie: the `Syllie` artboard, mood by mood ---------- */
+  (function meetSyllie() {
+    const stage = $('#petStage'), hint = $('#petHint');
+    const host = el('div');
+    host.setAttribute('role', 'button'); host.tabIndex = 0; host.setAttribute('aria-label', 'Syllie');
+    stage.prepend(host);
+    const s = Syllie(host);
+    const chips = document.querySelectorAll('#moods .moment');
+    const chipFor = m => HAPPY.includes(m) ? 'happy' : OOPS.includes(m) ? 'oops' : m === 'deepThoughtHold' ? 'deepThought' : m;
+    const mark = m => {
+      chips.forEach(b => b.setAttribute('aria-pressed', b.dataset.mood === chipFor(m)));
+      hint.textContent = 'Chạm một tình huống để xem Syllie phản ứng.';
+    };
+    const play = chip => {
+      const m = chip === 'happy' ? pick(HAPPY) : chip === 'oops' ? pick(OOPS) : chip;
+      s.react(m, mark);
+      mark(m);
+    };
+    chips.forEach(b => b.addEventListener('click', () => play(b.dataset.mood)));
+    const tap = () => {
+      if (s.mood === 'sleepy') { s.react('wakeUp', mark); mark('idle'); }
+      else s.replay();
+    };
+    host.addEventListener('click', tap);
+    host.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tap(); } });
+  })();
+
+  /* Final call to action: Syllie idling */
+  Syllie($('#finalPet'));
+
+  /* =========================================================
+     01 Personal: collection → topics → own words → today's session preview.
+     Collections and topics mirror TopicCatalog.swift; the words are samples.
+     ========================================================= */
+  (function personal() {
+    const COLLECTIONS = [
+      { id: 'everyday', name: 'Hằng ngày', topics: [
+        { id: 'communication', name: 'Giao tiếp', words: [['apologize', 'xin lỗi'], ['appreciate', 'trân trọng']] },
+        { id: 'travel', name: 'Du lịch', words: [['luggage', 'hành lý'], ['itinerary', 'lịch trình']] },
+        { id: 'food', name: 'Ăn uống', words: [['ingredient', 'nguyên liệu'], ['flavor', 'hương vị']] },
+        { id: 'health', name: 'Sức khoẻ', words: [['symptom', 'triệu chứng'], ['recover', 'hồi phục']] },
+        { id: 'shopping', name: 'Mua sắm', words: [['receipt', 'hoá đơn'], ['discount', 'giảm giá']] },
+      ] },
+      { id: 'ielts', name: 'IELTS', topics: [
+        { id: 'education', name: 'Giáo dục', words: [['curriculum', 'chương trình học'], ['literacy', 'khả năng đọc viết']] },
+        { id: 'environment', name: 'Môi trường', words: [['pollution', 'sự ô nhiễm'], ['sustainable', 'bền vững']] },
+        { id: 'technology', name: 'Công nghệ', words: [['innovation', 'sự đổi mới'], ['automation', 'tự động hoá']] },
+        { id: 'society', name: 'Xã hội', words: [['inequality', 'sự bất bình đẳng'], ['community', 'cộng đồng']] },
+        { id: 'economy', name: 'Kinh tế', words: [['inflation', 'lạm phát'], ['revenue', 'doanh thu']] },
+      ] },
+      { id: 'toeic', name: 'TOEIC', topics: [
+        { id: 'office', name: 'Văn phòng', words: [['deadline', 'hạn chót'], ['supervisor', 'người giám sát']] },
+        { id: 'meetings', name: 'Cuộc họp', words: [['agenda', 'chương trình họp'], ['postpone', 'hoãn lại']] },
+        { id: 'hiring', name: 'Tuyển dụng', words: [['applicant', 'ứng viên'], ['qualification', 'bằng cấp, trình độ']] },
+        { id: 'purchasing', name: 'Mua hàng', words: [['invoice', 'hoá đơn'], ['supplier', 'nhà cung cấp']] },
+        { id: 'finance', name: 'Tài chính', words: [['budget', 'ngân sách'], ['expense', 'chi phí']] },
+      ] },
+      { id: 'business', name: 'Kinh doanh', topics: [
+        { id: 'workplace', name: 'Nơi làm việc', words: [['colleague', 'đồng nghiệp'], ['collaborate', 'hợp tác']] },
+        { id: 'marketing', name: 'Marketing', words: [['campaign', 'chiến dịch'], ['audience', 'khán giả, đối tượng']] },
+        { id: 'interviews', name: 'Phỏng vấn', words: [['strength', 'điểm mạnh'], ['achievement', 'thành tích']] },
+        { id: 'negotiation', name: 'Đàm phán', words: [['compromise', 'thoả hiệp'], ['proposal', 'đề xuất']] },
+        { id: 'productivity', name: 'Năng suất', words: [['prioritize', 'ưu tiên'], ['procrastinate', 'trì hoãn']] },
+      ] },
+    ];
+    // Demo lookups; any other word is accepted without a made-up meaning.
+    const DICT = { serendipity: 'sự tình cờ may mắn', resilient: 'kiên cường', awkward: 'ngượng ngùng', ubiquitous: 'có mặt khắp nơi', vibe: 'không khí, cảm giác', cozy: 'ấm cúng', procrastinate: 'trì hoãn', binge: 'xem một mạch' };
+    const SUGGEST = ['serendipity', 'resilient', 'awkward'];
+    const MAX_NEW = 6, MAX_MINE = 3;
+
+    const colBox = $('#collections'), topicBox = $('#topics'), topicNote = $('#topicNote');
+    const form = $('#addForm'), input = $('#addInput'), addNote = $('#addNote'), suggest = $('#suggest');
+    const list = $('#todayList'), newCount = $('#todayNew'), countLabel = $('#todayCount');
+    let col = COLLECTIONS[0], picked = new Set(['communication', 'travel']), mine = [], pending = false;
+
+    COLLECTIONS.forEach(c => {
+      const b = el('button', 'chip-btn big', c.name);
+      b.addEventListener('click', () => {
+        if (c === col) return;
+        col = c; picked = new Set(c.topics.slice(0, 2).map(t => t.id)); // switching collection resets topics, as in EditFocusView
+        topicNote.textContent = '';
+        drawCollections(); drawTopics(); drawToday();
+      });
+      colBox.append(b);
+    });
+    const drawCollections = () => [...colBox.children].forEach((b, k) => b.setAttribute('aria-pressed', COLLECTIONS[k] === col));
+
+    function drawTopics() {
+      topicBox.innerHTML = '';
+      col.topics.forEach(t => {
+        const b = el('button', 'chip-btn'); b.textContent = t.name;
+        b.setAttribute('aria-pressed', picked.has(t.id));
+        b.addEventListener('click', () => {
+          if (picked.has(t.id)) {
+            if (picked.size === 1) { topicNote.textContent = 'Chọn ít nhất một chủ đề.'; return; }
+            picked.delete(t.id);
+          } else picked.add(t.id);
+          topicNote.textContent = '';
+          b.setAttribute('aria-pressed', picked.has(t.id));
+          drawToday();
+        });
+        topicBox.append(b);
+      });
+    }
+
+    function drawToday() {
+      // Your own words first, then the chosen topics round-robin.
+      const rows = mine.map(w => ({ en: w.en, vi: w.vi ?? 'đang tra nghĩa…', tag: 'Từ của bạn', mine: true }));
+      const topics = col.topics.filter(t => picked.has(t.id));
+      for (let k = 0; rows.length < MAX_NEW && k < 2; k++)
+        topics.forEach(t => { if (rows.length < MAX_NEW && t.words[k]) rows.push({ en: t.words[k][0], vi: t.words[k][1], tag: t.name }); });
+      list.innerHTML = '';
+      rows.forEach((r, j) => {
+        const row = el('div', 'tword');
+        row.style.animationDelay = (reduce ? 0 : j * 45) + 'ms';
+        const w = el('div', 'w'); const b = el('b'); b.textContent = r.en; const m = el('span', 'm'); m.textContent = r.vi;
+        w.append(b, m);
+        const tag = el('span', 'tag' + (r.mine ? ' mine' : '')); tag.textContent = r.tag;
+        row.append(w, tag); list.append(row);
+      });
+      newCount.textContent = rows.length;
+      countLabel.textContent = `${col.name} · ${topics.length} chủ đề`;
+    }
+
+    function add(raw) {
+      const v = raw.trim().toLowerCase();
+      addNote.className = 'secondary add-note';
+      if (!v || pending) return;
+      if (!/^[a-z][a-z'-]{1,30}$/.test(v)) { addNote.classList.add('bad'); addNote.textContent = 'Có vẻ đó không phải một từ. Kiểm tra lại chính tả nhé.'; return; }
+      if (mine.some(w => w.en === v)) { addNote.textContent = `“${v}” đã có trong phiên học của bạn.`; return; }
+      pending = true; addNote.textContent = 'Đang tra từ…';
+      setTimeout(() => {
+        pending = false;
+        mine.unshift({ en: v, vi: DICT[v] ?? null }); mine = mine.slice(0, MAX_MINE);
+        addNote.classList.add('ok');
+        addNote.textContent = DICT[v] ? `Đã thêm “${v}” vào phiên học.` : `Đã thêm “${v}”. Trong app, Syll tra nghĩa, phát âm và câu ví dụ cho bạn.`;
+        input.value = ''; drawToday(); drawSuggest();
+      }, reduce ? 0 : 650);
+    }
+    form.addEventListener('submit', e => { e.preventDefault(); add(input.value); });
+    function drawSuggest() {
+      suggest.innerHTML = '';
+      SUGGEST.filter(s => !mine.some(w => w.en === s)).forEach(s => {
+        const b = el('button', 'chip-btn ghost', '+ ' + s); b.type = 'button';
+        b.addEventListener('click', () => add(s));
+        suggest.append(b);
+      });
+    }
+
+    drawCollections(); drawTopics(); drawSuggest(); drawToday();
+  })();
+
+  /* =========================================================
+     02 Smart loop: review due words → learn new → per-skill score → practice weak skills.
+     Auto-advances every 5 s while on screen, until the visitor picks a step.
+     ========================================================= */
+  (function smartLoop() {
+    const ck = delay => `<span class="ck" style="animation-delay:${delay}ms">${icon('i-check')}</span>`;
+    const STEPS = [
+      { title: 'Ôn từ đến hạn', desc: 'Từ sắp trôi khỏi trí nhớ được gọi lại trước tiên.',
+        viz: () => `<span class="eyebrow">Bước 1</span><h4>Gọi lại đúng lúc bạn sắp quên.</h4>
+          <p class="secondary">Mỗi từ có lịch ôn riêng. Trả lời đúng, lần ôn sau cách xa hơn. Trả lời sai, từ quay lại sớm hơn.</p>
+          <div class="grow">
+            <svg class="curve" viewBox="0 0 420 230" role="img" aria-label="Biểu đồ: không ôn thì quên dần, ôn đúng lúc thì nhớ lâu hơn sau mỗi lần">
+              <line class="axis" x1="30" y1="200" x2="410" y2="200"/><line class="axis" x1="30" y1="20" x2="30" y2="200"/>
+              <text x="36" y="16">Mức nhớ</text>
+              <path class="forget" d="M30 36 C 70 130, 130 178, 410 192"/>
+              <path class="remember" pathLength="1" d="M30 36 C 52 80, 70 100, 92 110 L92 36 C 128 70, 158 84, 190 90 L190 36 C 240 58, 280 68, 312 72 L312 36 C 350 46, 384 52, 410 54"/>
+              <circle cx="92" cy="36" r="7" style="animation-delay:.7s"/><circle cx="190" cy="36" r="7" style="animation-delay:1.15s"/><circle cx="312" cy="36" r="7" style="animation-delay:1.6s"/>
+              <text x="30" y="220">Học</text><text class="lab" x="76" y="220">Ôn 1</text><text class="lab" x="174" y="220">Ôn 2</text><text class="lab" x="296" y="220">Ôn 3</text>
+            </svg>
+            <div class="legend"><span><i></i>Ôn với Syll</span><span><i class="f"></i>Không ôn</span></div>
+          </div>` },
+      { title: 'Rồi mới học từ mới', desc: 'Ôn xong mới đến từ mới, nên từ cũ không bị bỏ rơi.',
+        viz: () => `<span class="eyebrow">Bước 2</span><h4>Cũ trước, mới sau.</h4>
+          <p class="secondary">Phiên học mở đầu bằng những từ cần ôn. Xong phần đó, từ mới mới xuất hiện, kèm nghĩa, phát âm và ví dụ.</p>
+          <div class="grow rl">
+            <div class="eyebrow">Ôn lại · 3 từ</div>
+            <div class="rrow"><span class="w"><b>consider</b><span class="m">cân nhắc</span></span>${ck(400)}</div>
+            <div class="rrow"><span class="w"><b>accept</b><span class="m">chấp nhận</span></span>${ck(750)}</div>
+            <div class="rrow"><span class="w"><b>apologize</b><span class="m">xin lỗi</span></span>${ck(1100)}</div>
+            <div class="eyebrow gap">Từ mới · 2 từ</div>
+            <div class="rrow new" style="animation-delay:1500ms"><span class="w"><b>appreciate</b><span class="m">trân trọng</span></span><span class="tag new">Mới</span></div>
+            <div class="rrow new" style="animation-delay:1650ms"><span class="w"><b>negotiate</b><span class="m">đàm phán</span></span><span class="tag new">Mới</span></div>
+          </div>` },
+      { title: 'Chấm điểm theo kỹ năng', desc: 'Đọc, Nghe, Viết, Nói: mỗi câu trả lời cho biết bạn mạnh, yếu ở đâu.',
+        viz: () => {
+          const S = [['Đọc', 92, ''], ['Nghe', 78, ''], ['Viết', 38, 'weak'], ['Nói', 61, 'mid']];
+          return `<span class="eyebrow">Bước 3</span><h4>Biết bạn yếu ở kỹ năng nào.</h4>
+          <p class="secondary">Mỗi dạng bài luyện một kỹ năng. Syll ghi điểm theo từng kỹ năng của từng từ.</p>
+          <div class="grow">
+            <div class="skill-word"><b>consider</b><span class="secondary">cân nhắc</span></div>
+            <div class="skills">${S.map(([n, v, c], k) => `<div class="skill ${c}"><span>${n}</span><div class="bar"><i style="--w:${v}%;animation-delay:${k * 120}ms"></i></div><span class="v">${v}%</span></div>`).join('')}</div>
+            <div class="mapping">
+              <div><b>Đọc</b><span>chọn nghĩa, điền từ, nối cặp</span></div>
+              <div><b>Nghe</b><span>nghe rồi chọn từ</span></div>
+              <div><b>Viết</b><span>gõ từ, xếp chữ, sửa chính tả</span></div>
+              <div><b>Nói</b><span>đọc to</span></div>
+            </div>
+          </div>`;
+        } },
+      { title: 'Luyện đúng chỗ yếu', desc: 'Phiên luyện tập nhắm vào kỹ năng và từ còn yếu của bạn.',
+        viz: () => `<span class="eyebrow">Bước 4</span><h4>Luyện đúng chỗ còn hụt.</h4>
+          <p class="secondary">Mở Từ còn yếu, Syll lên ngay một phiên chỉ gồm những từ và kỹ năng bạn cần luyện lại. Hoặc tự chọn luyện theo kỹ năng.</p>
+          <div class="grow">
+            <div class="weak-card">
+              <div class="top"><span class="ic">${icon('t-surgery')}</span><div><b>Từ còn yếu</b><div class="secondary">Luyện lại kỹ năng đang yếu</div></div></div>
+              <div class="chips"><span class="chip-btn">Đọc</span><span class="chip-btn">Nghe</span><span class="chip-btn" aria-pressed="true">Viết</span><span class="chip-btn">Nói</span></div>
+              <div class="queue">
+                <div class="qrow" style="animation-delay:200ms"><span class="qi">${icon('t-typing')}</span><b>consider</b><span>Gõ từ</span></div>
+                <div class="qrow" style="animation-delay:340ms"><span class="qi">${icon('t-reorder')}</span><b>appreciate</b><span>Xếp chữ</span></div>
+                <div class="qrow" style="animation-delay:480ms"><span class="qi">${icon('t-surgery')}</span><b>separate</b><span>Sửa chính tả</span></div>
+              </div>
+            </div>
+            <p class="secondary" style="margin-top:16px">Luyện xong, các từ lại vào lịch ôn, và vòng học tiếp tục.</p>
+          </div>` },
+    ];
+    const box = $('#loopSteps'), stage = $('#loopStage');
+    let cur = -1, timer, manual = reduce, visible = false;
+    const buttons = STEPS.map((s, k) => {
+      const b = el('button', 'lstep', `<span class="num">${k + 1}</span><span><b>${s.title}</b><small>${s.desc}</small></span><span class="prog"><i></i></span>`);
+      b.setAttribute('role', 'tab');
+      b.addEventListener('click', () => { manual = true; clearTimeout(timer); show(k); });
+      box.append(b); return b;
+    });
+    box.append(el('div', 'loop-again', `${icon('i-repeat')}Rồi quay lại bước 1, mỗi ngày`));
+    function show(k) {
+      cur = k;
+      buttons.forEach((b, j) => { b.setAttribute('aria-selected', j === k); b.classList.toggle('auto', !manual); if (j === k && !manual) restart(b, 'auto'); });
+      stage.innerHTML = '';
+      stage.append(el('div', 'viz', STEPS[k].viz()));
+      schedule();
+    }
+    function schedule() {
+      clearTimeout(timer);
+      if (!manual && visible) timer = setTimeout(() => show((cur + 1) % STEPS.length), 5000);
+    }
+    new IntersectionObserver(es => {
+      visible = es[0].isIntersecting;
+      if (visible && cur < 0) show(0); else if (visible) { if (!manual) show(cur); } else clearTimeout(timer);
+    }, { threshold: .35 }).observe(stage);
+    show(0);
+  })();
+
+  /* Celebration card: confetti on demand */
+  $('#celebrateBtn').addEventListener('click', () => confetti($('#celebrateCard')));
+
+})();
+</script>
+</body>
+</html>

@@ -43,6 +43,12 @@ private actor AudioSessionActivator {
         return recordingID
     }
 
+    /// `record` activates the session itself to claim the input, which blocks like `setActive` does.
+    func startRecording(_ handle: RecorderHandle, forDuration duration: TimeInterval) -> Bool {
+        handle.recorder.prepareToRecord()
+        return handle.recorder.record(forDuration: duration)
+    }
+
     /// `measurement` turns off output processing and `playAndRecord` plays at a lower volume,
     /// so leaving them on after a take makes every later sound quieter.
     /// Skipped when a newer recording has already started.
@@ -51,6 +57,12 @@ private actor AudioSessionActivator {
         beforeRecording = nil
         try? AVAudioSession.sharedInstance().setCategory(saved.category, mode: saved.mode, options: saved.options)
     }
+}
+
+/// Carries a recorder to the activator for the one blocking call; it is used only from the main actor otherwise.
+private final class RecorderHandle: @unchecked Sendable {
+    let recorder: AVAudioRecorder
+    init(_ recorder: AVAudioRecorder) { self.recorder = recorder }
 }
 
 @MainActor
@@ -224,6 +236,8 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     private var recorder: AVAudioRecorder?
     /// Set while the audio session is switched to recording.
     private var recordingSessionID: Int?
+    /// Bumped by `start`, `stop` and `cancel`, so a start still waiting on the audio hardware can tell it was called off.
+    private var startRequest = 0
     private var smoothedLevel = 0.0
     private var lastLevelTime: TimeInterval = 0
     private let fileURL = FileManager.default.temporaryDirectory.appending(path: "vocabflow-recording.wav")
@@ -251,9 +265,12 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     }
 
     func start() async throws {
+        startRequest += 1
+        let request = startRequest
         let sessionID = try await AudioSessionActivator.shared.beginRecording()
         recordingSessionID = sessionID
         do {
+            guard request == startRequest else { throw CancellationError() }
             let recorder = try AVAudioRecorder(url: fileURL, settings: [
                 AVFormatIDKey: kAudioFormatLinearPCM,
                 AVSampleRateKey: 16_000,
@@ -265,17 +282,26 @@ final class VoiceRecorder: NSObject, VoiceRecording {
             recorder.delegate = self
             recorder.isMeteringEnabled = true
             smoothedLevel = 0
-            guard recorder.record(forDuration: Self.maxDuration) else {
-                throw CocoaError(.fileWriteUnknown)
+            let started = await AudioSessionActivator.shared.startRecording(
+                RecorderHandle(recorder), forDuration: Self.maxDuration
+            )
+            guard started else { throw CocoaError(.fileWriteUnknown) }
+            // A stop or cancel during the hop has already restored the session; drop this take.
+            guard request == startRequest else {
+                recorder.stop()
+                try? FileManager.default.removeItem(at: fileURL)
+                throw CancellationError()
             }
             self.recorder = recorder
         } catch {
-            restoreSession()
+            // Skipped when a stop already restored it, or a newer start owns the session now.
+            if recordingSessionID == sessionID { restoreSession() }
             throw error
         }
     }
 
     func stop() -> RecordedAudio? {
+        startRequest += 1
         recorder?.stop()
         recorder = nil
         restoreSession()
@@ -285,6 +311,7 @@ final class VoiceRecorder: NSObject, VoiceRecording {
     }
 
     func cancel() {
+        startRequest += 1
         recorder?.stop()
         recorder = nil
         restoreSession()

@@ -14,6 +14,11 @@ enum MotionTokens {
     static let feedback = Animation.spring(response: 0.36, dampingFraction: 0.68)
     /// One full wrong-answer shake.
     static let shake = Animation.linear(duration: 0.4)
+    /// Time for an answer's own feedback (tile shake / colour, the feedback panel sliding in, Match's wrong-pair
+    /// flash) to finish; Syllie reacts to the answer only after it.
+    static let answerFeedbackSettle: Double = 0.3
+    /// Time for the system keyboard to slide down, before an answer typed on it is checked.
+    static let keyboardDismiss: Double = 0.3
     /// One wave of `SpeakerWaveIcon` appearing, and the time between waves while it plays.
     static let speakerWave = Animation.easeOut(duration: 0.18)
     static let speakerWaveStep: Double = 0.28

@@ -12,6 +12,15 @@ Khi chưa có file, trang hiện khung nét đứt ghi tên ảnh cần thay.
 | `placement.png` | Bài kiểm tra trình độ | 1179×2556 |
 | `my-words.png` | Danh sách My Words | 1179×2556 |
 | `reminder.png` | Kế hoạch học / giờ nhắc | 1179×2556 |
+| `task-select.png` | (v3) Dạng bài Chọn đáp án | 1179×2556 |
+| `task-cloze.png` | (v3) Dạng bài Điền từ | 1179×2556 |
+| `task-typing.png` | (v3) Dạng bài Gõ từ | 1179×2556 |
+| `task-reorder.png` | (v3) Dạng bài Xếp chữ | 1179×2556 |
+| `task-match.png` | (v3) Dạng bài Nối cặp | 1179×2556 |
+| `task-surgery.png` | (v3) Dạng bài Sửa chính tả | 1179×2556 |
+| `task-recording.png` | (v3) Dạng bài Đọc to | 1179×2556 |
+
+`v3.html` dùng `practice.png` cho hero và 7 ảnh `task-*.png` cho phần "Bảy cách gặp lại một từ".
 
 Ngoài thư mục này:
 - `../og-image.png`: ảnh khi chia sẻ link lên mạng xã hội, 1200×630.

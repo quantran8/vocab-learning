@@ -15,6 +15,8 @@ struct WordTile: View {
     @Environment(\.motion) private var motion
 
     var body: some View {
+        // Read on the main actor; the keyframe content closure is Sendable.
+        let faceDrop = faceDrop
         Text(text)
         .multilineTextAlignment(.center)
         .fixedSize(horizontal: false, vertical: true)

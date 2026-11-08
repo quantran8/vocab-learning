@@ -81,7 +81,7 @@ final class PracticeSessionStore {
     private let recorder: VoiceRecording
     private let transcriber: SpeechTranscribing
     private var sessionID: String?
-    private var lastRequest: (mode: SessionMode, challengeID: String?, skill: PracticeSkill?)?
+    private var lastRequest: (mode: SessionMode, challengeID: String?, skills: [PracticeSkill]?)?
     private var completedLearnIDs: Set<String> = []
     /// Encoded once: a retried commit must be byte-identical or the backend reports a conflict.
     private var commitBody: Data?
@@ -149,7 +149,7 @@ final class PracticeSessionStore {
     }
 
     var isWeakPractice: Bool { lastRequest?.mode == .weakWordsPractice }
-    var practiceSkill: PracticeSkill? { lastRequest?.skill }
+    var practiceSkills: [PracticeSkill]? { lastRequest?.skills }
     /// A denied microphone empties a speaking plan, and only Settings can fix that.
     var canRecord: Bool { recorder.canRecord }
 
@@ -161,17 +161,19 @@ final class PracticeSessionStore {
         await plan(mode, challengeID: challengeID)
     }
 
-    func startPractice(_ skill: PracticeSkill) async {
+    /// Random practice on `skills`; an empty list is mixed practice.
+    func startPractice(_ skills: [PracticeSkill]) async {
         guard stage == .idle else { return }
-        lastRequest = (.randomPractice, nil, skill)
-        await plan(.randomPractice, challengeID: nil, skill: skill)
+        let skills = skills.isEmpty ? nil : skills
+        lastRequest = (.randomPractice, nil, skills)
+        await plan(.randomPractice, challengeID: nil, skills: skills)
     }
 
     func retry() async {
         switch stage {
         case .failed(.planning):
             guard let lastRequest else { return }
-            await plan(lastRequest.mode, challengeID: lastRequest.challengeID, skill: lastRequest.skill)
+            await plan(lastRequest.mode, challengeID: lastRequest.challengeID, skills: lastRequest.skills)
         case .failed(.commit):
             await commit()
         default:
@@ -298,6 +300,8 @@ final class PracticeSessionStore {
                 return
             }
             recording = .recording
+        } catch is CancellationError {
+            // Stopped or cancelled while the audio hardware was starting; nothing failed.
         } catch {
             recording = .blocked(reason: UnavailableReason.recorderFailed)
         }
@@ -362,10 +366,17 @@ final class PracticeSessionStore {
         let assessment = TranscriptMatcher.assess(candidates, target: target)
         mutate { $0.recordTranscript(assessment.heard ?? "", passed: assessment.passed == true) }
         recording = .assessed(assessment)
-        if assessment.passed == true {
+        assessmentFeedback(passed: assessment.passed == true)
+    }
+
+    /// Every way a take gets scored ends with the same cue as an answered task.
+    private func assessmentFeedback(passed: Bool) {
+        if passed {
             haptics.success()
+            sounds.playCorrect()
         } else {
             haptics.error()
+            sounds.playWrong()
         }
     }
 
@@ -377,7 +388,7 @@ final class PracticeSessionStore {
             latestReceiptID = "sandbox"
             mutate { $0.countAssessment(passed: true) }
             recording = .assessed(RecordingAssessment(assessmentReceiptId: "sandbox", validity: "valid", passed: true, accuracyScore: nil))
-            haptics.success()
+            assessmentFeedback(passed: true)
             return
         }
         do {
@@ -386,13 +397,7 @@ final class PracticeSessionStore {
             latestReceiptID = assessment.assessmentReceiptId
             mutate { $0.countAssessment(passed: assessment.passed == true) }
             recording = .assessed(assessment)
-            if assessment.passed == true {
-                haptics.success()
-                sounds.playCorrect()
-            } else {
-                haptics.error()
-                sounds.playWrong()
-            }
+            assessmentFeedback(passed: assessment.passed == true)
         } catch {
             guard currentAttempt?.task.id == taskID else { return }
             let failure = error.asAPIError
@@ -408,10 +413,10 @@ final class PracticeSessionStore {
 
     // MARK: Private
 
-    private func plan(_ mode: SessionMode, challengeID: String?, skill: PracticeSkill? = nil) async {
+    private func plan(_ mode: SessionMode, challengeID: String?, skills: [PracticeSkill]? = nil) async {
         stage = .planning
         do {
-            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID, skill: skill))
+            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID, skills: skills))
             guard stage == .planning else { return }
             guard let id = plan.sessionID, !plan.steps.isEmpty else {
                 stage = .empty

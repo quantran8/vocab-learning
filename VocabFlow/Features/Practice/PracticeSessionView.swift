@@ -43,14 +43,15 @@ struct PracticeSessionView: View {
 
     private var emptyMessage: Text {
         if store.isWeakPractice { return Text("Skills you need to practice again will show up here.") }
-        switch store.practiceSkill {
-        case .speaking where !store.canRecord:
+        // The backend drops skills the device can't train, so only audio-bound choices can come back empty for that reason.
+        let skills = Set(store.practiceSkills ?? [])
+        if skills == [.speaking], !store.canRecord {
             return Text("Allow microphone access in Settings to practice speaking.")
-        case .listening:
-            return Text("Listening practice needs sound and only uses words with audio. Check back after learning more words.")
-        default:
-            return Text("Check back after learning more words.")
         }
+        if skills.contains(.listening), skills.isSubset(of: [.listening, .speaking]) {
+            return Text("Listening practice needs sound and only uses words with audio. Check back after learning more words.")
+        }
+        return Text("Check back after learning more words.")
     }
 
     private var closeButton: some View {
