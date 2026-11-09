@@ -348,6 +348,8 @@ struct CommitSummary: Decodable, Equatable {
     let newWordGoalSlots: Int
     let reviewedMeanings: Int
     let practiceTasks: Int
+    /// Only for a checkpoint challenge (the Journey's review).
+    var checkpoint: ReviewResult? = nil
 }
 
 struct CommitResponse: Decodable, Equatable {

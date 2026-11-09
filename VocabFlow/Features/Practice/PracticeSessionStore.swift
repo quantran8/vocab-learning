@@ -149,6 +149,7 @@ final class PracticeSessionStore {
     }
 
     var isWeakPractice: Bool { lastRequest?.mode == .weakWordsPractice }
+    var isDaily: Bool { lastRequest?.mode == .daily }
     var practiceSkills: [PracticeSkill]? { lastRequest?.skills }
     /// A denied microphone empties a speaking plan, and only Settings can fix that.
     var canRecord: Bool { recorder.canRecord }

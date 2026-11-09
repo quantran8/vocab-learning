@@ -11,6 +11,8 @@ struct AppRootView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shellTab: MainTab = .home
     @State private var profilePath: [ShellPage] = []
+    /// Kept across the route swap, so a session started from the Journey returns to it.
+    @State private var homePath: [ShellPage] = []
     /// Set once the splash has been up for `MotionTokens.splashHold`.
     @State private var splashHeld = false
     /// Set once the splash is gone; it doesn't come back for the rest of the launch.
@@ -46,6 +48,7 @@ struct AppRootView: View {
             if auth.phase == .signedOut {
                 shellTab = .home
                 profilePath = []
+                homePath = []
             }
         }
     }
@@ -128,7 +131,7 @@ struct AppRootView: View {
             }
         } else {
             switch store.state.phase {
-            case .home: MainShellView(tab: $shellTab, profilePath: $profilePath)
+            case .home: MainShellView(tab: $shellTab, homePath: $homePath, profilePath: $profilePath)
             case .learn, .build, .recall: SessionFlowView()
             case .results: ResultsView()
             }

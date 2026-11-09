@@ -41,7 +41,7 @@ struct CardSurface: ViewModifier {
                 }
             }
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
+            .overlay(shape.strokeBorder(Color.stroke, lineWidth: 2))
     }
 }
 

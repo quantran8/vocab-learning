@@ -36,6 +36,8 @@ struct LearningPreferences: Codable, Equatable {
     }
 
     var isEveryDay: Bool { learningDays == Self.allWeekdays }
+    /// Sessions per Journey segment: one per learning day.
+    var weeklySessionGoal: Int { learningDays.count }
 
     /// Today's date at the reminder time; only the hour and minute are meaningful.
     var reminderDate: Date {

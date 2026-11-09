@@ -32,6 +32,8 @@ struct UserSettings: Decodable, Equatable {
     let uiLocale: String
     let timeZone: String
     let dailyNewWordGoal: Int
+    /// Sessions per checkpoint challenge (a Journey segment). Nil from a backend that predates it.
+    var weeklySessionGoal: Int? = nil
 }
 
 struct LearningScope: Codable, Equatable {
@@ -55,6 +57,8 @@ struct SettingsUpdate: Encodable, Equatable {
     var uiLocale: String?
     var timeZone: String?
     var dailyNewWordGoal: Int?
+    /// The number of learning days a week; the backend sizes each Journey segment by it.
+    var weeklySessionGoal: Int?
 }
 
 // MARK: - Placement test
@@ -267,6 +271,9 @@ protocol VocabAPI: Sendable {
 
     func learnHome() async throws -> LearnHome
     func checkpointChallenges() async throws -> [CheckpointChallenge]
+    /// The first page (no `before`) holds the future previews, the current segment and `historyLimit` older ones;
+    /// `before` (a `nextHistoryCursor`) pages through older history only.
+    func journey(historyLimit: Int, before: Int?) async throws -> Journey
     /// `query` searches on the server, across the English word and its meanings.
     func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress]
     func wordStats() async throws -> WordStats
@@ -407,6 +414,13 @@ struct LiveVocabAPI: VocabAPI {
     func checkpointChallenges() async throws -> [CheckpointChallenge] {
         let response: CheckpointResponse = try await client.send(get("me/checkpoint-challenges"))
         return response.challenges
+    }
+
+    func journey(historyLimit: Int, before: Int?) async throws -> Journey {
+        var request = get("me/journey")
+        request.query = [URLQueryItem(name: "historyLimit", value: String(historyLimit))]
+        if let before { request.query.append(URLQueryItem(name: "before", value: String(before))) }
+        return try await client.send(request)
     }
 
     func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] {
@@ -588,6 +602,7 @@ struct OfflineVocabAPI: VocabAPI {
         LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0)
     }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
+    func journey(historyLimit: Int, before: Int?) async throws -> Journey { .preview }
     func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] { [] }
     func wordStats() async throws -> WordStats { WordStats(learnedWords: 0, needPracticeWords: 0) }
     func wordDetail(id: String) async throws -> WordDetail { throw APIError.transport }

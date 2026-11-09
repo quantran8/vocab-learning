@@ -120,7 +120,7 @@ final class OnboardingStore {
         let draft = draft
         await save {
             try await self.api.updateScope(LearningScope(collectionId: draft.collectionID, topicIds: Array(draft.topicIDs)))
-            try await self.api.updateSettings(SettingsUpdate(dailyNewWordGoal: draft.wordsPerDay))
+            try await self.api.updateSettings(SettingsUpdate(dailyNewWordGoal: draft.wordsPerDay, weeklySessionGoal: draft.weeklySessionGoal))
             self.plan.save(draft)
             self.haptics.success()
             self.step = .ready

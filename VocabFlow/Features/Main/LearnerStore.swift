@@ -21,8 +21,14 @@ final class LearnerStore {
     private(set) var isSearchingWords = false
     private(set) var isLoadingMoreWords = false
     private(set) var wordsError: String?
+    /// The server's Journey: it alone decides which node is done, current or locked.
+    private(set) var journey: Journey?
+    /// Set when the Journey couldn't load; whatever was on screen stays.
+    private(set) var journeyError: String?
+    private(set) var isLoadingOlderJourney = false
 
     static let wordsPageSize = 50
+    static let journeyHistoryPage = 2
 
     /// Bumped by every first-page load, so answers for an older query or list are ignored.
     private var wordsGeneration = 0
@@ -41,7 +47,9 @@ final class LearnerStore {
         do {
             let profile = try await api.profile()
             self.profile = profile
-            await syncDeviceSettings(profile.settings)
+            // Read before `adopt`, which stores the defaults when this device has no plan yet.
+            let localWeeklyGoal = plan.preferences?.weeklySessionGoal
+            await syncDeviceSettings(profile.settings, weeklySessionGoal: localWeeklyGoal)
             if let scope = profile.scope, profile.hasFinishedOnboarding {
                 TopicCatalog.update(with: try await api.catalog())
                 plan.adopt(scope, wordsPerDay: profile.settings.dailyNewWordGoal)
@@ -63,11 +71,47 @@ final class LearnerStore {
         async let challenges = try? api.checkpointChallenges()
         async let stats = try? api.wordStats()
         async let library: Void = loadWords(matching: wordsQuery)
+        async let path: Void = refreshJourney()
         if let home = await home { self.home = home }
         if let challenges = await challenges { self.challenges = challenges }
         if let stats = await stats { wordStats = stats }
         await library
+        await path
         await profile
+    }
+
+    /// Reloads the first page. History pages already loaded below it are kept, so a refresh
+    /// after a session doesn't pull the list away from where the learner scrolled.
+    func refreshJourney() async {
+        do {
+            let fresh = try await api.journey(historyLimit: Self.journeyHistoryPage, before: nil)
+            if let old = journey, let freshOldest = fresh.segments.last?.segmentNo,
+               let oldOldest = old.segments.last?.segmentNo, oldOldest < freshOldest {
+                var older = old
+                older.segments = old.segments.filter { $0.segmentNo < freshOldest }
+                journey = fresh.appendingHistory(older)
+            } else {
+                journey = fresh
+            }
+            journeyError = nil
+        } catch {
+            if !Task.isCancelled { journeyError = error.asAPIError.userMessage }
+        }
+    }
+
+    /// Appends the next older page, if there is one and nothing is loading already.
+    func loadOlderJourney() async {
+        guard let current = journey, current.hasMoreHistory, let cursor = current.nextHistoryCursor,
+              !isLoadingOlderJourney else { return }
+        isLoadingOlderJourney = true
+        defer { isLoadingOlderJourney = false }
+        do {
+            let page = try await api.journey(historyLimit: Self.journeyHistoryPage, before: cursor)
+            // A refresh may have replaced the Journey meanwhile; merge into whatever is there now.
+            if let latest = journey { journey = latest.appendingHistory(page) }
+        } catch {
+            if !Task.isCancelled { journeyError = error.asAPIError.userMessage }
+        }
     }
 
     /// Replaces the list with the first page for `query`. A failed reload keeps what is on screen,
@@ -124,7 +168,7 @@ final class LearnerStore {
     /// Scope and goal go to the server first, so a failed save leaves the local plan unchanged.
     func savePlan(_ preferences: LearningPreferences) async throws {
         try await api.updateScope(LearningScope(collectionId: preferences.collectionID, topicIds: Array(preferences.topicIDs)))
-        try await api.updateSettings(SettingsUpdate(dailyNewWordGoal: preferences.wordsPerDay))
+        try await api.updateSettings(SettingsUpdate(dailyNewWordGoal: preferences.wordsPerDay, weeklySessionGoal: preferences.weeklySessionGoal))
         plan.save(preferences)
     }
 
@@ -160,13 +204,20 @@ final class LearnerStore {
         isSearchingWords = false
         isLoadingMoreWords = false
         wordsError = nil
+        journey = nil
+        journeyError = nil
+        isLoadingOlderJourney = false
     }
 
     /// `timeZone` defines the learner's "day" for the daily goal; `uiLocale` localizes the catalog.
-    private func syncDeviceSettings(_ settings: UserSettings) async {
+    /// The learning days only live on the device, so their count goes up here too: a plan saved before the
+    /// backend knew about it (or while a save failed) still sizes the learner's Journey segments.
+    /// A device without a saved plan sends nothing, so it never overwrites the server with defaults.
+    private func syncDeviceSettings(_ settings: UserSettings, weeklySessionGoal: Int?) async {
         let timeZone = TimeZone.current.identifier
         let uiLocale = AppLanguage.active.uiLocale
-        guard settings.timeZone != timeZone || settings.uiLocale != uiLocale else { return }
-        try? await api.updateSettings(SettingsUpdate(uiLocale: uiLocale, timeZone: timeZone))
+        let goal = weeklySessionGoal.flatMap { settings.weeklySessionGoal != $0 ? $0 : nil }
+        guard settings.timeZone != timeZone || settings.uiLocale != uiLocale || goal != nil else { return }
+        try? await api.updateSettings(SettingsUpdate(uiLocale: uiLocale, timeZone: timeZone, weeklySessionGoal: goal))
     }
 }

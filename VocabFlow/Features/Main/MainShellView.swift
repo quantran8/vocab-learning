@@ -25,6 +25,7 @@ enum MainTab: CaseIterable, Hashable {
 enum ShellPage: Hashable {
     case settings
     case randomPractice
+    case journey
 }
 
 /// Plan editors Profile presents as bottom sheets.
@@ -42,6 +43,8 @@ struct MainShellView: View {
     @Environment(\.motion) private var motion
     /// Owned by the root: the route swap unmounts this view during a session, and closing one returns to this tab.
     @Binding var tab: MainTab
+    /// Owned by the root: a session started from the Journey comes back to it.
+    @Binding var homePath: [ShellPage]
     /// Owned by the root too: changing the language rebuilds this view, and Settings must stay open.
     @Binding var profilePath: [ShellPage]
     @State private var wordsPath: [ShellPage] = []
@@ -51,8 +54,7 @@ struct MainShellView: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            HomeView()
-                .background(Color.canvas)
+            homeStack
                 .tabItem { Label(MainTab.home.title, systemImage: MainTab.home.systemImage) }
                 .tag(MainTab.home)
 
@@ -67,6 +69,17 @@ struct MainShellView: View {
         .tint(Color.interactive)
         .minimizingTabBarOnScroll()
         .task { await learner.refresh() }
+    }
+
+    private var homeStack: some View {
+        NavigationStack(path: $homePath) {
+            HomeView(onOpenJourney: { homePath.append(.journey) })
+                .background(Color.canvas)
+                // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
+                .navigationTitle(MainTab.home.title)
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: ShellPage.self, destination: destination)
+        }
     }
 
     private var wordsStack: some View {
@@ -120,6 +133,10 @@ struct MainShellView: View {
                 .iconOnlyBackButton()
         case .randomPractice:
             RandomPracticeView()
+                .toolbar(.hidden, for: .tabBar)
+                .iconOnlyBackButton()
+        case .journey:
+            JourneyView()
                 .toolbar(.hidden, for: .tabBar)
                 .iconOnlyBackButton()
         }

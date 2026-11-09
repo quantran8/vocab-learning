@@ -5,17 +5,19 @@ struct HomeView: View {
     @Environment(LearnerStore.self) private var learner
     @Environment(LearningPlanStore.self) private var plan
     @Environment(\.motion) private var motion
+    /// Pushes the Journey onto Home's navigation stack.
+    var onOpenJourney: () -> Void = {}
 
     var body: some View {
         let due = learner.home?.dueCount ?? 0
 
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text(verbatim: "syll")
-                    .font(Typography.wordmark)
-                    .tracking(-0.6)
-                    .foregroundStyle(Color.ink)
-                    .accessibilityLabel(Text(verbatim: "Syll"))
+                // Text(verbatim: "syll")
+                //     .font(Typography.wordmark)
+                //     .tracking(-0.6)
+                //     .foregroundStyle(Color.ink)
+                //     .accessibilityLabel(Text(verbatim: "Syll"))
 
                 PunctuatedTitle(text: "Daily Lesson")
                     .padding(.top, Spacing.xl)
@@ -26,9 +28,14 @@ struct HomeView: View {
                 sectionTitle("Checkpoint Challenge")
                     .padding(.top, Spacing.xl + Spacing.l)
 
-                CheckpointChallengeCard(home: learner.home, challenge: learner.challenges.first) {
-                    start(.checkpointChallenge, challengeID: learner.challenges.first?.id)
-                }
+                CheckpointChallengeCard(
+                    home: learner.home,
+                    challenge: learner.challenges.first,
+                    previewNodes: learner.journey?.nodesAroundFocus(),
+                    onStart: { start(.checkpointChallenge, challengeID: learner.challenges.first?.id) },
+                    onStartDaily: { start(.daily) },
+                    onOpenJourney: onOpenJourney
+                )
                 .padding(.top, Spacing.m)
             }
             .padding(.horizontal, Spacing.screenGutter)
@@ -56,6 +63,13 @@ struct HomeView: View {
                         .foregroundStyle(Color.ink)
                     StatRow(label: "Words to review", value: due)
                     StatRow(label: "New words / day", value: plan.current.wordsPerDay)
+                    // The backend holds new words back while a review waits.
+                    if (learner.home?.checkpointAvailable ?? 0) > 0 {
+                        Text("New words resume after your review.")
+                            .font(Typography.secondary)
+                            .foregroundStyle(Color.mutedInk)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -149,7 +163,11 @@ private struct CheckpointChallengeCard: View {
     let home: LearnHome?
     /// Nil if the challenge list has not loaded; starting without an ID takes the oldest open one.
     let challenge: CheckpointChallenge?
+    /// A few nodes around the current one, drawn as a small map; nil until the Journey loads.
+    let previewNodes: [JourneyNode]?
     let onStart: () -> Void
+    let onStartDaily: () -> Void
+    let onOpenJourney: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.m) {
@@ -166,6 +184,15 @@ private struct CheckpointChallengeCard: View {
                 }
             }
 
+            // Always there: locked placeholders until the Journey loads. The map replaces the progress bar.
+            JourneyMapPreview(
+                nodes: previewNodes ?? Array(JourneySegment.placeholder(sessions: home?.checkpointSessionsRequired ?? 7).nodes.prefix(4)),
+                onStartCurrent: { node in node.type == .review ? onStart() : onStartDaily() },
+                onOpenJourney: onOpenJourney
+            )
+            .allowsHitTesting(previewNodes != nil)
+            .accessibilityValue(Text(progressValue))
+
             if let home, home.checkpointAvailable > 0 {
                 if let challenge {
                     Text("^[\(challenge.meaningCount) word](inflect: true) to recall")
@@ -174,14 +201,24 @@ private struct CheckpointChallengeCard: View {
                 }
                 SecondaryButton(title: "Start challenge", action: onStart)
             } else {
-                if let home {
-                    sessionProgress(home)
-                }
                 Text(lockedHint)
                     .font(Typography.secondary)
                     .foregroundStyle(Color.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            Button(action: onOpenJourney) {
+                HStack(spacing: Spacing.xxs) {
+                    Text("View journey")
+                    Image(systemName: "chevron.right")
+                        .font(Typography.micro.weight(.bold))
+                }
+                .font(Typography.secondary.weight(.bold))
+                .foregroundStyle(Color.interactive)
+                .frame(minHeight: Spacing.minTouchTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
         }
         .padding(Spacing.m + 2)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -196,10 +233,8 @@ private struct CheckpointChallengeCard: View {
         return "\(remaining) more sessions to unlock your next challenge."
     }
 
-    private func sessionProgress(_ home: LearnHome) -> some View {
-        ProgressTrack(fraction: home.checkpointProgress)
-            .accessibilityElement()
-            .accessibilityLabel(Text("Progress to your next challenge"))
-            .accessibilityValue(Text("\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions"))
+    private var progressValue: LocalizedStringKey {
+        guard let home else { return "" }
+        return "\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions"
     }
 }

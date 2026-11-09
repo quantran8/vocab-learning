@@ -3,6 +3,7 @@ import SwiftUI
 /// Everything between tapping a practice button and returning to the tab it was started from.
 struct PracticeSessionView: View {
     @Environment(PracticeSessionStore.self) private var store
+    @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
 
     var body: some View {
@@ -43,6 +44,10 @@ struct PracticeSessionView: View {
 
     private var emptyMessage: Text {
         if store.isWeakPractice { return Text("Skills you need to practice again will show up here.") }
+        // While a review waits, Daily plans carry no new words (the Journey's next segment opens after it).
+        if store.isDaily, (learner.home?.checkpointAvailable ?? 0) > 0 {
+            return Text("Finish your review to unlock new words.")
+        }
         // The backend drops skills the device can't train, so only audio-bound choices can come back empty for that reason.
         let skills = Set(store.practiceSkills ?? [])
         if skills == [.speaking], !store.canRecord {
@@ -638,7 +643,7 @@ struct PracticeResultsView: View {
                             .padding(.bottom, Spacing.l)
                     }
 
-                    Chip(text: "Flow complete", fill: .reward)
+                    Chip(text: summary.checkpoint == nil ? "Flow complete" : "Review complete", fill: .reward)
 
                     Text("Nice work.")
                         .font(Typography.display)
@@ -692,8 +697,17 @@ struct PracticeResultsView: View {
     }
 
     /// Only the stats this session actually moved; zeros would just distract.
+    /// A review reports recall instead, with no pass mark: forgotten words simply come back sooner.
     private var stats: [Stat] {
-        [
+        if let review = summary.checkpoint {
+            return [
+                Stat(label: "Words reviewed", value: review.reviewedCount),
+                Stat(label: "Remembered on your own", value: review.unaidedRecalledCount),
+                Stat(label: "Coming back for review", value: review.needsReviewCount),
+            ]
+            .filter { $0.value > 0 }
+        }
+        return [
             Stat(label: "Exercises done", value: summary.practiceTasks),
             Stat(label: "Right first time", value: store.firstTryCount),
             Stat(label: "Meanings reviewed", value: summary.reviewedMeanings),

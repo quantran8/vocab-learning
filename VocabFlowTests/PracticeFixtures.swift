@@ -77,6 +77,9 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     private(set) var placementSubmissions: [[PlacementAnswer]] = []
     var catalogCollections: [CatalogCollection] = []
     var storedProfile: UserProfile?
+    /// Answers `journey(historyLimit:before:)`, keyed by `before` (nil for the first page).
+    var journeyPages: [Int?: Result<Journey, APIError>] = [:]
+    private(set) var journeyRequests: [Int?] = []
     private(set) var levelUpdates: [CEFRLevel] = []
     var library: [WordProgress] = []
     var wordsError: APIError?
@@ -124,6 +127,10 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     func catalog() async throws -> [CatalogCollection] { catalogCollections }
     func learnHome() async throws -> LearnHome { LearnHome(dueCount: 0, checkpointAvailable: 0, checkpointSessionsDone: 0, checkpointSessionsRequired: 7, learnedTotal: 0) }
     func checkpointChallenges() async throws -> [CheckpointChallenge] { [] }
+    func journey(historyLimit: Int, before: Int?) async throws -> Journey {
+        journeyRequests.append(before)
+        return try (journeyPages[before] ?? .failure(.transport)).get()
+    }
     func words(limit: Int, offset: Int, query: String?) async throws -> [WordProgress] {
         if let wordsError { throw wordsError }
         await onWords?()
