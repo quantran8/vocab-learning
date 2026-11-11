@@ -57,58 +57,47 @@ final class JourneyTests: XCTestCase {
         XCTAssertEqual(review.checkpoint?.unaidedRecalledCount, 4)
     }
 
-    // MARK: Home preview window
-
-    private func focused(_ journey: Journey, on id: String) -> Journey {
-        Journey(currentSegmentNo: journey.currentSegmentNo, focusNodeId: id, completedReviewCount: journey.completedReviewCount,
-                segments: journey.segments, hasMoreHistory: journey.hasMoreHistory, nextHistoryCursor: journey.nextHistoryCursor)
-    }
-
-    func testPreviewShowsOneNodeBehindTheCurrentAndTwoAhead() {
-        let base = journey(current: 1, segments: [segment(2, status: .preview, done: 0), segment(1, status: .active, done: 3)], cursor: nil)
-        let ids = focused(base, on: "segment:1:learning:4").nodesAroundFocus().map(\.id)
-        XCTAssertEqual(ids, ["segment:1:learning:3", "segment:1:learning:4", "segment:1:learning:5", "segment:1:learning:6"])
-    }
-
-    func testPreviewReachesTheReviewAsItGetsClose() {
-        let base = journey(current: 1, segments: [segment(2, status: .preview, done: 0), segment(1, status: .active, done: 6)], cursor: nil)
-        let ids = focused(base, on: "segment:1:learning:7").nodesAroundFocus().map(\.id)
-        XCTAssertEqual(ids, ["segment:1:learning:6", "segment:1:learning:7", "segment:1:review", "segment:2:learning:1"])
-    }
-
-    func testPreviewCrossesIntoThePreviousSegmentAfterAReview() {
-        let base = journey(current: 2, segments: [
-            segment(3, status: .preview, done: 0),
-            segment(2, status: .active, done: 0),
-            segment(1, status: .completed, done: 7, reviewState: .completed),
-        ], cursor: nil)
-        let ids = base.nodesAroundFocus().map(\.id)
-        XCTAssertEqual(ids, ["segment:1:review", "segment:2:learning:1", "segment:2:learning:2", "segment:2:learning:3"])
-    }
-
-    func testPreviewForANewLearnerStartsAtTheFirstNode() {
-        let base = journey(current: 1, segments: [segment(2, status: .preview, done: 0), segment(1, status: .active, done: 0)], cursor: nil)
-        XCTAssertEqual(base.nodesAroundFocus().first?.id, "segment:1:learning:1")
-        XCTAssertEqual(base.nodesAroundFocus().count, 4)
-    }
-
     // MARK: Layout
 
-    func testOffsetIsDeterministicClampedAndContinuousAcrossSegments() {
-        XCTAssertEqual(JourneyLayout.offset(segmentNo: 3, ordinal: 5), JourneyLayout.offset(segmentNo: 3, ordinal: 5))
-        let all = (1...6).flatMap { segment in (1...8).map { JourneyLayout.offset(segmentNo: segment, ordinal: $0) } }
-        XCTAssertTrue(all.allSatisfy { abs($0) <= JourneyLayout.maxOffset })
-        // Segment 2 node 1 follows segment 1's review, it doesn't restart at the centre.
-        XCTAssertNotEqual(JourneyLayout.offset(segmentNo: 2, ordinal: 1), JourneyLayout.offset(segmentNo: 1, ordinal: 1))
-        let steps = zip(all, all.dropFirst()).map { abs($1 - $0) }
-        XCTAssertLessThan(steps.max() ?? 0, JourneyLayout.maxOffset * 1.5)
-        // A narrow screen only narrows the swing.
-        XCTAssertTrue((1...8).allSatisfy { abs(JourneyLayout.offset(segmentNo: 1, ordinal: $0, limit: 20)) <= 20 })
-        XCTAssertEqual(JourneyLayout.offset(segmentNo: 1, ordinal: 3, limit: 0), 0)
+    func testSnakeSlotsAlternateRowsOfThree() {
+        let slots = (0..<7).map { JourneySnakeLayout.slot($0) }
+        XCTAssertEqual(slots.map(\.column), [-1, 0, 1, 1, 0, -1, -1])
+        XCTAssertEqual(slots.map(\.level), [0, 0, 0, 1, 1, 1, 2])
+        // Below the anchor the rows keep alternating.
+        XCTAssertEqual(JourneySnakeLayout.slot(-1).column, -1)
+        XCTAssertEqual(JourneySnakeLayout.slot(-1).level, -1)
+    }
+
+    func testSnakeRunsOnAcrossSegmentsWithoutGaps() {
+        // Five sessions + review: six nodes, so segments don't line up with the two-row pattern.
+        let segments = (1...3).map { JourneySegment.placeholder($0, sessions: 5) }
+        let layout = JourneySnakeLayout(segments: segments, anchorSegmentNo: 2, width: 353)
+        XCTAssertEqual(layout.nodes.count, 18)
+        // Every step is to a neighbouring slot: along a row, or straight up the U-turn to the next row.
+        for (a, b) in zip(layout.nodes, layout.nodes.dropFirst()) {
+            XCTAssertTrue(abs(a.center.y - b.center.y) < 0.001 || abs(a.center.x - b.center.x) < 0.001)
+            XCTAssertLessThanOrEqual(a.center.y - b.center.y, JourneySnakeLayout.pitch + 0.001)
+            XCTAssertGreaterThanOrEqual(a.center.y - b.center.y, -0.001)
+        }
+        // The anchor segment starts at slot 0: bottom left of its row.
+        let anchorFirst = layout.nodes[6]
+        XCTAssertEqual(anchorFirst.id, "segment:2:learning:1")
+        XCTAssertLessThan(anchorFirst.center.x, 353 / 2)
+        // Everything fits the width and the height.
+        XCTAssertTrue(layout.nodes.allSatisfy { $0.center.x - JourneyNodeView.reviewSize / 2 >= -0.001 && $0.center.x + JourneyNodeView.reviewSize / 2 <= 353.001 })
+        XCTAssertTrue((layout.nodes.map(\.center) + layout.labels.map(\.center)).allSatisfy { $0.y > 0 && $0.y < layout.size.height })
+    }
+
+    func testLoadingOlderHistoryDoesNotMoveNewerNodesAlongTheSnake() {
+        let newer = [JourneySegment.placeholder(3, sessions: 5), .placeholder(2, sessions: 5)]
+        let before = JourneySnakeLayout(segments: newer, anchorSegmentNo: 2, width: 353)
+        let after = JourneySnakeLayout(segments: newer + [.placeholder(1, sessions: 5)], anchorSegmentNo: 2, width: 353)
+        for placed in before.nodes {
+            XCTAssertEqual(placed.center.x, after.nodes.first { $0.id == placed.id }?.center.x ?? -1, accuracy: 0.001)
+        }
     }
 
     // MARK: Store
-
     func testRefreshTakesTheServerJourney() async {
         let (store, api) = makeStore()
         let first = journey(current: 1, segments: [segment(2, status: .preview, done: 0), segment(1, status: .active, done: 0)], cursor: nil)

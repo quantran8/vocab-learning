@@ -4,9 +4,10 @@ struct HomeView: View {
     @Environment(PracticeSessionStore.self) private var practice
     @Environment(LearnerStore.self) private var learner
     @Environment(LearningPlanStore.self) private var plan
+    @Environment(ChallengeMapStore.self) private var challengeMap
     @Environment(\.motion) private var motion
-    /// Pushes the Journey onto Home's navigation stack.
-    var onOpenJourney: () -> Void = {}
+    /// Pushes the Challenge Map onto Home's navigation stack.
+    var onOpenChallengeMap: () -> Void = {}
 
     var body: some View {
         let due = learner.home?.dueCount ?? 0
@@ -25,16 +26,12 @@ struct HomeView: View {
                 dailyLesson(due: due)
                     .padding(.top, Spacing.l)
 
-                sectionTitle("Checkpoint Challenge")
+                sectionTitle("Challenge")
                     .padding(.top, Spacing.xl + Spacing.l)
 
-                CheckpointChallengeCard(
-                    home: learner.home,
-                    challenge: learner.challenges.first,
-                    previewNodes: learner.journey?.nodesAroundFocus(),
-                    onStart: { start(.checkpointChallenge, challengeID: learner.challenges.first?.id) },
-                    onStartDaily: { start(.daily) },
-                    onOpenJourney: onOpenJourney
+                ChallengeHomeCard(
+                    onOpenMap: onOpenChallengeMap,
+                    onStartDaily: { start(.daily) }
                 )
                 .padding(.top, Spacing.m)
             }
@@ -42,7 +39,11 @@ struct HomeView: View {
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
-        .refreshable { await learner.refresh() }
+        .refreshable {
+            async let learnerRefresh: Void = learner.refresh()
+            async let mapRefresh: Void = challengeMap.refresh()
+            _ = await (learnerRefresh, mapRefresh)
+        }
     }
 
     private func sectionTitle(_ title: LocalizedStringKey) -> some View {
@@ -63,13 +64,6 @@ struct HomeView: View {
                         .foregroundStyle(Color.ink)
                     StatRow(label: "Words to review", value: due)
                     StatRow(label: "New words / day", value: plan.current.wordsPerDay)
-                    // The backend holds new words back while a review waits.
-                    if (learner.home?.checkpointAvailable ?? 0) > 0 {
-                        Text("New words resume after your review.")
-                            .font(Typography.secondary)
-                            .foregroundStyle(Color.mutedInk)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -154,87 +148,5 @@ private struct LessonMascot: View {
         } catch {
             return false
         }
-    }
-}
-
-// MARK: - Checkpoint challenge
-
-private struct CheckpointChallengeCard: View {
-    let home: LearnHome?
-    /// Nil if the challenge list has not loaded; starting without an ID takes the oldest open one.
-    let challenge: CheckpointChallenge?
-    /// A few nodes around the current one, drawn as a small map; nil until the Journey loads.
-    let previewNodes: [JourneyNode]?
-    let onStart: () -> Void
-    let onStartDaily: () -> Void
-    let onOpenJourney: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.s) {
-                Text("Your recent words")
-                    .font(Typography.emphasis)
-                    .foregroundStyle(Color.ink)
-                Spacer(minLength: 0)
-                if let home, home.checkpointAvailable == 0 {
-                    Text(verbatim: "\(home.checkpointSessionsDone) / \(home.checkpointSessionsRequired)")
-                        .font(Typography.tile.monospacedDigit())
-                        .foregroundStyle(Color.ink)
-                        .accessibilityHidden(true)
-                }
-            }
-
-            // Always there: locked placeholders until the Journey loads. The map replaces the progress bar.
-            JourneyMapPreview(
-                nodes: previewNodes ?? Array(JourneySegment.placeholder(sessions: home?.checkpointSessionsRequired ?? 7).nodes.prefix(4)),
-                onStartCurrent: { node in node.type == .review ? onStart() : onStartDaily() },
-                onOpenJourney: onOpenJourney
-            )
-            .allowsHitTesting(previewNodes != nil)
-            .accessibilityValue(Text(progressValue))
-
-            if let home, home.checkpointAvailable > 0 {
-                if let challenge {
-                    Text("^[\(challenge.meaningCount) word](inflect: true) to recall")
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.mutedInk)
-                }
-                SecondaryButton(title: "Start challenge", action: onStart)
-            } else {
-                Text(lockedHint)
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Button(action: onOpenJourney) {
-                HStack(spacing: Spacing.xxs) {
-                    Text("View journey")
-                    Image(systemName: "chevron.right")
-                        .font(Typography.micro.weight(.bold))
-                }
-                .font(Typography.secondary.weight(.bold))
-                .foregroundStyle(Color.interactive)
-                .frame(minHeight: Spacing.minTouchTarget)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(Spacing.m + 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
-    }
-
-    private var lockedHint: LocalizedStringKey {
-        guard let home, home.checkpointSessionsDone < home.checkpointSessionsRequired else {
-            return "Keep learning new words to open your next challenge."
-        }
-        let remaining = home.checkpointSessionsRequired - home.checkpointSessionsDone
-        return "\(remaining) more sessions to unlock your next challenge."
-    }
-
-    private var progressValue: LocalizedStringKey {
-        guard let home else { return "" }
-        return "\(home.checkpointSessionsDone) of \(home.checkpointSessionsRequired) sessions"
     }
 }

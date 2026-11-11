@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PracticeLabView: View {
     @Environment(TemplateSandboxStore.self) private var sandbox
+    @Environment(ChallengeRunStore.self) private var challengeRun
     @Environment(\.motion) private var motion
 
     var body: some View {
@@ -24,6 +25,20 @@ struct PracticeLabView: View {
                         TemplateCard(template: template) {
                             motion.perform(MotionTokens.transition) { sandbox.open(template.id) }
                         }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: Spacing.s) {
+                    Text("Challenge games")
+                        .font(Typography.emphasis)
+                        .foregroundStyle(Color.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    // A static plan on the same engine as a live run: no API, no commit, no stars.
+                    GameCard(title: "Match Madness", subtitle: "A 90-second round with example words.", systemImage: "timer") {
+                        motion.perform(MotionTokens.transition) { challengeRun.startSandbox(plan: .sandbox(), timed: true) }
+                    }
+                    GameCard(title: "Match Madness, untimed", subtitle: "The same board with no clock, at your own pace.", systemImage: "tortoise") {
+                        motion.perform(MotionTokens.transition) { challengeRun.startSandbox(plan: .sandbox(), timed: false) }
                     }
                 }
             }
@@ -85,6 +100,45 @@ private struct TemplateCard: View {
         .buttonStyle(ActionButtonStyle(kind: .secondary))
         .accessibilityElement(children: .combine)
         .accessibilityHint(Text("Opens the exercise."))
+    }
+}
+
+private struct GameCard: View {
+    let title: LocalizedStringKey
+    let subtitle: LocalizedStringKey
+    let systemImage: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: Spacing.m) {
+                RoundedRectangle(cornerRadius: Radii.chip, style: .continuous)
+                    .fill(Color.selectedSurface)
+                    .frame(width: 48, height: 48)
+                    .overlay(
+                        Image(systemName: systemImage)
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(Color.selectedInk)
+                    )
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(title)
+                        .font(Typography.emphasis)
+                        .foregroundStyle(Color.ink)
+                    Text(subtitle)
+                        .font(Typography.secondary)
+                        .foregroundStyle(Color.mutedInk)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(Spacing.m)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .buttonStyle(ActionButtonStyle(kind: .secondary))
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Starts a practice round."))
     }
 }
 

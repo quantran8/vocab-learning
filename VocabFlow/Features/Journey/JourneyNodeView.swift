@@ -8,11 +8,11 @@ struct JourneyNodeView: View {
     let action: () -> Void
 
     static let learningSize: CGFloat = 64
-    static let reviewSize: CGFloat = 88
-    static let reviewRadius: CGFloat = 28
+    static let reviewSize: CGFloat = 76
+    static let reviewRadius: CGFloat = 24
     /// Glyph sizes, scaled with the nodes.
     private static let learningGlyph: CGFloat = 28
-    private static let reviewGlyph: CGFloat = 46
+    private static let reviewGlyph: CGFloat = 40
     /// Gap between the current node and its focus ring.
     static let ringGap: CGFloat = 6
 
@@ -54,10 +54,10 @@ struct JourneyNodeView: View {
                 .frame(width: Self.reviewGlyph, height: Self.reviewGlyph)
                 .overlay(alignment: .bottomTrailing) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 21, weight: .black))
+                        .font(.system(size: 19, weight: .black))
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(Color.white, Color.ink)
-                        .offset(x: 9, y: 9)
+                        .offset(x: 8, y: 8)
                 }
         case (.review, _):
             MemoryStackGlyph(fill: ink, cutout: palette.face)

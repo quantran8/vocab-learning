@@ -291,6 +291,18 @@ protocol VocabAPI: Sendable {
     /// `body` is sent as is: a retried commit must repeat the first attempt's bytes.
     func commitSession(sessionID: String, body: Data) async throws -> CommitResponse
     func commitStatus(sessionID: String) async throws -> CommitStatus
+
+    // Challenge (Match Madness). Separate from learning sessions: nothing here changes SRS or Daily.
+    func challengeMap() async throws -> ChallengeMap
+    /// Freezes a full run plan (`status = issued`). The clock does not start yet.
+    func issueChallengeRun(chapterNo: Int, levelNo: Int) async throws -> ChallengeRunPlan
+    /// Idempotent. The client starts its clock only after this answers.
+    func startChallengeRun(runID: String) async throws
+    /// `body` is sent as is: a retried commit must repeat the first attempt's bytes.
+    func commitChallengeRun(runID: String, body: Data) async throws -> ChallengeCommitResponse
+    func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus
+    /// Abandons an issued run, or settles an orphaned started one with 0 stars.
+    func quitChallengeRun(runID: String) async throws
 }
 
 extension VocabAPI {
@@ -501,6 +513,43 @@ struct LiveVocabAPI: VocabAPI {
         try await client.send(get("sessions/\(sessionID)/commit-status"))
     }
 
+    func challengeMap() async throws -> ChallengeMap {
+        try await client.send(get("me/challenge-map"))
+    }
+
+    func issueChallengeRun(chapterNo: Int, levelNo: Int) async throws -> ChallengeRunPlan {
+        try await client.send(emptyPost("challenge/chapters/\(chapterNo)/levels/\(levelNo)/runs"))
+    }
+
+    func startChallengeRun(runID: String) async throws {
+        // Idempotent on the server, so it may retry.
+        var request = emptyPost("challenge/runs/\(runID)/start")
+        request.retries = Self.commitRetries
+        _ = try await client.sendRaw(request)
+    }
+
+    func commitChallengeRun(runID: String, body: Data) async throws -> ChallengeCommitResponse {
+        var request = APIRequest(method: .post, path: "challenge/runs/\(runID)/commit")
+        request.body = body
+        request.retries = Self.commitRetries
+        return try await client.send(request)
+    }
+
+    func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus {
+        try await client.send(get("challenge/runs/\(runID)/status"))
+    }
+
+    func quitChallengeRun(runID: String) async throws {
+        _ = try await client.sendRaw(emptyPost("challenge/runs/\(runID)/quit"))
+    }
+
+    /// A POST whose body is `{}`.
+    private func emptyPost(_ path: String) -> APIRequest {
+        var request = APIRequest(method: .post, path: path)
+        request.body = Data("{}".utf8)
+        return request
+    }
+
     private func get(_ path: String) -> APIRequest {
         APIRequest(method: .get, path: path, retries: Self.readRetries)
     }
@@ -622,4 +671,11 @@ struct OfflineVocabAPI: VocabAPI {
     }
     func commitSession(sessionID: String, body: Data) async throws -> CommitResponse { throw APIError.transport }
     func commitStatus(sessionID: String) async throws -> CommitStatus { throw APIError.transport }
+
+    func challengeMap() async throws -> ChallengeMap { .preview }
+    func issueChallengeRun(chapterNo: Int, levelNo: Int) async throws -> ChallengeRunPlan { .sandbox() }
+    func startChallengeRun(runID: String) async throws {}
+    func commitChallengeRun(runID: String, body: Data) async throws -> ChallengeCommitResponse { throw APIError.transport }
+    func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus { throw APIError.transport }
+    func quitChallengeRun(runID: String) async throws {}
 }

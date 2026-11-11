@@ -25,7 +25,7 @@ enum MainTab: CaseIterable, Hashable {
 enum ShellPage: Hashable {
     case settings
     case randomPractice
-    case journey
+    case challengeMap
 }
 
 /// Plan editors Profile presents as bottom sheets.
@@ -40,10 +40,12 @@ enum PlanSheet: String, Identifiable {
 struct MainShellView: View {
     @Environment(LearningPlanStore.self) private var plan
     @Environment(LearnerStore.self) private var learner
+    @Environment(ChallengeMapStore.self) private var challengeMap
+    @Environment(ChallengeRunStore.self) private var challengeRun
     @Environment(\.motion) private var motion
     /// Owned by the root: the route swap unmounts this view during a session, and closing one returns to this tab.
     @Binding var tab: MainTab
-    /// Owned by the root: a session started from the Journey comes back to it.
+    /// Owned by the root: a session or challenge started from the Challenge Map comes back to it.
     @Binding var homePath: [ShellPage]
     /// Owned by the root too: changing the language rebuilds this view, and Settings must stay open.
     @Binding var profilePath: [ShellPage]
@@ -68,12 +70,18 @@ struct MainShellView: View {
         }
         .tint(Color.interactive)
         .minimizingTabBarOnScroll()
-        .task { await learner.refresh() }
+        .task {
+            async let learnerRefresh: Void = learner.refresh()
+            async let mapRefresh: Void = challengeMap.refresh()
+            // Settles a run the app was killed in; it refreshes the map again once done.
+            await challengeRun.recoverPendingRun()
+            _ = await (learnerRefresh, mapRefresh)
+        }
     }
 
     private var homeStack: some View {
         NavigationStack(path: $homePath) {
-            HomeView(onOpenJourney: { homePath.append(.journey) })
+            HomeView(onOpenChallengeMap: { homePath.append(.challengeMap) })
                 .background(Color.canvas)
                 // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
                 .navigationTitle(MainTab.home.title)
@@ -135,8 +143,8 @@ struct MainShellView: View {
             RandomPracticeView()
                 .toolbar(.hidden, for: .tabBar)
                 .iconOnlyBackButton()
-        case .journey:
-            JourneyView()
+        case .challengeMap:
+            ChallengeMapView()
                 .toolbar(.hidden, for: .tabBar)
                 .iconOnlyBackButton()
         }

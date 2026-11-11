@@ -197,6 +197,8 @@ Dùng SF Symbols, nét đậm vừa, luôn đi kèm nhãn hoặc mô tả cho Vo
 
 Thành phần trung tâm của bài học. Cao tối thiểu 60pt, chữ căn giữa, cạnh dày 3pt. Thẻ đáp án ở Chọn đáp án và Nối cặp dùng cỡ chữ Choice để đáp án đủ nổi bật và dễ nhớ; các thẻ khác dùng cỡ Tile.
 
+Bảng nối cặp (template Match và Match Madness) dùng chung kích thước: cao tối thiểu 84pt (`Spacing.matchTileMinHeight`) cho dễ chạm khi chơi nhanh. Mọi thẻ trên bảng cao bằng thẻ cao nhất để hai cột thẳng hàng. Ở Match Madness, cặp đúng chuyển trạng thái Đúng một nhịp ngắn rồi mờ đi; cặp mới hiện dần vào đúng chỗ cũ, bố cục không nhảy.
+
 | Trạng thái | Giao diện |
 |---|---|
 | Bình thường | Nền trắng, viền xám 1.5pt |

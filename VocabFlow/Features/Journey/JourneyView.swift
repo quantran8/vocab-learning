@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /// The continuous Journey: every segment is seven learning sessions and one review, scrolled vertically with
-/// the future above and history below. Nodes sit left and right on an imagined S curve; nothing joins them.
+/// the future above and history below. Nodes sit on one snake path (`JourneySnakeLayout`); the stretch already
+/// travelled is coloured up to the current node.
 /// The server decides each node's state; this screen only draws it and starts the current step.
 struct JourneyView: View {
     @Environment(LearnerStore.self) private var learner
@@ -65,9 +66,7 @@ struct JourneyView: View {
                         }
 
                         if let journey = learner.journey {
-                            ForEach(journey.segments) { segment in
-                                segmentView(segment, focusID: journey.focusNodeId, viewport: viewport.size)
-                            }
+                            mapView(journey.segments, anchor: journey.currentSegmentNo, focusID: journey.focusNodeId, viewport: viewport.size)
                             if journey.hasMoreHistory {
                                 ProgressView()
                                     .padding(.vertical, Spacing.l)
@@ -80,7 +79,7 @@ struct JourneyView: View {
                             .frame(height: viewport.size.height * 0.6)
                         } else {
                             // A fixed placeholder; it never guesses a completed state.
-                            segmentView(.placeholder(sessions: learner.home?.checkpointSessionsRequired ?? 7), focusID: nil, viewport: viewport.size)
+                            mapView([.placeholder(sessions: learner.home?.checkpointSessionsRequired ?? 7)], anchor: nil, focusID: nil, viewport: viewport.size)
                                 .redacted(reason: .placeholder)
                                 .allowsHitTesting(false)
                         }
@@ -150,63 +149,50 @@ struct JourneyView: View {
         .padding(.bottom, Spacing.m)
     }
 
-    // MARK: Segments
+    // MARK: Map
 
-    /// Review at the top, session 1 at the bottom: the learner climbs. The label sits where the segment starts.
-    private func segmentView(_ segment: JourneySegment, focusID: String?, viewport: CGSize) -> some View {
-        // Narrow screens (or large text) swing the curve less; hit targets never shrink.
-        let swing = min(JourneyLayout.maxOffset, max(0, (viewport.width - Spacing.screenGutter * 2 - JourneyNodeView.reviewSize) / 2 - Spacing.s))
-        return VStack(spacing: 0) {
-            ForEach(segment.nodes.reversed()) { node in
-                nodeRow(node, isFocus: node.id == focusID, swing: swing, viewport: viewport)
+    /// One snake for every loaded segment, so the path runs on across segment boundaries.
+    private func mapView(_ segments: [JourneySegment], anchor: Int?, focusID: String?, viewport: CGSize) -> some View {
+        let layout = JourneySnakeLayout(segments: segments, anchorSegmentNo: anchor, width: viewport.width - Spacing.screenGutter * 2)
+        return ZStack(alignment: .topLeading) {
+            JourneySnakeTrack(layout: layout)
+
+            ForEach(layout.labels) { label in
+                JourneySegmentLabel(segment: label.segment)
+                    .position(label.center)
             }
-            segmentLabel(segment)
-                .padding(.top, Spacing.s)
-                .padding(.bottom, Spacing.xl)
+            ForEach(layout.nodes) { placed in
+                nodeView(placed.node, isFocus: placed.id == focusID, viewport: viewport)
+                    // The face, not the frame (which includes the depth edge), sits on the path.
+                    .position(x: placed.center.x, y: placed.center.y + Spacing.buttonDepth / 2)
+                    .zIndex(hint?.nodeID == placed.id ? 1 : 0)
+            }
         }
+        .frame(width: layout.size.width, height: layout.size.height)
+        .frame(maxWidth: .infinity)
     }
 
-    private func nodeRow(_ node: JourneyNode, isFocus: Bool, swing: Double, viewport: CGSize) -> some View {
-        let offset = JourneyLayout.offset(segmentNo: node.segmentNo, ordinal: node.ordinal, limit: swing)
-        let height = node.type == .review ? JourneyLayout.pitch + 24 : JourneyLayout.pitch
-        return ZStack {
-            JourneyNodeView(node: node) { tap(node) }
-                .overlay(alignment: .bottom) {
-                    if hint?.nodeID == node.id, let hint {
-                        hintBubble(hint.kind.text)
-                            .fixedSize()
-                            .offset(y: 34)
-                            .transition(motion.popTransition)
-                    }
+    private func nodeView(_ node: JourneyNode, isFocus: Bool, viewport: CGSize) -> some View {
+        JourneyNodeView(node: node) { tap(node) }
+            .overlay(alignment: .bottom) {
+                if hint?.nodeID == node.id, let hint {
+                    hintBubble(hint.kind.text)
+                        .fixedSize()
+                        .offset(y: 34)
+                        .transition(motion.popTransition)
                 }
-                .offset(x: offset)
-        }
-        .frame(maxWidth: .infinity, minHeight: height)
-        .id(node.id)
-        .zIndex(hint?.nodeID == node.id ? 1 : 0)
-        .onGeometryChange(for: Bool.self) { proxy in
-            let frame = proxy.frame(in: .named(Self.scrollSpace))
-            return frame.maxY > 0 && frame.minY < viewport.height
-        } action: { visible in
-            guard isFocus else { return }
-            motion.perform(MotionTokens.press) { focusVisible = visible }
-        }
-        .onDisappear {
-            if isFocus { focusVisible = false }
-        }
-    }
-
-    private func segmentLabel(_ segment: JourneySegment) -> some View {
-        Text("Segment \(segment.segmentNo)")
-            .font(Typography.eyebrow)
-            .tracking(Typography.eyebrowTracking)
-            .textCase(.uppercase)
-            .foregroundStyle(segment.status == .active ? Color.ink : Color.mutedInk)
-            .padding(.horizontal, Spacing.s)
-            .padding(.vertical, Spacing.xxs + 2)
-            .background(Color.quietSurface, in: Capsule())
-            .overlay(Capsule().strokeBorder(Color.stroke, lineWidth: 1))
-            .accessibilityAddTraits(.isHeader)
+            }
+            .id(node.id)
+            .onGeometryChange(for: Bool.self) { proxy in
+                let frame = proxy.frame(in: .named(Self.scrollSpace))
+                return frame.maxY > 0 && frame.minY < viewport.height
+            } action: { visible in
+                guard isFocus else { return }
+                motion.perform(MotionTokens.press) { focusVisible = visible }
+            }
+            .onDisappear {
+                if isFocus { focusVisible = false }
+            }
     }
 
     private func hintBubble(_ text: LocalizedStringKey) -> some View {

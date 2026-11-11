@@ -14,6 +14,8 @@ struct VocabFlowApp: App {
     @State private var practice: PracticeSessionStore
     @State private var customWords: CustomWordStore
     @State private var placement: PlacementTestStore
+    @State private var challengeMap: ChallengeMapStore
+    @State private var challengeRun: ChallengeRunStore
 
     init() {
         SystemBackButton.configureAppearance()
@@ -35,8 +37,13 @@ struct VocabFlowApp: App {
         customWords.onRoadmapChanged = { [learner] in await learner.refresh() }
         let placement = PlacementTestStore(api: api, haptics: haptics)
         placement.onPlaced = { [learner] in await learner.reloadProfile() }
-        auth.onSignedOut = { [learner, practice, onboarding, customWords, placement] in
+        let challengeMap = ChallengeMapStore(api: api)
+        let challengeRun = ChallengeRunStore(api: api, haptics: haptics)
+        challengeRun.onSettled = { [challengeMap] in await challengeMap.refresh() }
+        auth.onSignedOut = { [learner, practice, onboarding, customWords, placement, challengeMap, challengeRun] in
             placement.cancel()
+            challengeRun.reset()
+            challengeMap.reset()
             practice.close()
             learner.reset()
             onboarding.reset()
@@ -64,6 +71,8 @@ struct VocabFlowApp: App {
         _practice = State(initialValue: practice)
         _customWords = State(initialValue: customWords)
         _placement = State(initialValue: placement)
+        _challengeMap = State(initialValue: challengeMap)
+        _challengeRun = State(initialValue: challengeRun)
         _store = State(initialValue: store)
         _sandbox = State(initialValue: TemplateSandboxStore(
             templates: repository.loadLabOrFail().templates,
@@ -87,6 +96,8 @@ struct VocabFlowApp: App {
                 .environment(practice)
                 .environment(customWords)
                 .environment(placement)
+                .environment(challengeMap)
+                .environment(challengeRun)
         }
     }
 }

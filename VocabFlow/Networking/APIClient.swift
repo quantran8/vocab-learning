@@ -207,7 +207,10 @@ actor APIClient {
         guard let body = try? JSONDecoder().decode(ErrorBody.self, from: data) else {
             return .server(status: status, code: "HTTP_\(status)", message: "", retryable: status >= 500, requestID: nil)
         }
-        return .server(status: status, code: body.code, message: body.message, retryable: body.retryable, requestID: body.requestId)
+        return .server(
+            status: status, code: body.code, message: body.message, retryable: body.retryable, requestID: body.requestId,
+            details: body.details?.mapValues(\.text)
+        )
     }
 
     private struct ErrorBody: Decodable {
@@ -215,6 +218,27 @@ actor APIClient {
         let message: String
         let retryable: Bool
         let requestId: String?
+        let details: [String: Scalar]?
+    }
+
+    /// A `details` value read as text, whatever JSON scalar it is. Nested values are dropped.
+    private struct Scalar: Decodable {
+        let text: String
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let value = try? container.decode(String.self) {
+                text = value
+            } else if let value = try? container.decode(Int.self) {
+                text = String(value)
+            } else if let value = try? container.decode(Double.self) {
+                text = String(value)
+            } else if let value = try? container.decode(Bool.self) {
+                text = String(value)
+            } else {
+                text = ""
+            }
+        }
     }
 
     private struct RefreshRequest: Encodable {

@@ -44,10 +44,7 @@ struct PracticeSessionView: View {
 
     private var emptyMessage: Text {
         if store.isWeakPractice { return Text("Skills you need to practice again will show up here.") }
-        // While a review waits, Daily plans carry no new words (the Journey's next segment opens after it).
-        if store.isDaily, (learner.home?.checkpointAvailable ?? 0) > 0 {
-            return Text("Finish your review to unlock new words.")
-        }
+        // No checkpoint gate any more: an old pending review never shows Daily as blocked.
         // The backend drops skills the device can't train, so only audio-bound choices can come back empty for that reason.
         let skills = Set(store.practiceSkills ?? [])
         if skills == [.speaking], !store.canRecord {
@@ -183,8 +180,8 @@ private struct ReviewPreviewView: View {
                 .foregroundStyle(Color.mutedInk)
                 .padding(.top, Spacing.xs)
 
-                // Between the intro and the list: he scans the words as they fly in (left to right, looping), and once
-                // every word has landed he finishes the sweep he's on and nods he's ready, then idles (scrolling
+                // Between the intro and the list: he scans the words as they fly in (left to right, looping) and nods
+                // he's ready the moment the last word lands, then idles (scrolling
                 // doesn't retrigger it, and it never repeats while the screen is up).
                 SyllieReactionView(reaction: syllieReaction)
                     .frame(width: 150, height: 118)
@@ -219,17 +216,15 @@ private struct ReviewPreviewView: View {
         }
     }
 
-    /// Syllie scans the list while the words fly in. Once they've settled he finishes the sweep he's on (the loop
-    /// ends with his eyes centred, the nod's first pose) and nods he's ready.
+    /// Syllie scans the list from the moment the words start flying in and nods the moment the last one lands.
+    /// The nod has to start on a loop boundary (each `reviewWatch` loop ends with his eyes centred, the nod's first
+    /// pose), so the entrance is timed to last whole loops (`entranceTiming`) rather than the other way round.
     private func scanWhenSettled() async {
         guard hasLanded else { return }
         if !motion.reduceMotion {
             syllieReaction = .reviewWatch
-            let loop = SyllieMood.reviewWatchLoop
-            let settled = entranceDuration + MotionTokens.reviewSettle
-            let loopsNeeded = max(1, (settled / loop).rounded(.up))
             do {
-                try await Task.sleep(for: .seconds(loopsNeeded * loop))
+                try await Task.sleep(for: .seconds(entranceTiming.total))
             } catch {
                 return
             }
@@ -240,7 +235,7 @@ private struct ReviewPreviewView: View {
     /// After the entrance, a random word stirs every so often until the screen goes away.
     private func wiggleWords() async {
         guard hasLanded, !motion.reduceMotion else { return }
-        try? await Task.sleep(for: .seconds(entranceDuration + MotionTokens.reviewSettle))
+        try? await Task.sleep(for: .seconds(entranceTiming.total))
         while !Task.isCancelled {
             if let word = words.randomElement() {
                 wiggles[word.id, default: 0] += 1
@@ -249,11 +244,30 @@ private struct ReviewPreviewView: View {
         }
     }
 
-    private var entranceDuration: Double {
-        switch entrance {
-        case .scattered: Double(words.count) * MotionTokens.reviewTileStagger
-        case .wordTrain: Double(words.count) * MotionTokens.reviewTrainStagger
+    /// When each word starts flying in: after `lead`, one every `stagger`. Picked so the last word comes to rest
+    /// (its delay + its own landing) after a whole number of `reviewWatch` loops, at least one. The stagger
+    /// stretches or shrinks a little from its token to get there; whatever is left is a short lead before the
+    /// first word.
+    private var entranceTiming: (lead: Double, stagger: Double, total: Double) {
+        let (base, settle): (Double, Double) = switch entrance {
+        case .scattered: (MotionTokens.reviewTileStagger, MotionTokens.reviewTileSettle)
+        case .wordTrain: (MotionTokens.reviewTrainStagger, MotionTokens.reviewTrainSettle)
         }
+        let loop = SyllieMood.reviewWatchLoop
+        let gaps = Double(max(words.count - 1, 0))
+        var loops = max(1, ((gaps * base + settle) / loop).rounded())
+        while true {
+            let total = loops * loop
+            let stagger = gaps > 0 ? min(max((total - settle) / gaps, base * 0.6), base * 2) : base
+            let lead = total - settle - gaps * stagger
+            if lead >= 0 { return (lead, stagger, total) }
+            loops += 1
+        }
+    }
+
+    private func entranceDelay(_ index: Int) -> Double {
+        let timing = entranceTiming
+        return timing.lead + Double(index) * timing.stagger
     }
 
     @ViewBuilder
@@ -261,21 +275,22 @@ private struct ReviewPreviewView: View {
         switch entrance {
         case .scattered:
             let tilt: Double = motion.reduceMotion ? 0 : (index.isMultiple(of: 2) ? -12 : 12)
+            let delay = entranceDelay(index)
+            // The fade is quick and separate from the flight, so a tile is solid for most of its way in instead of
+            // drifting in half-transparent for the whole spring.
             tileFace(Text(verbatim: word.lemma))
+                .opacity(hasLanded ? 1 : 0)
+                .animation(motion.animation(MotionTokens.reviewTileFade.delay(delay)), value: hasLanded)
                 .rotationEffect(.degrees(hasLanded ? 0 : tilt))
                 .offset(hasLanded ? .zero : flyInOrigin(index))
-                .opacity(hasLanded ? 1 : 0)
-                .animation(
-                    motion.animation(MotionTokens.reviewTileLanding.delay(Double(index) * MotionTokens.reviewTileStagger)),
-                    value: hasLanded
-                )
+                .animation(motion.animation(MotionTokens.reviewTileLanding.delay(delay)), value: hasLanded)
         case .wordTrain:
             // All come from the same side, so each word follows the tail of the one before.
             tileFace(Text(verbatim: word.lemma))
                 .offset(hasLanded || motion.reduceMotion ? .zero : trainOrigin)
                 .opacity(hasLanded ? 1 : 0)
                 .animation(
-                    motion.animation(MotionTokens.reviewTrainLanding.delay(Double(index) * MotionTokens.reviewTrainStagger)),
+                    motion.animation(MotionTokens.reviewTrainLanding.delay(entranceDelay(index))),
                     value: hasLanded
                 )
         }
@@ -296,6 +311,9 @@ private struct ReviewPreviewView: View {
             .overlay(shape.strokeBorder(Color.stroke, lineWidth: 1.5))
             .background(shape.fill(Color.tileDepth).offset(y: Spacing.tileDepth))
             .padding(.bottom, Spacing.tileDepth)
+            // Flattened into one layer: the entrance and the wiggle then only move a bitmap instead of redrawing
+            // the face, stroke and depth of every tile on every frame while they all fly at once.
+            .drawingGroup()
     }
 }
 

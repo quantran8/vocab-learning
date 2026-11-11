@@ -8,10 +8,11 @@ struct AppRootView: View {
     @Environment(AuthStore.self) private var auth
     @Environment(LearnerStore.self) private var learner
     @Environment(PracticeSessionStore.self) private var practice
+    @Environment(ChallengeRunStore.self) private var challengeRun
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shellTab: MainTab = .home
     @State private var profilePath: [ShellPage] = []
-    /// Kept across the route swap, so a session started from the Journey returns to it.
+    /// Kept across the route swap, so a session or challenge started from the Challenge Map returns to it.
     @State private var homePath: [ShellPage] = []
     /// Set once the splash has been up for `MotionTokens.splashHold`.
     @State private var splashHeld = false
@@ -87,6 +88,10 @@ struct AppRootView: View {
         if practice.isActive {
             return .practice(token: practice.sessionToken)
         }
+        // Before the Lab: the Lab's Match Madness rounds run here too, and closing one returns to the Lab.
+        if challengeRun.isActive {
+            return .challenge(token: challengeRun.runToken)
+        }
         if sandbox.isOpen {
             return .lab(template: sandbox.activeTemplate)
         }
@@ -123,6 +128,8 @@ struct AppRootView: View {
             OnboardingView()
         } else if practice.isActive {
             PracticeSessionView()
+        } else if challengeRun.isActive {
+            MatchMadnessGameView()
         } else if sandbox.isOpen {
             if sandbox.activeTemplate != nil {
                 LabTaskView()
@@ -146,6 +153,7 @@ private enum RouteID: Hashable {
     case language
     case onboarding
     case practice(token: UUID)
+    case challenge(token: UUID)
     case home(token: UUID)
     case flow(token: UUID)
     case results(token: UUID)
@@ -180,4 +188,6 @@ private enum RouteID: Hashable {
         ))
         .environment(CustomWordStore(api: OfflineVocabAPI(), audio: SilentAudioClips()))
         .environment(PlacementTestStore(api: OfflineVocabAPI(), haptics: NoOpFeedback()))
+        .environment(ChallengeMapStore(api: OfflineVocabAPI()))
+        .environment(ChallengeRunStore(api: OfflineVocabAPI(), haptics: NoOpFeedback(), defaults: nil))
 }

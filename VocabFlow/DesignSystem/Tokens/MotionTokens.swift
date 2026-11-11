@@ -16,7 +16,7 @@ enum MotionTokens {
     static let shake = Animation.linear(duration: 0.4)
     /// Time for an answer's own feedback (tile shake / colour, the feedback panel sliding in, Match's wrong-pair
     /// flash) to finish; Syllie reacts to the answer only after it.
-    static let answerFeedbackSettle: Double = 0.3
+    static let answerFeedbackSettle: Double = 0.1
     /// Time for the system keyboard to slide down, before an answer typed on it is checked.
     static let keyboardDismiss: Double = 0.3
     /// One wave of `SpeakerWaveIcon` appearing, and the time between waves while it plays.
@@ -47,12 +47,15 @@ enum MotionTokens {
     static let introChunkHold: Double = 0.45
 
     // Review list before a session (visual only — never a navigation gate)
-    static let reviewTileLanding = Animation.spring(response: 0.78, dampingFraction: 0.76)
+    static let reviewTileLanding = Animation.spring(response: 0.55, dampingFraction: 0.74)
+    /// Fade-in of a scattered tile, run alongside (not as part of) its landing spring.
+    static let reviewTileFade = Animation.easeOut(duration: 0.16)
     static let reviewTileStagger: Double = 0.11
     static let reviewTrainLanding = Animation.spring(response: 0.42, dampingFraction: 0.9)
     static let reviewTrainStagger: Double = 0.2
-    /// Time for the last word to come to rest after its entrance starts.
-    static let reviewSettle: Double = 0.9
+    /// Time for one word to visibly come to rest after its own landing starts (keep in sync with the springs above).
+    static let reviewTileSettle: Double = 0.6
+    static let reviewTrainSettle: Double = 0.45
     static let reviewWigglePause: ClosedRange<Double> = 1.1...2.4
     static let streamCharacter: Double = 0.022
 

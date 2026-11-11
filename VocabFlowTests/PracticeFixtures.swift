@@ -178,6 +178,46 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
         guard let status else { throw APIError.transport }
         return status
     }
+
+    // Challenge
+    var challengeMapResult: Result<ChallengeMap, APIError> = .failure(.transport)
+    private(set) var challengeMapCalls = 0
+    var issueResults: [Result<ChallengeRunPlan, APIError>] = []
+    private(set) var issuedRuns: [ChallengeNodeRef] = []
+    var startResults: [Result<Void, APIError>] = []
+    private(set) var startedRuns: [String] = []
+    var challengeCommitResults: [Result<ChallengeCommitResponse, APIError>] = []
+    private(set) var challengeCommitBodies: [Data] = []
+    var runStatus: Result<ChallengeRunStatus, APIError> = .failure(.transport)
+    private(set) var statusRequests: [String] = []
+    private(set) var quitRuns: [String] = []
+
+    func challengeMap() async throws -> ChallengeMap {
+        challengeMapCalls += 1
+        return try challengeMapResult.get()
+    }
+
+    func issueChallengeRun(chapterNo: Int, levelNo: Int) async throws -> ChallengeRunPlan {
+        issuedRuns.append(ChallengeNodeRef(chapterNo: chapterNo, levelNo: levelNo))
+        return try issueResults.removeFirst().get()
+    }
+
+    func startChallengeRun(runID: String) async throws {
+        startedRuns.append(runID)
+        if !startResults.isEmpty { try startResults.removeFirst().get() }
+    }
+
+    func commitChallengeRun(runID: String, body: Data) async throws -> ChallengeCommitResponse {
+        challengeCommitBodies.append(body)
+        return try challengeCommitResults.removeFirst().get()
+    }
+
+    func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus {
+        statusRequests.append(runID)
+        return try runStatus.get()
+    }
+
+    func quitChallengeRun(runID: String) async throws { quitRuns.append(runID) }
 }
 
 final class StubTranscriber: SpeechTranscribing {

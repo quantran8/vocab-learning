@@ -271,7 +271,7 @@ final class TaskAttemptTests: XCTestCase {
             (.submitRepair([RepairEdit(graphemeIndex: 4, replacement: "")]), ["seq": 1, "action": "submit", "graphemeIndex": 4, "replacement": ""]),
             (
                 .submitRepair([RepairEdit(graphemeIndex: 1, replacement: "a"), RepairEdit(graphemeIndex: 4, replacement: "")]),
-                ["seq": 1, "action": "submit", "edits": [["graphemeIndex": 1, "replacement": "a"], ["graphemeIndex": 4, "replacement": ""]]]
+                ["seq": 1, "action": "submit", "edits": [["graphemeIndex": 1, "replacement": "a"], ["graphemeIndex": 4, "replacement": ""]] as [[String: AnyHashable]]]
             ),
             (.pair(leftID: 1, rightID: 5), ["seq": 1, "action": "pair", "leftId": 1, "rightId": 5]),
             (.tapTile(1), ["seq": 1, "action": "tap_tile", "tileId": 1]),

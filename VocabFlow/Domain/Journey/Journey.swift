@@ -17,15 +17,6 @@ struct Journey: Decodable, Equatable {
         segments.lazy.flatMap(\.nodes).first { $0.id == focusNodeId }
     }
 
-    /// Nodes for the Home preview, oldest first: `behind` nodes before the current one, then it and the next ones,
-    /// `count` in all. Crosses segment boundaries, so just after a review it shows that (completed) review too.
-    func nodesAroundFocus(count: Int = 4, behind: Int = 1) -> [JourneyNode] {
-        let all = segments.sorted { $0.segmentNo < $1.segmentNo }.flatMap(\.nodes)
-        guard let focus = all.firstIndex(where: { $0.id == focusNodeId }) else { return Array(all.prefix(count)) }
-        let start = max(0, min(focus - behind, all.count - count))
-        return Array(all[start..<min(all.count, start + count)])
-    }
-
     /// Adds an older history page below, skipping segments already shown.
     func appendingHistory(_ page: Journey) -> Journey {
         let known = Set(segments.map(\.segmentNo))
@@ -79,24 +70,6 @@ struct ReviewResult: Decodable, Equatable {
     let reviewedCount: Int
     let unaidedRecalledCount: Int
     let needsReviewCount: Int
-}
-
-/// Horizontal placement of Journey nodes along an imagined S curve; nothing is drawn between them.
-enum JourneyLayout {
-    /// Index stride per segment: the largest segment (7 sessions + review), so a node keeps its place on the
-    /// curve whatever the learner's weekly goal.
-    static let maxNodesPerSegment = 8
-    static let maxOffset: Double = 66
-    /// Vertical distance between node centres.
-    static let pitch: Double = 108
-
-    /// Continuous over the whole Journey (it never restarts at a segment), clamped to `limit`.
-    static func offset(segmentNo: Int, ordinal: Int, limit: Double = maxOffset) -> Double {
-        let index = Double((segmentNo - 1) * maxNodesPerSegment + ordinal - 1)
-        let raw = 54 * sin(index * 0.70) + 12 * sin(index * 0.27)
-        let bound = min(maxOffset, max(0, limit))
-        return min(bound, max(-bound, raw * bound / maxOffset))
-    }
 }
 
 extension JourneySegment {

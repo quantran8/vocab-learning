@@ -7,7 +7,7 @@ struct MatchTaskView: View {
     @State private var selectedLeftID: Int?
     @State private var selectedRightID: Int?
     /// Tallest tile face seen so far; every tile uses it so both columns line up.
-    @State private var tileHeight: CGFloat = Spacing.tileMinHeight
+    @State private var tileHeight: CGFloat = Spacing.matchTileMinHeight
     /// The pair that just missed: both tiles show the error and shake briefly, then return to normal.
     @State private var flashingPair: PairKey?
     @State private var shakePhase: CGFloat = 0

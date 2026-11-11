@@ -2,25 +2,31 @@ import Foundation
 
 enum APIError: Error, Equatable {
     /// The backend answered with its `{code, message, retryable, requestId}` error body.
-    case server(status: Int, code: String, message: String, retryable: Bool, requestID: String?)
+    /// `details` holds the body's flat `details` object as strings (e.g. `runId`), when there is one.
+    case server(status: Int, code: String, message: String, retryable: Bool, requestID: String?, details: [String: String]? = nil)
     /// No usable answer arrived, so the request may or may not have taken effect.
     case transport
     /// The answer doesn't match the contract, including a template this build can't render.
     case invalidResponse
 
     var code: String? {
-        if case .server(_, let code, _, _, _) = self { return code }
+        if case .server(_, let code, _, _, _, _) = self { return code }
+        return nil
+    }
+
+    func detail(_ key: String) -> String? {
+        if case .server(_, _, _, _, _, let details) = self { return details?[key] }
         return nil
     }
 
     var status: Int? {
-        if case .server(let status, _, _, _, _) = self { return status }
+        if case .server(let status, _, _, _, _, _) = self { return status }
         return nil
     }
 
     var isRetryable: Bool {
         switch self {
-        case .server(_, _, _, let retryable, _): retryable
+        case .server(_, _, _, let retryable, _, _): retryable
         case .transport: true
         case .invalidResponse: false
         }
@@ -32,7 +38,7 @@ enum APIError: Error, Equatable {
             String(localized: "Can’t reach Syll. Check your connection and try again.", bundle: .appLanguage)
         case .invalidResponse:
             String(localized: "Something went wrong on our side. Please try again later.", bundle: .appLanguage)
-        case .server(_, let code, let message, _, let requestID):
+        case .server(_, let code, let message, _, let requestID, _):
             switch code {
             case "EMAIL_ALREADY_REGISTERED":
                 String(localized: "This email already has an account. Try logging in.", bundle: .appLanguage)

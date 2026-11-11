@@ -12,6 +12,8 @@ enum Spacing {
     static let minTouchTarget: CGFloat = 44
     static let audioButton: CGFloat = 52
     static let tileMinHeight: CGFloat = 60
+    /// Match boards (Practice match, Match Madness): taller than a choice tile, easier to hit at speed.
+    static let matchTileMinHeight: CGFloat = 84
     /// Sign in with Apple / Google buttons, the same height as `PrimaryButton`.
     static let socialButtonHeight: CGFloat = 52
     static let tileDepth: CGFloat = 3
