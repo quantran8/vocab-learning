@@ -5,6 +5,12 @@ struct Topic: Identifiable, Hashable {
     let id: String
     let name: String
     let systemImage: String
+    /// Distinct meanings learned and in total; nil until the backend's catalog arrives.
+    var learned: Int? = nil
+    var total: Int? = nil
+
+    /// Every meaning learned. Computed live, so a topic that gains content stops being finished.
+    var isFinished: Bool { (total ?? 0) > 0 && learned == total }
 }
 
 /// A vocabulary track such as Everyday or IELTS. Learners pick one, then any of its topics.
@@ -14,8 +20,11 @@ struct VocabCollection: Identifiable, Hashable {
     let summary: String
     let systemImage: String
     let topics: [Topic]
+    var learned: Int? = nil
+    var total: Int? = nil
 
     var topicIDs: Set<String> { Set(topics.map(\.id)) }
+    var isFinished: Bool { (total ?? 0) > 0 && learned == total }
 }
 
 /// The live taxonomy. `@Observable` so screens update when the backend's catalog arrives.
@@ -44,8 +53,11 @@ enum TopicCatalog {
                 summary: collection.description ?? "",
                 systemImage: icon(slug: collection.slug, fallback: "square.stack"),
                 topics: collection.topics.map { topic in
-                    Topic(id: topic.id, name: topic.title, systemImage: icon(slug: topic.slug, fallback: "tag"))
-                }
+                    Topic(id: topic.id, name: topic.title, systemImage: icon(slug: topic.slug, fallback: "tag"),
+                          learned: topic.learnedMeanings, total: topic.totalMeanings)
+                },
+                learned: collection.learnedMeanings,
+                total: collection.totalMeanings
             )
         }
     }

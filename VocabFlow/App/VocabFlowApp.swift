@@ -32,6 +32,7 @@ struct VocabFlowApp: App {
         let auth = AuthStore(api: api)
         let learner = LearnerStore(api: api, plan: plan)
         let practice = PracticeSessionStore(api: api, audio: AudioClipPlayer(), recorder: VoiceRecorder(), haptics: haptics, sounds: sounds)
+        practice.offersKnownCheck = { [settings] in settings.offersKnownCheck }
         let onboarding = OnboardingStore(plan: plan, api: api, haptics: haptics)
         let customWords = CustomWordStore(api: api, audio: AudioClipPlayer())
         customWords.onRoadmapChanged = { [learner] in await learner.refresh() }

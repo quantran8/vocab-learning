@@ -72,9 +72,23 @@ Sau lần đăng nhập đầu, người dùng chọn ngôn ngữ giao diện (E
 
 ## 4. Home (`Features/Home/HomeView.swift`)
 
-- **Daily Lesson:** số từ cần ôn và số từ mới mỗi buổi, nút "Start" (có từ cần ôn) hoặc "Start Flow". Khi có Tổng ôn đang chờ, hiện ghi chú "New words resume after your review" vì backend tạm khóa từ mới.
+- **Daily Lesson** (trạng thái lấy từ `DailyLessonStatus`, tính từ khối `scope` và `reviewLoad` của learn-home):
+  - Hai số: từ cần ôn, và số từ mới thực nhận hôm nay (`effectiveNewPerSession`). Nút "Start" (có từ cần ôn) hoặc "Start Flow".
+  - Các dòng nhỏ giải thích khi số từ mới ít hơn goal:
+    - còn ít hơn một chặng: "Còn 12 từ mới, khoảng 3 buổi", kèm link "Thêm Topic";
+    - scope chỉ còn ít hơn số từ đã chọn: "Hôm nay còn 3 từ mới trong Travel";
+    - đang giảm tạm thời: "Hôm nay 2 từ mới (bạn đang giảm tạm thời đến …)";
+    - Tự cân bằng đang giảm số từ mới.
+  - **Nợ ôn:** khi có hơn 10 từ chờ ôn thì hiện dòng "34 từ chờ ôn" và nút **"Ôn thêm"** (một daily chỉ ôn).
+  - **Hết từ mới:**
+    - Không còn từ tự thêm: thẻ báo đã học hết từ mới trong các Topic đang chọn. Các nút là "Ôn N từ" (nếu có từ đến hạn) hoặc "Luyện tập" (mở Random Practice), cùng "Chọn Topic" và "Đổi Collection" (mở sheet Focus).
+    - Còn từ tự thêm: chỉ ghi "Hết từ mới trong Topic. Còn N từ bạn tự thêm" và vẫn Start bình thường.
+- **Màn lựa chọn khi nợ ôn nhiều** (`ReviewLoadChoiceSheet`): mở khi backend trả `promptChoice` (lần đầu từ 20 từ chờ ôn, hiện lại khi số từ gấp đôi).
+  - Tối đa một lần mỗi lần mở app, không bao giờ giữa session.
+  - Ba lựa chọn ngang hàng: Học như bình thường, Ôn thêm một buổi, Giảm từ mới tạm thời. Giảm tạm thời thì chọn số từ và thời hạn: đến hết Chủ Nhật, hoặc đến khi còn ≤ 10 từ chờ ôn.
+  - Đóng sheet bằng bất kỳ cách nào cũng gửi `POST /me/review-load/ack`, nên thiết bị khác không hỏi lại.
 - **Syllie trên Home** (`LessonMascot`, artboard `HomeSyllie`): đứng idle, chơi một cảnh ngẫu nhiên (tung chữ cái, đuổi máy bay giấy), rồi ngủ gật có "z z z". Chạm thì Syllie thức dậy và vòng lặp bắt đầu lại. Reduce Motion thì bỏ cảnh chơi.
-- **Challenge** (`ChallengeHomeCard`): thẻ gọn tóm tắt Challenge Map từ server (chưa đủ từ, chương sẵn sàng, đang chơi chương/level nào và số sao, đã xong chương, chương thiếu nội dung). Chạm mở Challenge Map. Thẻ không bao giờ ngụ ý Daily bị chặn và không có badge khẩn cấp.
+- **Challenge** (`ChallengeHomeCard`): thẻ gọn tóm tắt Challenge Map từ server (chưa đủ từ, chương sẵn sàng, đang chơi chương/level nào và số sao, đã xong chương, chương thiếu nội dung). Chạm mở Challenge Map. Thẻ không bao giờ ngụ ý Daily bị chặn và không có badge khẩn cấp. Khi đã hết từ mới (`newWordsBlockedReason = scope_exhausted`), Home hiện "Chọn Topic mới để tiếp tục hành trình" và các nút "học thêm" của thẻ mở sheet Focus thay vì plan daily.
 - Kéo để làm mới (`learner.refresh()`).
 
 ## 5. Practice session (`Features/Practice/`)
@@ -85,9 +99,10 @@ Mọi lượt học thật đều là một **session backend**: plan → làm t
 
 | Mode | Mở từ | Nội dung |
 |---|---|---|
-| `daily` | Home | Ôn từ đến hạn (tối đa 10) rồi học từ mới (tối đa số từ/buổi) |
+| `daily` | Home | Ôn từ đến hạn (tối đa 10, **mọi từ đã học**, không chỉ scope hiện tại) rồi học từ mới (tối đa số từ thực nhận/buổi) |
+| `daily` + `reviewOnly` | Home: "Ôn thêm", "Ôn N từ", màn lựa chọn | Chỉ ôn đến hạn, không từ mới, không chiếm slot Journey |
 | `checkpoint_challenge` | (không còn lối vào từ UI) | Tổng ôn các từ đã học trong chặng, chỉ dạng tự nhớ lại |
-| `random_practice` | My Words → Random Practice | Tối đa 10 từ đã học; trộn kỹ năng hoặc theo kỹ năng chọn |
+| `random_practice` | My Words → Random Practice | Tối đa 10 từ đã học; trộn kỹ năng hoặc theo kỹ năng chọn; nguồn từ: tất cả, một Collection, một Topic, hoặc từ tự thêm |
 | `weak_words_practice` | My Words | Các nghĩa có kỹ năng đang có vấn đề, luyện đúng kỹ năng đó |
 
 ### 5.2. Luồng một session (`PracticeSessionStore.Stage`)
@@ -95,7 +110,7 @@ Mọi lượt học thật đều là một **session backend**: plan → làm t
 ```text
 planning ──► empty (không có gì để học/ôn)
    │
-   ├─► reviewPreview  "Words to review": danh sách từ sắp ôn bay vào, Syllie dõi theo rồi gật đầu
+   ├─► reviewPreview  "Ôn từ bạn đã học": danh sách từ sắp ôn (kèm nhãn Topic) bay vào, Syllie dõi theo rồi gật đầu
    │
    ├─► running        từng step theo đúng thứ tự backend trả về
    │      ├─ learn     thẻ giới thiệu từ
@@ -109,7 +124,10 @@ planning ──► empty (không có gì để học/ôn)
        failed         planning / commit (retry được) / sessionLost (phải plan lại)
 ```
 
-- Khi plan daily chỉ có phần ôn, app commit phần ôn, rồi **plan tiếp một session daily** để vào thẳng từ mới, không quay về Home.
+- Khi plan daily chỉ có phần ôn, app commit phần ôn, rồi **plan tiếp một session daily** để vào thẳng từ mới, không quay về Home. Việc này **chỉ xảy ra khi `newWords.withheldReason == null`**. Có lý do bất kỳ (hết từ, đang giảm tạm thời, chỉ ôn...) thì plan lại cũng nhận cùng câu trả lời, nên session kết thúc luôn để tránh vòng lặp.
+- Plan rỗng vì hết từ mới (`withheldReason = scope_exhausted`) không hiện màn trống chung chung, mà hiện "Bạn đã học hết từ mới ở đây" kèm nút "Chọn Topic" và "Luyện tập".
+- Màn chuyển sang từ mới ghi "Giờ đến từ mới của Travel".
+- Màn session không mở được sheet của shell. Nó gọi `close(followUp:)`, và `MainShellView` đọc hành động đó (`consumeFollowUp()`) khi hiện lại: mở sheet Focus (chuyển sang tab Profile) hoặc Random Practice.
 - Thanh tiến độ chia theo phần (`SessionPartProgress`: review, newWords, practice).
 - Thoát giữa chừng thì không gửi gì; backend không ghi nhận gì, từ mới vẫn là "chưa học".
 
@@ -128,6 +146,13 @@ Từ mới chia nhóm tối đa 3 nghĩa. Mỗi nhóm: các thẻ Learn liên ti
 5. Select: chọn nghĩa lần nữa
 
 Từ người dùng tự thêm luôn được học trước từ của topic.
+
+**"Tôi biết từ này"** (thử nghiệm, bật ở Settings › "Bỏ qua từ đã biết"; plan gửi `knownCheck: true`):
+- Trước mỗi thẻ Learn có một task gõ từ (`phase: known_check`) với banner "Bạn đã biết từ này?".
+- Đúng ngay lần đầu, không gợi ý: bỏ qua thẻ Learn và các task chỉ kiểm riêng từ đó (`skippableTaskIds`). Lần ôn đầu của từ là sau 7 ngày.
+- Sai: học như bình thường, lần sai không bị tính là quên.
+- Nút "Học từ này": bỏ phần kiểm tra, không gửi kết quả của task đó.
+- Task nối cặp có cả từ khác vẫn phải làm.
 
 ### 5.5. Bảy template bài tập (`Features/Practice/Tasks/`)
 
@@ -168,7 +193,10 @@ Nút ghi âm "thở" khi nghỉ; vòng halo và sóng âm chỉ hiện khi mic n
 
 ### 5.8. Kết quả (`PracticeResultsView`)
 
-"Flow complete" hoặc "Review complete" (Tổng ôn), các số liệu tóm tắt từ commit (từ mới, nghĩa đã ôn, số task; Tổng ôn thêm số từ tự nhớ được và số cần ôn lại). Syllie bay vào, đáp xuống, nhún và lắc lư vui (artboard `Celebrate`); confetti Lottie bắt đầu ở `confettiCue` (~1,1 s).
+"Flow complete" hoặc "Review complete" (Tổng ôn), các số liệu tóm tắt từ commit (từ mới, từ bạn đã biết, nghĩa đã ôn, số task; Tổng ôn thêm số từ tự nhớ được và số cần ôn lại).
+- Commit có `scopeEvents` thì hiện thẻ "Bạn đã học hết Health" (Syllie `proud`), nút "Chọn Topic tiếp theo" và "Để sau".
+- Khi `collectionCompleted` thì hiện thẻ chúc mừng cả Collection.
+- Sự kiện được lưu trong commit response, nên retry không chúc mừng hai lần. Syllie bay vào, đáp xuống, nhún và lắc lư vui (artboard `Celebrate`); confetti Lottie bắt đầu ở `confettiCue` (~1,1 s).
 
 ## 6. Challenge Map và Match Madness (`Features/Challenge/`)
 
@@ -200,7 +228,9 @@ issuing ─► ready (màn "Start": mục tiêu, luật sao, gợi ý lần đ�
 
 - **Thống kê thư viện:** số từ đã học, số từ cần luyện (`GET /me/words/stats`).
 - **Ô luyện tập:** Random Practice (push sang màn chọn kỹ năng) và Weak Words practice.
-- **Random Practice** (`RandomPracticeView`): "All skills" (trộn) hoặc chọn một hay nhiều kỹ năng Reading / Writing / Listening / Speaking. Chưa plan gì cho tới khi bấm Start.
+- **Random Practice** (`RandomPracticeView`): "All skills" (trộn) hoặc chọn một hay nhiều kỹ năng Reading / Writing / Listening / Speaking.
+  - Mục **"Nguồn từ"**: Tất cả, một Collection đã học (chọn rồi thu hẹp được về một Topic), hoặc từ tự thêm. Mỗi lựa chọn kèm số từ đã học.
+  - Chưa plan gì cho tới khi bấm Start.
 - **Danh sách từ đã học**, mới nhất trước, phân trang tự động khi cuộn gần cuối, tìm theo từ tiếng Anh hoặc nghĩa (không phân biệt dấu). Mỗi dòng ghi "x / y nghĩa đã học".
 - **Chi tiết từ** (`WordDetailSheet`): mọi nghĩa nhóm theo loại từ, đã học hay chưa, định nghĩa, ví dụ, phát âm, và **trạng thái từng kỹ năng** của từng nghĩa:
 
@@ -232,12 +262,19 @@ Danh sách từ tự thêm: xem chi tiết, sửa nội dung riêng (nghĩa, đ�
 
 **Profile** (`Features/Profile/`): "My learning space" gồm level, collection và topic đang học (gọn lại "+N more"), số từ mới mỗi buổi, ngày học, nhắc học. Ba sheet chỉnh sửa: Level (kèm bài test), Focus (collection + topic), Routine (số từ/buổi, ngày học, giờ nhắc). Đóng sheet không lưu thì bỏ bản nháp.
 
+- **Sheet Focus:**
+  - Mỗi Topic hiện tiến độ "45/120". Topic đã học hết có nhãn "Đã học xong", xếp cuối, vẫn chọn được. Trạng thái này tính động, nên Topic được thêm nội dung sẽ có lại từ mới.
+  - Khi bản nháp bỏ một Topic đã học, footer giải thích rằng các từ đó vẫn được ôn và sẽ thưa dần.
+- **Routine:** công tắc "Tự cân bằng ôn và từ mới" (mặc định tắt). Khi đang giảm từ mới tạm thời thì hiện dòng "Đang giảm còn N từ mới" kèm nút **Hủy**. Đổi goal thì backend tự hủy phần giảm.
+- **Ôn tập:** liệt kê các Collection đã học ít nhất 1 từ, với công tắc "Ôn từ của Collection này". Active collection luôn được ôn, công tắc bị khóa. Tạm dừng thì từ chỉ thuộc Collection đó không vào daily, nợ ôn, Weak hay Random "Tất cả"; lịch ôn vẫn giữ nguyên.
+
 **Settings** (`Features/Settings/`):
 
 | Mục | Tác dụng |
 |---|---|
 | Haptics | Bật/tắt rung (`SettingsAwareFeedback`) |
 | Reduce motion | Giảm chuyển động trong app, cộng với cài đặt hệ thống |
+| Skip words I know | Thử nghiệm "Tôi biết từ này" trước mỗi từ mới (mặc định tắt, lưu trên máy) |
 | Language | Ngôn ngữ giao diện, áp dụng ngay |
 | Appearance | Chỉ light |
 | Practice Lab | Thử các template bài tập, không ảnh hưởng tiến trình |
@@ -327,6 +364,8 @@ Preview phải inject đủ bộ store bằng test double: `NoOpFeedback`, `Sile
 
 `SessionPlan` gồm `sessionId`, `mode`, `expiresAt` (72 h) và `steps` có thứ tự: `learn(id, card)` hoặc `practice(phase, task)`. **Template hoặc variant lạ làm hỏng cả plan, có chủ ý.** Plan rỗng (`sessionId: null`) → stage `empty`.
 
+Plan daily có thêm `newWords {requested, issued, withheldReason}` và `reviewWords`. `steps` được giải mã hai lần: một lần thành `[PlanStep]`, một lần để lấy trường phụ (`sourceTopic` theo task id; `knownCheckTaskId` và `skippableTaskIds` theo learn step). Nhờ vậy enum `PlanStep` giữ nguyên. Mọi trường mới đều tùy chọn khi giải mã, và enum lý do lạ giải mã thành `.unknown` (`LenientEnum`), nên backend cũ hay mới đều không làm hỏng plan.
+
 `capabilities` gửi lên khi plan là cam kết thật của thiết bị: `audioPlayback` theo `PracticeAudio.canPlay`, `microphone` theo `VoiceRecorder.canRecord`.
 
 ### 15.2. `TaskAttempt`: state thuần của từng task
@@ -339,6 +378,7 @@ Mỗi task có một `TaskAttempt` (struct, không phụ thuộc UI) giữ statu
 - Fly Reorder: `submit.tileIds` đúng bằng dãy hiện tại sau khi phát lại tap/remove/move.
 - Match: không gửi lại cặp đã đúng; task chỉ kết thúc khi mọi cặp đúng hoặc có `reveal`.
 - Task recall đầu tiên trong vòng học mới phải có ít nhất một submit.
+- Task known check cũng phải submit trước khi được xem đáp án.
 - Tối đa 200 event mỗi task (`endIfOutOfEvents`).
 - `deliveryMode` cho prompt audio: `audio` chỉ khi đã phát được thật, ngược lại `fallback`/`none`.
 
@@ -347,6 +387,7 @@ Mỗi task có một `TaskAttempt` (struct, không phụ thuộc UI) giữ statu
 ### 15.3. Commit
 
 - Body (`learnStepsCompleted` + `taskResults`) được **encode một lần** và giữ lại, nên mọi lần retry gửi đúng từng byte; backend coi commit lặp cùng body là idempotent.
+- Body không chứa các task known check người học đã bỏ qua, các task được bỏ nhờ qua known check, và các learn step của từ đã biết.
 - Lỗi `retryable` (mạng, 5xx) → `failed(.commit)`, nút retry gửi lại cùng body.
 - `409 SESSION_PAYLOAD_CONFLICT` → gọi `commit-status`; nếu đã commit thì dùng kết quả đã lưu.
 - `SESSION_STALE`, `SESSION_EXPIRED`, `SESSION_NOT_OWNED`, `TASK_DATA_INVALID` → `failed(.sessionLost)`, chỉ còn cách plan lại.

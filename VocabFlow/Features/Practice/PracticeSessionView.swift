@@ -14,6 +14,17 @@ struct PracticeSessionView: View {
             StatusScreen(title: "Preparing your session", isBusy: true, showsFlyingSyllie: true)
         case .committing:
             StatusScreen(title: "Saving your progress", isBusy: true, showsFlyingSyllie: true)
+        case .empty where store.isDaily && store.newWords?.withheldReason == .scopeExhausted:
+            // Nothing new left in the scope and nothing due: offer the ways forward instead of a blank screen.
+            StatusScreen(title: "You’ve learned every new word here", message: Text("You can still review and practise the words you learned. Choose another topic or collection to learn new words.")) {
+                PrimaryButton(title: "Choose topics") {
+                    motion.perform(MotionTokens.transition) { store.close(followUp: .chooseTopics) }
+                }
+                SecondaryButton(title: "Practise") {
+                    motion.perform(MotionTokens.transition) { store.close(followUp: .randomPractice) }
+                }
+                closeButton
+            }
         case .empty:
             StatusScreen(title: "Nothing to practise right now", message: emptyMessage) {
                 closeButton
@@ -44,6 +55,8 @@ struct PracticeSessionView: View {
 
     private var emptyMessage: Text {
         if store.isWeakPractice { return Text("Skills you need to practice again will show up here.") }
+        if store.isReviewOnly { return Text("No words are waiting for review right now.") }
+        if store.practiceFilter != nil { return Text("You haven’t learned any words from this source yet.") }
         // No checkpoint gate any more: an old pending review never shows Daily as blocked.
         // The backend drops skills the device can't train, so only audio-bound choices can come back empty for that reason.
         let skills = Set(store.practiceSkills ?? [])
@@ -167,7 +180,7 @@ private struct ReviewPreviewView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                Text("Words to review")
+                Text("Review words you’ve learned")
                     .font(Typography.screenTitle)
                     .tracking(Typography.tightTracking)
                     .foregroundStyle(Color.ink)
@@ -278,7 +291,7 @@ private struct ReviewPreviewView: View {
             let delay = entranceDelay(index)
             // The fade is quick and separate from the flight, so a tile is solid for most of its way in instead of
             // drifting in half-transparent for the whole spring.
-            tileFace(Text(verbatim: word.lemma))
+            tileFace(tileLabel(word))
                 .opacity(hasLanded ? 1 : 0)
                 .animation(motion.animation(MotionTokens.reviewTileFade.delay(delay)), value: hasLanded)
                 .rotationEffect(.degrees(hasLanded ? 0 : tilt))
@@ -286,7 +299,7 @@ private struct ReviewPreviewView: View {
                 .animation(motion.animation(MotionTokens.reviewTileLanding.delay(delay)), value: hasLanded)
         case .wordTrain:
             // All come from the same side, so each word follows the tail of the one before.
-            tileFace(Text(verbatim: word.lemma))
+            tileFace(tileLabel(word))
                 .offset(hasLanded || motion.reduceMotion ? .zero : trainOrigin)
                 .opacity(hasLanded ? 1 : 0)
                 .animation(
@@ -294,6 +307,19 @@ private struct ReviewPreviewView: View {
                     value: hasLanded
                 )
         }
+    }
+
+    /// The word, with the topic it belongs to under it: old topics stay in review after the focus changes.
+    private func tileLabel(_ word: ReviewWord) -> some View {
+        VStack(spacing: 0) {
+            Text(verbatim: word.lemma)
+            if let topic = word.topic {
+                Text(verbatim: topic)
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+            }
+        }
+        .padding(.vertical, word.topic == nil ? 0 : Spacing.xxs)
     }
 
     private func flyInOrigin(_ index: Int) -> CGSize {
@@ -321,7 +347,13 @@ private struct ReviewPreviewView: View {
 private struct ReviewFinishedView: View {
     let cards: [LearnCard]
     @Environment(PracticeSessionStore.self) private var store
+    @Environment(LearningPlanStore.self) private var plan
     @Environment(\.motion) private var motion
+
+    private var focusNames: String {
+        TopicCatalog.topics(ids: plan.current.topicIDs).map(\.name)
+            .formatted(.list(type: .and).locale(AppLanguage.active.locale))
+    }
 
     var body: some View {
         ScrollView {
@@ -349,6 +381,14 @@ private struct ReviewFinishedView: View {
                         .multilineTextAlignment(.center)
                         .padding(.top, Spacing.l)
                 } else {
+                    if !focusNames.isEmpty {
+                        Text("Now for new words from \(focusNames)")
+                            .font(Typography.body)
+                            .foregroundStyle(Color.mutedInk)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, Spacing.m)
+                    }
                     Text("Next: \(cards.count) new words")
                         .font(Typography.screenTitle)
                         .tracking(Typography.tightTracking)
@@ -512,11 +552,56 @@ private struct PracticeFlowView: View {
         switch step {
         case .learn(_, let card):
             LearnCardStep(card: card)
-        case .practice(_, let task):
+        case .practice(let phase, let task):
             if let attempt = store.attempts[task.id] {
-                PracticeTaskView(attempt: attempt)
+                if phase == .knownCheck {
+                    PracticeTaskView(attempt: attempt)
+                        .safeAreaInset(edge: .top) { KnownCheckBanner(isAnswered: attempt.isFinished) }
+                } else {
+                    PracticeTaskView(attempt: attempt)
+                }
             }
         }
+    }
+}
+
+/// Over the optional "I know this" recall: says what a right answer does, and lets the learner just learn the word.
+private struct KnownCheckBanner: View {
+    let isAnswered: Bool
+    @Environment(PracticeSessionStore.self) private var store
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        HStack(spacing: Spacing.s) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text("Already know this word?")
+                    .font(Typography.secondary.weight(.heavy))
+                    .foregroundStyle(Color.ink)
+                Text("Type it right the first time and you can skip learning it.")
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: Spacing.s)
+            if !isAnswered {
+                Button {
+                    motion.perform(MotionTokens.transition) { store.declineKnownCheck() }
+                } label: {
+                    Text("Learn it")
+                        .font(Typography.micro.weight(.heavy))
+                        .foregroundStyle(Color.selectedInk)
+                        .frame(minHeight: Spacing.minTouchTarget)
+                        .padding(.horizontal, Spacing.s)
+                        .background(Color.selectedSurface, in: Capsule())
+                }
+                .buttonStyle(PressScaleButtonStyle())
+                .accessibilityHint(Text("Skips this check and shows the word"))
+            }
+        }
+        .padding(Spacing.s)
+        .cardSurface(radius: Radii.tile)
+        .padding(.horizontal, Spacing.screenGutter)
+        .padding(.top, Spacing.xs)
     }
 }
 
@@ -673,6 +758,11 @@ struct PracticeResultsView: View {
 
                     statGrid
                         .padding(.top, Spacing.xl)
+
+                    if let events = store.scopeEvents, !events.isEmpty {
+                        ScopeCompletionCard(events: events)
+                            .padding(.top, Spacing.l)
+                    }
                 }
                 .padding(.horizontal, Spacing.screenGutter + 4)
                 .padding(.top, Spacing.s)
@@ -729,7 +819,8 @@ struct PracticeResultsView: View {
             Stat(label: "Exercises done", value: summary.practiceTasks),
             Stat(label: "Right first time", value: store.firstTryCount),
             Stat(label: "Meanings reviewed", value: summary.reviewedMeanings),
-            Stat(label: "New words", value: summary.newWordGoalSlots),
+            Stat(label: "New words", value: summary.newWordGoalSlots - (summary.knownMeanings ?? 0)),
+            Stat(label: "Words you already knew", value: summary.knownMeanings ?? 0),
         ]
         .filter { $0.value > 0 }
     }
@@ -769,5 +860,53 @@ struct PracticeResultsView: View {
             motion.travel(MotionTokens.entrance.delay(MotionTokens.celebrationStatsDelay + Double(index) * MotionTokens.celebrationStagger)),
             value: hasAppeared
         )
+    }
+}
+
+/// Shown under the results when this session used up a topic or the whole collection.
+private struct ScopeCompletionCard: View {
+    let events: ScopeEvents
+    @Environment(PracticeSessionStore.self) private var store
+    @Environment(LearningPlanStore.self) private var plan
+    @Environment(\.motion) private var motion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            HStack(alignment: .top, spacing: Spacing.s) {
+                SyllieReactionView(reaction: motion.reduceMotion ? .idle : .proud)
+                    .frame(width: 64, height: 56)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    title
+                        .font(Typography.emphasis)
+                        .foregroundStyle(Color.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(events.collectionCompleted
+                         ? "Pick another collection to keep learning new words."
+                         : "Words you learned keep coming back for review.")
+                        .font(Typography.secondary)
+                        .foregroundStyle(Color.mutedInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            PrimaryButton(title: events.collectionCompleted ? "Choose a collection" : "Choose the next topic") {
+                motion.perform(MotionTokens.transition) { store.close(followUp: .chooseTopics) }
+            }
+            SecondaryButton(title: "Later") {
+                motion.perform(MotionTokens.transition) { store.close() }
+            }
+        }
+        .padding(Spacing.m)
+        .cardSurface(radius: Radii.card - 2)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var title: Text {
+        if events.collectionCompleted, let collection = plan.current.collection {
+            return Text("You’ve learned every word in \(collection.name)!")
+        }
+        let names = TopicCatalog.topics(ids: Set(events.completedTopicIds)).map(\.name)
+            .formatted(.list(type: .and).locale(AppLanguage.active.locale))
+        return Text("You’ve learned every word in \(names)")
     }
 }

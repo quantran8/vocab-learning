@@ -79,9 +79,11 @@ lexical_drafts      bản nháp do AI tạo (nguồn duy nhất khi ghi vào kho
 | Bảng | Nội dung |
 |---|---|
 | `app_user`, `deleted_identities` | User (id Supabase), danh sách identity đã xóa (chặn tạo lại bằng token cũ, giữ 7 ngày) |
-| `user_settings` | `explanationLocale`, `uiLocale`, `timeZone`, `dailyNewWordGoal` (1–30), `weeklySessionGoal` (1–7) |
-| `user_learning_scope`, `user_active_topics` | Collection đang học và các topic đã chọn |
-| `user_meaning_progress` | Lịch SRS từng Meaning: `learnedAt`, `nextReviewAt`, interval, streak, lapse |
+| `user_settings` | `explanationLocale`, `uiLocale`, `timeZone`, `dailyNewWordGoal` (1–30), `weeklySessionGoal` (1–7), `autoBalanceNewWords`, giảm từ mới tạm thời (`newWordOverride`, `…Mode`: `until_date` hoặc `until_backlog_clear`, `…Until`) |
+| `user_learning_scope`, `user_active_topics` | Collection đang học và các topic đã chọn. Chỉ quyết định **nguồn từ mới** |
+| `user_collection_review_pauses` | Collection người học tạm dừng ôn |
+| `user_review_load_prompts` | `lastPromptedBacklog`: lần cuối hỏi màn lựa chọn nợ ôn (đồng bộ giữa thiết bị) |
+| `user_meaning_progress` | Lịch SRS từng Meaning: `learnedAt`, `nextReviewAt`, interval, streak, lapse, `learnedViaTopicId` (topic lúc học lần đầu) |
 | `memory_observations` | Tín hiệu nhớ của từng lần gặp |
 | `skill_evidence` | Bằng chứng kỹ năng, mỗi dòng có danh sách `reasons` |
 | `learning_sessions` | Plan (bất biến), `raw_events`, `result`, trạng thái `issued/committed/expired` |
@@ -115,6 +117,7 @@ Base `/v1`, JSON camelCase, thời gian ISO 8601 UTC. Mọi route cần `Authori
 |---|---|
 | Auth | `POST /auth/signup`, `/auth/login`, `/auth/google`, `/auth/apple`, `/auth/recover`, `/auth/recover/verify`, `/auth/refresh` |
 | Hồ sơ | `GET /me`, `DELETE /me`, `PUT /me/password`, `PUT /me/levels`, `PUT /me/settings`, `PUT /me/scope` |
+| Nợ ôn và tạm dừng | `PUT` / `DELETE /me/new-word-override`, `POST /me/review-load/ack`, `PUT` / `DELETE /me/review-pauses/{collectionId}` |
 | Placement | `GET /me/placement-test`, `POST /me/placement-test` |
 | Catalog | `GET /catalog/collections` |
 | Home & tiến trình | `GET /me/learn-home`, `GET /me/checkpoint-challenges`, `GET /me/journey`, `GET /me/words`, `GET /me/words/stats`, `GET /words/{wordId}` |
@@ -155,18 +158,30 @@ Nguyên tắc: **client chấm ngay để phản hồi, backend chấm lại to�
 
 ### 6.1. Plan (`session-planner`)
 
-`POST /sessions/plan` với `mode`, `capabilities {audioPlayback, microphone}`, tùy chọn `challengeId` (checkpoint) hoặc `skills` (random). Mỗi lần gọi tạo một session mới, TTL 72 h; plan được đóng băng (gồm cả `maxRetries` của từng task).
+`POST /sessions/plan` với `mode`, `capabilities {audioPlayback, microphone}`, và các tham số tùy chọn: `challengeId` (checkpoint), `skills` và `filter` (random), `reviewOnly` và `knownCheck` (daily). Mỗi lần gọi tạo một session mới, TTL 72 h; plan được đóng băng (gồm cả `maxRetries` của từng task).
 
 | Mode | Chọn gì |
 |---|---|
-| `daily` | Tối đa 10 Meaning đến hạn (cũ nhất trước), rồi tối đa `dailyNewWordGoal` Meaning mới. Từ tự thêm trước, sau đó theo scope: nghĩa phổ biến hơn trước, rồi độ hợp CEFR (từ ≥ level trước), rồi thứ tự curated. Mỗi due Meaning có 30% khả năng thêm một task chỉ để luyện kỹ năng. **Khi có Tổng ôn đang chờ, daily chỉ còn phần ôn** |
+| `daily` | Tối đa 10 Meaning đến hạn (cũ nhất trước). Lấy **mọi nghĩa đã học**, trừ nghĩa chỉ thuộc Collection đang tạm dừng; không lọc theo scope. Sau đó tối đa **E** Meaning mới (xem dưới). Từ tự thêm trước, sau đó theo scope: nghĩa phổ biến hơn trước, rồi độ hợp CEFR (từ ≥ level trước), rồi thứ tự curated. Mỗi due Meaning có 30% khả năng thêm một task chỉ để luyện kỹ năng. `reviewOnly` thì E = 0 |
 | `checkpoint_challenge` | Các Meaning đã học trong các session của chặng, chỉ dạng tự nhớ lại (typing / fly reorder) |
-| `random_practice` | Tối đa 10 Meaning đã học. Có `skills` thì mỗi từ một task, các kỹ năng chia lượt đều; không có `match` |
-| `weak_words_practice` | Trước hết các Meaning có skill issue trong 30 ngày, mỗi kỹ năng có issue một task trực tiếp (recall đứng đầu để không bị primed); sau đó các Meaning hay sai trong 30 ngày (tối thiểu 3 session). Tối đa 10 task |
+| `random_practice` | Tối đa 10 Meaning đã học. Có `skills` thì mỗi từ một task, các kỹ năng chia lượt đều; không có `match`. `filter`: `{collectionId}`, `{topicIds}` hoặc `{customOnly}`. Không có filter thì bỏ Collection tạm dừng; lọc đúng Collection đang tạm dừng vẫn lấy được từ của nó |
+| `weak_words_practice` | (Bỏ Collection tạm dừng.) Trước hết các Meaning có skill issue trong 30 ngày, mỗi kỹ năng có issue một task trực tiếp (recall đứng đầu để không bị primed); sau đó các Meaning hay sai trong 30 ngày (tối thiểu 3 session). Tối đa 10 task |
 
 - **Thứ tự học mới:** nhóm tối đa 3 Meaning (`introBatchSize`); các learn card của nhóm, rồi 5 vòng xen kẽ: select gloss → select reverse gloss → recall (typing hoặc fly reorder, 50/50) → recording → select gloss.
 - **`capabilities`:** `audioPlayback=false` thì không có prompt audio. `microphone=false` vẫn phát hành recording; client gửi `unavailable`. Skill không luyện được trên thiết bị bị bỏ khỏi practice theo kỹ năng.
 - **Plan rỗng:** `{sessionId: null, steps: []}`, không tạo session row.
+- **Số từ mới mỗi buổi (E)**, theo thứ tự ưu tiên:
+  1. giảm tạm thời (nếu còn hiệu lực);
+  2. Tự cân bằng (nếu bật): `max(min(goal, 2), round(goal × 10 / B))` khi B > 10;
+  3. goal.
+
+  Sau đó E bị giới hạn bởi R + C (R là từ mới còn trong scope, C là từ tự thêm chưa học). App không bao giờ tự giảm từ mới nếu người học không chọn.
+- **Response daily** có thêm:
+  - `newWords {requested, issued, withheldReason}`; `withheldReason` là null khi đủ goal. Client chỉ tự plan tiếp khi lý do là null;
+  - `reviewWords [{wordId, meaningId, lemma, sourceTopic}]`.
+
+  Step ôn có `sourceTopic {id, name}`, chọn theo thứ tự: Topic trong scope, rồi `learnedViaTopicId`, rồi membership curated đầu tiên. Từ tự thêm có nhãn "Từ của bạn".
+- **`knownCheck`:** trước mỗi learn card có một task typing `known_check`; learn step kèm `knownCheckTaskId` và `skippableTaskIds`.
 - Audio thiếu URL thì ứng viên audio bị loại, dùng text. URL của task nghe "mù" không được chứa từ đích.
 
 ### 6.2. Template: generated và curated
@@ -197,7 +212,7 @@ Schema chưa có dữ liệu âm tiết hay từ dễ nhầm, nên các template
 Tất cả hoặc không. Commit gồm:
 
 - Kiểm tra quyền sở hữu, hạn (72 h), trạng thái.
-- Kiểm tra đầy đủ: mọi task có đúng một kết quả, mọi learn step có trong `learnStepsCompleted`, task first recall có ít nhất một submit, `deliveryMode` đúng loại prompt, giới hạn 200 event/task và 500 task/commit. Sai một chỗ là `422 INVALID_SUBMISSION` cho cả commit.
+- Kiểm tra đầy đủ: mọi task có đúng một kết quả (trừ known check, vốn tùy chọn, và các task trong `skippableTaskIds` của từ đã qua known check), mọi learn step có trong `learnStepsCompleted` (trừ từ đã biết), task first recall có ít nhất một submit, `deliveryMode` đúng loại prompt, giới hạn 200 event/task và 500 task/commit. Sai một chỗ là `422 INVALID_SUBMISSION` cho cả commit.
 - Chấm lại mọi task.
 - Ghi `memory_observations`, cập nhật `user_meaning_progress` (SRS), ghi `skill_evidence`.
 - Đếm session học mới cho Journey; mở checkpoint challenge khi đủ `weeklySessionGoal` session.
@@ -205,7 +220,11 @@ Tất cả hoặc không. Commit gồm:
 
 - **Idempotent:** commit lại cùng body (so sau khi chuẩn hóa JSON) trả đúng response cũ; body khác → `409 SESSION_PAYLOAD_CONFLICT`. `commit-status` cho biết `issued | committed | expired` kèm response đã lưu.
 - Một Meaning mới đã được học ở session khác → `409 SESSION_STALE`.
-- Response: `summary {newWordGoalSlots, reviewedMeanings, practiceTasks}`; Tổng ôn thêm `checkpoint {reviewedCount, unaidedRecalledCount, needsReviewCount}`.
+- Response: `summary {newWordGoalSlots, knownMeanings, reviewedMeanings, practiceTasks}`; Tổng ôn thêm `checkpoint {reviewedCount, unaidedRecalledCount, needsReviewCount}`.
+- **`scopeEvents {completedTopicIds, scopeExhausted, collectionCompleted}`:** tính trong cùng câu ghi commit, từ snapshot trước khi ghi, và lưu trong `commit_response`, nên retry trả đúng sự kiện cũ.
+- **Sau khi ghi:** nếu B ≤ 10 thì kết thúc override `until_backlog_clear` và xóa `lastPromptedBacklog`.
+- **Known check:** sai thì không tạo tín hiệu nhớ hay evidence. Qua thì từ được học với interval đầu 7 ngày.
+- Ghi `learnedViaTopicId` cho nghĩa học lần đầu.
 
 ## 7. Trí nhớ và lịch ôn (`memory-srs`)
 
@@ -223,16 +242,18 @@ Tất cả hoặc không. Commit gồm:
 
 ### 7.2. Lịch ôn
 
-Chỉ `daily` thực sự đẩy lịch ôn đi xa.
+`daily` đẩy lịch ôn đi xa. Practice chỉ làm vậy với từ **đã đến hạn**. Scheduler hiện là `srs-trial-v0.5`.
 
 | Tình huống | Kết quả |
 |---|---|
 | Lần học đầu | Interval đầu: unaided 48 h, assisted 24 h, failed 12 h. Session một Meaning luôn primed nên interval đầu thường là 24 h |
-| Daily, unaided recall | Interval × min(2,2; 1,6 + 0,15 × streak), kẹp trong [48 h, 90 ngày]; streak +1 |
+| Daily, unaided recall | max(interval, **khoảng thực tế từ lần ôn trước**) × min(2,2; 1,6 + 0,15 × streak), kẹp trong [48 h, 90 ngày]; streak +1. Ôn trễ mà vẫn nhớ thì lịch tự giãn xa hơn, nên nợ ôn tự tìm được điểm cân bằng |
+| Học mới qua "Tôi biết từ này" | Interval đầu 7 ngày (`knownInitialHours`), streak 1 |
 | Daily, assisted recall | Interval giảm một nửa (sàn 12 h); lần ôn tới = now + min(interval, 24 h); streak về 0 |
 | Daily, failed recall/recognition | Interval 12 h; streak về 0; lapse +1 |
 | Daily, recognition success khi đã đến hạn | Lùi 24 h, chỉ một lần cho tới lần unaided kế tiếp |
-| Checkpoint / Random / Weak | Không bao giờ kéo dài lịch, không tiêu "đến hạn". Assisted kéo lần ôn tới về tối đa 24 h. Failed còn giảm nửa interval (sàn 12 h) và reset streak, không tăng lapse |
+| Checkpoint / Random / Weak, unaided recall (không primed) với từ **đã đến hạn** | Tính như ôn đến hạn của daily (đẩy lịch ra xa) |
+| Checkpoint / Random / Weak, các trường hợp khác | Không kéo dài lịch của từ chưa đến hạn. Assisted kéo lần ôn tới về tối đa 24 h. Failed còn giảm nửa interval (sàn 12 h) và reset streak, không tăng lapse |
 
 ## 8. Bốn kỹ năng (`skill-verification`)
 
@@ -296,7 +317,8 @@ Quy tắc: chỉ xóa được nội dung chưa từng publish (đã publish th�
 
 - Một **chặng** = `weeklySessionGoal` session `daily` có học từ mới (mặc định và tối đa 7) + 1 Tổng ôn. Chỉ session daily có từ mới chiếm một slot; ôn tập, random, weak và commit lặp thì không.
 - Đủ số session → mở một `checkpoint_challenge` gồm các Meaning đã học trong chặng. Có thể nhiều challenge trong một ngày.
-- **Khóa từ mới khi challenge đang chờ** (`gateNewWords`): daily chỉ còn ôn đến hạn. Làm xong challenge thì từ mới mở lại. Tổng ôn không có ngưỡng đạt.
+- Hiện **không còn khóa từ mới** khi có challenge đang chờ. Lý do `checkpoint_gate` vẫn có trong enum nhưng không bao giờ được trả ra. Tổng ôn không có ngưỡng đạt.
+- `GET /me/journey` và `GET /me/challenge-map` có `newWordsBlockedReason`: `scope_exhausted` khi R + C = 0.
 - Đổi `weeklySessionGoal` có hiệu lực ngay cho chặng hiện tại: tăng thì dài ra, giảm xuống ≤ số đã học thì challenge mở luôn.
 - `GET /me/journey`: chặng tương lai (`preview`), chặng hiện tại (`active`), lịch sử (`completed`), phân trang lịch sử bằng `before`. Node có id ổn định (`segment:2:learning:1`), `state` `locked | current | completed`, toàn hệ thống chỉ một node `current`. Backend quyết định mọi trạng thái.
 
@@ -346,7 +368,7 @@ Seed phải chạy qua build Nest (`tsx`/esbuild không phát decorator metadata
 
 ### 14.3. Cron (`maintenance`)
 
-Mỗi giờ, trong process: đánh dấu session `issued` quá hạn là `expired`; sau 30 ngày kể từ hết hạn hoặc commit thì xóa `plan` và `raw_events` (giữ `result` và session row); dọn `deleted_identities` sau 7 ngày. Giả định một instance; replica khác chạy `ENABLE_CRON=false`.
+Mỗi giờ, trong process: (override `until_date` quá hạn được coi như không có ngay lúc đọc); đánh dấu session `issued` quá hạn là `expired`; sau 30 ngày kể từ hết hạn hoặc commit thì xóa `plan` và `raw_events` (giữ `result` và session row); dọn `deleted_identities` sau 7 ngày. Giả định một instance; replica khác chạy `ENABLE_CRON=false`.
 
 ### 14.4. Deploy
 
@@ -365,7 +387,24 @@ push master ──► build image arm64 ──► OCIR (vocab-backend) ──►
 - Log: GitHub Actions → *Fetch backend logs*. Registry được dọn hằng tuần (`prune-registry.yml`).
 - Thiết lập một lần, secrets và variables: `vocab-backend/DEPLOYMENT.md`.
 
-## 15. Chưa làm
+## 15. Hết từ mới và nợ ôn
+
+Theo spec "Scope Completion & Review Load" v1.0; contract đầy đủ ở `FRONTEND_FLOW.md` §13.
+
+- **`GET /me/learn-home`** có thêm hai khối:
+  - `scope {status: ok|low|exhausted, remainingNewMeanings, pendingCustomMeanings, sessionsLeftEstimate, topics[]}`;
+  - `reviewLoad {backlog, dueCap, effectiveNewPerSession, newWordReason, override, autoBalance, promptChoice}`.
+
+  `dueCount` bằng `backlog`, và cả hai chỉ đếm nghĩa thuộc diện ôn.
+- **`promptChoice`:** bật khi B ≥ 20 lần đầu, hiện lại khi B ≥ 2 × lần trước. Khi B ≤ 10 thì đặt lại.
+- **`GET /catalog/collections`:** thêm `learnedMeanings` và `totalMeanings` cho mỗi Collection và Topic. "Đã học xong" được tính động, không lưu.
+- **Một nguồn cho R, C, B:** cả ba chỉ lấy từ `review-scope.sql.ts`, dùng chung cho planner, learn-home, commit, journey và challenge map.
+- **Mọi ngưỡng** nằm ở `POLICY.reviewLoad` (`scope-review-trial-v1`). Đây là giá trị thử nghiệm, chờ mô phỏng (§13 của spec).
+
+## 16. Chưa làm
+
+- LP (điểm học tập) chưa tồn tại. Cần chốt LP cho daily `reviewOnly`, practice được tính là ôn, và "Tôi biết từ này" (dễ bị farm nếu được +5 đầy đủ).
+- Mô phỏng tham số (spec §13). `routineEstimateTable` đang rỗng nên gợi ý ở bước đặt goal tắt.
 
 - Tách DB role tối thiểu quyền (app đang kết nối bằng `postgres`; trigger vẫn bảo vệ snapshot).
 - Rate limit theo request (chỉ giới hạn kích thước event/audio và hạn mức AI riêng).

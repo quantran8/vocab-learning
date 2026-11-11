@@ -10,6 +10,8 @@ struct Journey: Decodable, Equatable {
     var segments: [JourneySegment]
     var hasMoreHistory: Bool
     var nextHistoryCursor: Int?
+    /// `scope_exhausted` when Daily has no new words to fill the next node.
+    var newWordsBlockedReason: NewWordReason? = nil
 
     var currentSegment: JourneySegment? { segments.first { $0.segmentNo == currentSegmentNo } }
 

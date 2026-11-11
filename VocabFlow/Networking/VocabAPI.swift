@@ -34,6 +34,8 @@ struct UserSettings: Decodable, Equatable {
     let dailyNewWordGoal: Int
     /// Sessions per checkpoint challenge (a Journey segment). Nil from a backend that predates it.
     var weeklySessionGoal: Int? = nil
+    /// Opt-in: fewer new words while the review backlog is large. Nil from an older backend.
+    var autoBalanceNewWords: Bool? = nil
 }
 
 struct LearningScope: Codable, Equatable {
@@ -47,6 +49,8 @@ struct UserProfile: Decodable, Equatable {
     let learningLevel: CEFRLevel?
     let settings: UserSettings
     let scope: LearningScope?
+    /// Collections whose words the learner stopped reviewing. Nil from an older backend.
+    var reviewPauses: [ReviewPause]? = nil
 
     var hasFinishedOnboarding: Bool { proficiencyLevel != nil && scope != nil }
 }
@@ -59,6 +63,11 @@ struct SettingsUpdate: Encodable, Equatable {
     var dailyNewWordGoal: Int?
     /// The number of learning days a week; the backend sizes each Journey segment by it.
     var weeklySessionGoal: Int?
+    var autoBalanceNewWords: Bool?
+}
+
+struct ReviewPause: Decodable, Equatable {
+    let collectionId: String
 }
 
 // MARK: - Placement test
@@ -107,11 +116,14 @@ struct PlacementResult: Decodable, Equatable {
 
 // MARK: - Catalog
 
+/// `learnedMeanings` / `totalMeanings` count distinct meanings; nil from an older backend.
 struct CatalogTopic: Decodable, Equatable {
     let id: String
     let slug: String
     let title: String
     let description: String?
+    var learnedMeanings: Int? = nil
+    var totalMeanings: Int? = nil
 }
 
 struct CatalogCollection: Decodable, Equatable {
@@ -120,6 +132,8 @@ struct CatalogCollection: Decodable, Equatable {
     let title: String
     let description: String?
     let topics: [CatalogTopic]
+    var learnedMeanings: Int? = nil
+    var totalMeanings: Int? = nil
 }
 
 // MARK: - Home and words
@@ -132,11 +146,85 @@ struct LearnHome: Decodable, Equatable {
     let checkpointSessionsDone: Int
     let checkpointSessionsRequired: Int
     let learnedTotal: Int
+    /// Nil from a backend that predates scope completion.
+    var scope: ScopeState? = nil
+    var reviewLoad: ReviewLoad? = nil
 
     var checkpointProgress: Double {
         guard checkpointSessionsRequired > 0 else { return 0 }
         return min(Double(checkpointSessionsDone) / Double(checkpointSessionsRequired), 1)
     }
+}
+
+/// Decodes an unknown raw value to `fallback`, so a new server value never fails a whole response.
+protocol LenientEnum: RawRepresentable, Decodable where RawValue == String {
+    static var fallback: Self { get }
+}
+
+extension LenientEnum {
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = Self(rawValue: raw) ?? .fallback
+    }
+}
+
+enum ScopeStatus: String, LenientEnum {
+    case ok, low, exhausted
+    static let fallback = ScopeStatus.ok
+}
+
+/// How many new words the scope still holds (`R`) and how many words the learner added (`C`).
+struct ScopeState: Decodable, Equatable {
+    struct TopicRemaining: Decodable, Equatable {
+        let topicId: String
+        let remainingNewMeanings: Int
+        let totalMeanings: Int
+    }
+
+    let status: ScopeStatus
+    let remainingNewMeanings: Int
+    let pendingCustomMeanings: Int
+    let sessionsLeftEstimate: Int?
+    let topics: [TopicRemaining]
+}
+
+/// Why a daily session has fewer new words than the goal (`newWordReason` and `withheldReason`).
+enum NewWordReason: String, LenientEnum {
+    case goal
+    case userOverride = "user_override"
+    case autoBalanced = "auto_balanced"
+    case checkpointGate = "checkpoint_gate"
+    case scopeLimited = "scope_limited"
+    case scopeExhausted = "scope_exhausted"
+    case reviewOnly = "review_only"
+    case unknown
+    static let fallback = NewWordReason.unknown
+}
+
+enum NewWordOverrideMode: String, Codable, Equatable {
+    case untilDate = "until_date"
+    case untilBacklogClear = "until_backlog_clear"
+}
+
+/// A temporary lower number of new words the learner chose.
+struct NewWordOverride: Decodable, Equatable {
+    let value: Int
+    let mode: NewWordOverrideMode
+    let until: Date?
+}
+
+struct ReviewLoad: Decodable, Equatable {
+    let backlog: Int
+    let dueCap: Int
+    let effectiveNewPerSession: Int
+    let newWordReason: NewWordReason
+    let override: NewWordOverride?
+    let autoBalance: Bool
+    /// The server's "ask now" flag; the app still shows it at most once per launch and never mid-session.
+    let promptChoice: Bool
+
+    /// Above this, Home shows the backlog line and offers an extra review session.
+    static let statusThreshold = 10
 }
 
 struct CheckpointChallenge: Decodable, Equatable, Identifiable {
@@ -223,6 +311,8 @@ struct ReviewWord: Equatable, Identifiable {
     let id: String
     let lemma: String
     let dueAt: Date
+    /// The topic the word is labelled with; nil from the library fallback.
+    var topic: String? = nil
 
     /// A daily plan reviews the longest-overdue meanings up to this many.
     static let sessionCap = 10
@@ -270,6 +360,12 @@ protocol VocabAPI: Sendable {
     func catalog() async throws -> [CatalogCollection]
 
     func learnHome() async throws -> LearnHome
+    /// Records that the review-load choice was shown, so other devices don't ask again.
+    func acknowledgeReviewLoad(backlog: Int) async throws
+    /// `until` nil with `untilDate` lets the server pick the end of the learner's Sunday.
+    func setNewWordOverride(value: Int, mode: NewWordOverrideMode, until: Date?) async throws -> NewWordOverride
+    func clearNewWordOverride() async throws
+    func setReviewPaused(collectionID: String, paused: Bool) async throws
     func checkpointChallenges() async throws -> [CheckpointChallenge]
     /// The first page (no `before`) holds the future previews, the current segment and `historyLimit` older ones;
     /// `before` (a `nextHistoryCursor`) pages through older history only.
@@ -303,6 +399,16 @@ protocol VocabAPI: Sendable {
     func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus
     /// Abandons an issued run, or settles an orphaned started one with 0 stars.
     func quitChallengeRun(runID: String) async throws
+}
+
+/// Older test doubles and previews keep compiling: these calls just fail offline.
+extension VocabAPI {
+    func acknowledgeReviewLoad(backlog: Int) async throws {}
+    func setNewWordOverride(value: Int, mode: NewWordOverrideMode, until: Date?) async throws -> NewWordOverride {
+        throw APIError.transport
+    }
+    func clearNewWordOverride() async throws {}
+    func setReviewPaused(collectionID: String, paused: Bool) async throws {}
 }
 
 extension VocabAPI {
@@ -421,6 +527,25 @@ struct LiveVocabAPI: VocabAPI {
 
     func learnHome() async throws -> LearnHome {
         try await client.send(get("me/learn-home"))
+    }
+
+    func acknowledgeReviewLoad(backlog: Int) async throws {
+        _ = try await client.sendRaw(try post("me/review-load/ack", ReviewLoadAck(backlog: backlog)))
+    }
+
+    func setNewWordOverride(value: Int, mode: NewWordOverrideMode, until: Date?) async throws -> NewWordOverride {
+        var request = try post("me/new-word-override", OverrideRequest(value: value, mode: mode, until: until.map { $0.ISO8601Format() }))
+        request.method = .put
+        let response: OverrideResponse = try await client.send(request)
+        return response.override
+    }
+
+    func clearNewWordOverride() async throws {
+        _ = try await client.sendRaw(APIRequest(method: .delete, path: "me/new-word-override"))
+    }
+
+    func setReviewPaused(collectionID: String, paused: Bool) async throws {
+        _ = try await client.sendRaw(APIRequest(method: paused ? .put : .delete, path: "me/review-pauses/\(collectionID)"))
     }
 
     func checkpointChallenges() async throws -> [CheckpointChallenge] {
@@ -599,6 +724,20 @@ struct LiveVocabAPI: VocabAPI {
 
     private struct CatalogResponse: Decodable {
         let collections: [CatalogCollection]
+    }
+
+    private struct ReviewLoadAck: Encodable {
+        let backlog: Int
+    }
+
+    private struct OverrideRequest: Encodable {
+        let value: Int
+        let mode: NewWordOverrideMode
+        let until: String?
+    }
+
+    private struct OverrideResponse: Decodable {
+        let override: NewWordOverride
     }
 
     private struct CheckpointResponse: Decodable {

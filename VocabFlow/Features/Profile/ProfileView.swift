@@ -7,6 +7,7 @@ struct ProfileView: View {
     let onOpenSettings: () -> Void
     @Environment(LearningPlanStore.self) private var plan
     @Environment(LearnerStore.self) private var learner
+    @State private var saveError: String?
 
     var body: some View {
         let preferences = plan.current
@@ -38,6 +39,16 @@ struct ProfileView: View {
 
                 routineSection(preferences)
                     .padding(.top, Spacing.l - 1)
+
+                reviewSection(preferences)
+                    .padding(.top, Spacing.l - 1)
+
+                if let saveError {
+                    Text(verbatim: saveError)
+                        .font(Typography.micro)
+                        .foregroundStyle(Color.mutedInk)
+                        .padding(.top, Spacing.s)
+                }
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.m)
@@ -135,10 +146,135 @@ struct ProfileView: View {
                 dataRow("bell", label: "Reminder", value: preferences.reminderEnabled
                     ? Text(preferences.reminderDate, format: .dateTime.hour().minute())
                     : Text("Off"))
+                Divider().overlay(Color.neutralSurface)
+                toggleRow("scalemass", label: "Balance reviews and new words",
+                          hint: "Fewer new words while many words wait for review",
+                          isOn: learner.home?.reviewLoad?.autoBalance ?? learner.profile?.settings.autoBalanceNewWords ?? false) { enabled in
+                    try await learner.setAutoBalance(enabled)
+                }
+                if let override = learner.home?.reviewLoad?.override {
+                    Divider().overlay(Color.neutralSurface)
+                    overrideRow(override)
+                }
             }
             .padding(.horizontal, Spacing.m)
             .padding(.vertical, Spacing.xxs)
             .cardSurface(radius: Radii.card - 2)
+        }
+    }
+
+    /// Collections the learner has learned from. The active one is always reviewed.
+    private func reviewSection(_ preferences: LearningPreferences) -> some View {
+        let collections = TopicCatalog.collections.filter { ($0.learned ?? 0) > 0 }
+        return VStack(alignment: .leading, spacing: Spacing.s) {
+            PlanSectionTitle(text: "Review")
+            if collections.isEmpty {
+                Text("Collections you learn from will show up here.")
+                    .font(Typography.secondary)
+                    .foregroundStyle(Color.mutedInk)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(collections.enumerated()), id: \.element.id) { index, collection in
+                        if index > 0 { Divider().overlay(Color.neutralSurface) }
+                        reviewRow(collection, isActive: collection.id == preferences.collectionID)
+                    }
+                }
+                .padding(.horizontal, Spacing.m)
+                .padding(.vertical, Spacing.xxs)
+                .cardSurface(radius: Radii.card - 2)
+            }
+        }
+    }
+
+    private func reviewRow(_ collection: VocabCollection, isActive: Bool) -> some View {
+        let isReviewed = isActive || !learner.isReviewPaused(collectionID: collection.id)
+        return HStack(spacing: Spacing.s) {
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(verbatim: collection.name)
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                Text(isActive
+                     ? "\(collection.learned ?? 0) words · Your current collection is always reviewed"
+                     : "\(collection.learned ?? 0) words learned")
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: Spacing.s)
+            Toggle("Review this collection’s words", isOn: Binding(
+                get: { isReviewed },
+                set: { reviewed in save { try await learner.setReviewPaused(!reviewed, collectionID: collection.id) } }
+            ))
+            .labelsHidden()
+            .disabled(isActive)
+        }
+        .frame(minHeight: 54)
+        .accessibilityElement(children: .combine)
+    }
+
+    private func toggleRow(_ systemImage: String, label: LocalizedStringKey, hint: LocalizedStringKey, isOn: Bool,
+                           onChange: @escaping (Bool) async throws -> Void) -> some View {
+        HStack(spacing: Spacing.s) {
+            Image(systemName: systemImage)
+                .foregroundStyle(Color.mutedInk)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(label)
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                Text(hint)
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: Spacing.s)
+            Toggle(label, isOn: Binding(get: { isOn }, set: { value in save { try await onChange(value) } }))
+                .labelsHidden()
+        }
+        .frame(minHeight: 54)
+    }
+
+    private func overrideRow(_ override: NewWordOverride) -> some View {
+        HStack(spacing: Spacing.s) {
+            Image(systemName: "arrow.down.circle")
+                .foregroundStyle(Color.mutedInk)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text("Lowered to \(override.value) new words")
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.ink)
+                Group {
+                    if override.mode == .untilDate, let until = override.until {
+                        Text("Until \(until.formatted(.dateTime.weekday(.wide).hour().minute().locale(AppLanguage.active.locale)))")
+                    } else {
+                        Text("Until 10 or fewer words are waiting")
+                    }
+                }
+                .font(Typography.micro)
+                .foregroundStyle(Color.mutedInk)
+            }
+            Spacer(minLength: Spacing.s)
+            Button {
+                save { try await learner.clearNewWordOverride() }
+            } label: {
+                Text("Cancel")
+                    .font(Typography.micro.weight(.heavy))
+                    .foregroundStyle(Color.selectedInk)
+                    .frame(minHeight: Spacing.minTouchTarget)
+            }
+            .accessibilityLabel(Text("Cancel lowered new words"))
+        }
+        .frame(minHeight: 54)
+    }
+
+    private func save(_ change: @escaping () async throws -> Void) {
+        Task {
+            do {
+                try await change()
+                saveError = nil
+            } catch {
+                saveError = error.asAPIError.userMessage
+            }
         }
     }
 

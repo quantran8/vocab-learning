@@ -7260,6 +7260,650 @@
           }
         }
       }
+    },
+    "%lld new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld từ mới"
+          }
+        }
+      }
+    },
+    "%lld new words left, about %lld sessions" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld new words left, about %2$lld sessions"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld từ mới, khoảng %2$lld buổi"
+          }
+        }
+      }
+    },
+    "%lld new words today (lowered until %@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld new words today (lowered until %2$@)"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay %1$lld từ mới (bạn đang giảm tạm thời đến %2$@)"
+          }
+        }
+      }
+    },
+    "%lld new words today (lowered until fewer words are waiting)" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay %lld từ mới (bạn đang giảm tạm thời đến khi bớt từ chờ ôn)"
+          }
+        }
+      }
+    },
+    "%lld new words today, balanced with your reviews" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay %lld từ mới, đã cân bằng với phần ôn"
+          }
+        }
+      }
+    },
+    "%lld of %lld words learned" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld of %2$lld words learned"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã học %1$lld trên %2$lld từ"
+          }
+        }
+      }
+    },
+    "%lld words · Your current collection is always reviewed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld từ · Bộ bạn đang học luôn được ôn"
+          }
+        }
+      }
+    },
+    "%lld words learned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã học %lld từ"
+          }
+        }
+      }
+    },
+    "%lld words waiting for review" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld từ chờ ôn"
+          }
+        }
+      }
+    },
+    "Add topics" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thêm Topic"
+          }
+        }
+      }
+    },
+    "All learned words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tất cả từ đã học"
+          }
+        }
+      }
+    },
+    "Already know this word?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã biết từ này?"
+          }
+        }
+      }
+    },
+    "Balance reviews and new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tự cân bằng ôn và từ mới"
+          }
+        }
+      }
+    },
+    "Cancel lowered new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hủy giảm từ mới tạm thời"
+          }
+        }
+      }
+    },
+    "Change collection" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đổi Collection"
+          }
+        }
+      }
+    },
+    "Choose new topics to keep your journey going." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn Topic mới để tiếp tục hành trình."
+          }
+        }
+      }
+    },
+    "Choose the next topic" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn Topic tiếp theo"
+          }
+        }
+      }
+    },
+    "Choose topics" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn Topic"
+          }
+        }
+      }
+    },
+    "Collections you learn from will show up here." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Các Collection bạn đã học sẽ hiện ở đây."
+          }
+        }
+      }
+    },
+    "Each session reviews %lld words, so some words will come back later than planned and are easier to forget." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi buổi ôn được %lld từ, nên một số từ sẽ ôn trễ hơn lịch và dễ quên hơn."
+          }
+        }
+      }
+    },
+    "Every word you’ve learned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mọi từ bạn đã học"
+          }
+        }
+      }
+    },
+    "Extra review" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn thêm"
+          }
+        }
+      }
+    },
+    "Fewer new words for now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giảm từ mới tạm thời"
+          }
+        }
+      }
+    },
+    "Fewer new words while many words wait for review" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bớt từ mới khi có nhiều từ chờ ôn"
+          }
+        }
+      }
+    },
+    "Finished" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đã học xong"
+          }
+        }
+      }
+    },
+    "For how long" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trong bao lâu"
+          }
+        }
+      }
+    },
+    "Keep learning as usual" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Học như bình thường"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Để sau"
+          }
+        }
+      }
+    },
+    "Learn it" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Học từ này"
+          }
+        }
+      }
+    },
+    "Learning" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Học tập"
+          }
+        }
+      }
+    },
+    "Lower new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giảm từ mới"
+          }
+        }
+      }
+    },
+    "Lowered to %lld new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đang giảm còn %lld từ mới"
+          }
+        }
+      }
+    },
+    "New words per session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số từ mới mỗi buổi"
+          }
+        }
+      }
+    },
+    "No new words left in your topics. %lld words you added are still to learn." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hết từ mới trong Topic. Còn %lld từ bạn tự thêm."
+          }
+        }
+      }
+    },
+    "No words are waiting for review right now." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện chưa có từ nào cần ôn."
+          }
+        }
+      }
+    },
+    "Now for new words from %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giờ đến từ mới của %@"
+          }
+        }
+      }
+    },
+    "Only %lld new words left today in %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only %1$lld new words left today in %2$@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay còn %1$lld từ mới trong %2$@"
+          }
+        }
+      }
+    },
+    "Only the words you added yourself" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ những từ bạn tự thêm"
+          }
+        }
+      }
+    },
+    "Pick another collection to keep learning new words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn Collection khác để tiếp tục học từ mới."
+          }
+        }
+      }
+    },
+    "Practise" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luyện tập"
+          }
+        }
+      }
+    },
+    "Review %lld words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn %lld từ"
+          }
+        }
+      }
+    },
+    "Review one more session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn thêm một buổi"
+          }
+        }
+      }
+    },
+    "Review this collection’s words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn từ của Collection này"
+          }
+        }
+      }
+    },
+    "Review words you’ve learned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn từ bạn đã học"
+          }
+        }
+      }
+    },
+    "Skip words I know" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ qua từ đã biết"
+          }
+        }
+      }
+    },
+    "Skips this check and shows the word" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ qua phần kiểm tra và hiện từ"
+          }
+        }
+      }
+    },
+    "Try recalling a new word before it is taught. Experimental." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thử nhớ lại từ mới trước khi học. Đang thử nghiệm."
+          }
+        }
+      }
+    },
+    "Type it right the first time and you can skip learning it." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gõ đúng ngay lần đầu là bạn được bỏ qua phần học từ này."
+          }
+        }
+      }
+    },
+    "Until %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến %@"
+          }
+        }
+      }
+    },
+    "Until 10 or fewer words are waiting" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến khi còn tối đa 10 từ chờ ôn"
+          }
+        }
+      }
+    },
+    "Until the end of Sunday" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đến hết Chủ Nhật"
+          }
+        }
+      }
+    },
+    "Word source" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nguồn từ"
+          }
+        }
+      }
+    },
+    "Words you already knew" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ bạn đã biết"
+          }
+        }
+      }
+    },
+    "Words you learned in %@ will still come back for review so you don’t forget them. They’ll show up less often as you remember them better." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Những từ %@ bạn đã học vẫn được ôn để không quên. Chúng sẽ thưa dần khi bạn nhớ chắc hơn."
+          }
+        }
+      }
+    },
+    "Words you learned keep coming back for review." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Những từ bạn đã học vẫn tiếp tục được ôn."
+          }
+        }
+      }
+    },
+    "You can still review and practise the words you learned. Choose another topic or collection to learn new words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn vẫn ôn và luyện được từ đã học. Chọn Topic hoặc Collection khác để học từ mới."
+          }
+        }
+      }
+    },
+    "You have %lld learned words waiting for review." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn có %lld từ đã học đang chờ ôn."
+          }
+        }
+      }
+    },
+    "You haven’t learned any words from this source yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn chưa học từ nào trong nguồn này."
+          }
+        }
+      }
+    },
+    "You’ve learned every new word here" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã học hết từ mới ở đây"
+          }
+        }
+      }
+    },
+    "You’ve learned every new word in %@. You can still review and practise them. Choose another topic or collection to learn new words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã học hết từ mới trong %@. Bạn vẫn ôn và luyện được từ đã học. Chọn Topic hoặc Collection khác để học từ mới."
+          }
+        }
+      }
+    },
+    "You’ve learned every word in %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã học hết %@"
+          }
+        }
+      }
+    },
+    "You’ve learned every word in %@!" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã học hết bộ %@!"
+          }
+        }
+      }
     }
   },
   "version" : "1.1"

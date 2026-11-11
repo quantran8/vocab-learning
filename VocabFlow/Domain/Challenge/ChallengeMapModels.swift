@@ -15,6 +15,8 @@ struct ChallengeMap: Decodable, Equatable {
     let nextChapter: ChallengeChapterPreview?
     /// Where the map scrolls to first; nil when nothing is playable.
     let currentNode: ChallengeNodeRef?
+    /// `scope_exhausted` when Daily has no new words left to grow the next chapter; nil otherwise or from an older backend.
+    var newWordsBlockedReason: NewWordReason? = nil
 
     var totalStars: Int { chapters.reduce(0) { $0 + $1.starsEarned } }
     /// The earliest chapter not cleared yet: only it can be played forward.

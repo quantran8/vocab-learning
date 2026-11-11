@@ -28,6 +28,12 @@ struct AppSettingsView: View {
                     }
                 }
 
+                group("Learning") {
+                    SettingRow(systemImage: "checkmark.bubble", title: "Skip words I know", subtitle: "Try recalling a new word before it is taught. Experimental.") {
+                        Toggle("Skip words I know", isOn: $settings.offersKnownCheck)
+                    }
+                }
+
                 group("App") {
                     Button {
                         isChoosingLanguage = true

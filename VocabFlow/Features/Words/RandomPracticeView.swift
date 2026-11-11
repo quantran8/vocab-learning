@@ -7,6 +7,8 @@ struct RandomPracticeView: View {
     @Environment(\.motion) private var motion
     /// Empty is the mixed practice, which covers every skill.
     @State private var skills: Set<PracticeSkill> = []
+    /// Nil is every learned word.
+    @State private var source: PracticeFilter?
 
     var body: some View {
         ScrollView {
@@ -25,6 +27,11 @@ struct RandomPracticeView: View {
                     row(.listening, title: "Listening", subtitle: "Hear words, then pick or type them", systemImage: "headphones")
                     row(.speaking, title: "Speaking", subtitle: "Say words out loud", systemImage: "mic")
                 }
+
+                PlanSectionTitle(text: "Word source")
+                    .padding(.top, Spacing.xl)
+                    .padding(.bottom, Spacing.s)
+                sourcePicker
             }
             .padding(.horizontal, Spacing.screenGutter)
             .padding(.top, Spacing.xs)
@@ -50,6 +57,60 @@ struct RandomPracticeView: View {
         }
     }
 
+    /// Collections the learner has learned from; picking one shows its topics to narrow further.
+    private var sourcePicker: some View {
+        let collections = TopicCatalog.collections.filter { ($0.learned ?? 0) > 0 }
+        return VStack(spacing: Spacing.s) {
+            SkillOptionRow(title: "All learned words", subtitle: "Every word you’ve learned", systemImage: "square.stack.3d.up",
+                           isSelected: source == nil) { pick(nil) }
+            ForEach(collections) { collection in
+                SkillOptionRow(
+                    title: LocalizedStringKey(collection.name),
+                    subtitle: "\(collection.learned ?? 0) words learned",
+                    systemImage: collection.systemImage,
+                    isSelected: isWithin(collection)
+                ) { pick(.collection(collection.id)) }
+                if isWithin(collection) {
+                    topicChips(collection)
+                }
+            }
+            SkillOptionRow(title: "Words you added", subtitle: "Only the words you added yourself", systemImage: "plus.bubble",
+                           isSelected: source == .customWords) { pick(.customWords) }
+        }
+    }
+
+    private func topicChips(_ collection: VocabCollection) -> some View {
+        FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
+            ForEach(collection.topics.filter { ($0.learned ?? 0) > 0 }) { topic in
+                TopicChip(
+                    title: topic.name,
+                    systemImage: topic.systemImage,
+                    isSelected: source == .topic(topic.id),
+                    progress: (learned: topic.learned ?? 0, total: topic.total ?? 0)
+                ) {
+                    // Tapping the chosen topic widens back to its collection.
+                    pick(source == .topic(topic.id) ? .collection(collection.id) : .topic(topic.id))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, Spacing.l)
+    }
+
+    private func isWithin(_ collection: VocabCollection) -> Bool {
+        switch source {
+        case .collection(let id)?: id == collection.id
+        case .topic(let id)?: collection.topicIDs.contains(id)
+        default: false
+        }
+    }
+
+    private func pick(_ filter: PracticeFilter?) {
+        guard filter != source else { return }
+        motion.perform(MotionTokens.snap) { source = filter }
+        settings.feedback.selectionChanged()
+    }
+
     private func selectAll() {
         guard !skills.isEmpty else { return }
         motion.perform(MotionTokens.snap) { skills = [] }
@@ -59,13 +120,7 @@ struct RandomPracticeView: View {
     private func start() {
         // Wire order follows the enum so the same choice always sends the same request.
         let chosen = PracticeSkill.allCases.filter(skills.contains)
-        Task {
-            if chosen.isEmpty {
-                await practice.start(.randomPractice)
-            } else {
-                await practice.startPractice(chosen)
-            }
-        }
+        Task { await practice.startPractice(chosen, filter: source) }
     }
 }
 

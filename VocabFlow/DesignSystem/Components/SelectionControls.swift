@@ -96,18 +96,32 @@ struct TopicChip: View {
     let title: String
     let systemImage: String
     let isSelected: Bool
+    /// Learning progress such as "45/120"; nil hides it.
+    var progress: (learned: Int, total: Int)? = nil
+    /// Every word learned: labelled, still selectable.
+    var isFinished = false
     let action: () -> Void
     @Environment(\.motion) private var motion
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: Spacing.xs - 1) {
-                Image(systemName: systemImage)
+                Image(systemName: isFinished ? "checkmark.seal" : systemImage)
                     .font(.subheadline.weight(.medium))
                     .accessibilityHidden(true)
                 Text(verbatim: title)
                     .font(Typography.secondary.weight(.semibold))
                     .lineLimit(1)
+                if isFinished {
+                    Text("Finished")
+                        .font(Typography.micro.weight(.semibold))
+                        .foregroundStyle(Color.mutedInk)
+                } else if let progress {
+                    Text(verbatim: "\(progress.learned)/\(progress.total)")
+                        .font(Typography.micro.monospacedDigit())
+                        .foregroundStyle(Color.mutedInk)
+                        .accessibilityLabel(Text("\(progress.learned) of \(progress.total) words learned"))
+                }
             }
             .foregroundStyle(isSelected ? Color.selectedInk : Color.ink)
             .padding(.leading, Spacing.s - 1)

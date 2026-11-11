@@ -26,6 +26,8 @@ final class LearnerStore {
     /// Set when the Journey couldn't load; whatever was on screen stays.
     private(set) var journeyError: String?
     private(set) var isLoadingOlderJourney = false
+    /// The review-load choice shows at most once per launch, whatever the server says.
+    private(set) var hasShownReviewChoice = false
 
     static let wordsPageSize = 50
     static let journeyHistoryPage = 2
@@ -72,7 +74,10 @@ final class LearnerStore {
         async let stats = try? api.wordStats()
         async let library: Void = loadWords(matching: wordsQuery)
         async let path: Void = refreshJourney()
+        // Topic progress ("45/120", "Finished") moves with every session.
+        async let catalog = try? api.catalog()
         if let home = await home { self.home = home }
+        if let catalog = await catalog { TopicCatalog.update(with: catalog) }
         if let challenges = await challenges { self.challenges = challenges }
         if let stats = await stats { wordStats = stats }
         await library
@@ -187,6 +192,53 @@ final class LearnerStore {
         await refresh()
     }
 
+    /// Whether Home should offer the review-load choice now. The caller also keeps it out of a session.
+    var shouldOfferReviewChoice: Bool {
+        !hasShownReviewChoice && home?.reviewLoad?.promptChoice == true
+    }
+
+    /// Any choice, including dismissing, counts as seen here and on the learner's other devices.
+    func acknowledgeReviewChoice() async {
+        hasShownReviewChoice = true
+        guard let backlog = home?.reviewLoad?.backlog else { return }
+        try? await api.acknowledgeReviewLoad(backlog: backlog)
+        await refreshHome()
+    }
+
+    /// Lowers new words for now. `until` nil with `.untilDate` ends with the learner's Sunday.
+    func setNewWordOverride(value: Int, mode: NewWordOverrideMode) async throws {
+        _ = try await api.setNewWordOverride(value: value, mode: mode, until: nil)
+        await refreshHome()
+    }
+
+    func clearNewWordOverride() async throws {
+        try await api.clearNewWordOverride()
+        await refreshHome()
+    }
+
+    func setAutoBalance(_ enabled: Bool) async throws {
+        try await api.updateSettings(SettingsUpdate(autoBalanceNewWords: enabled))
+        async let profile: Void = reloadProfile()
+        async let home: Void = refreshHome()
+        _ = await (profile, home)
+    }
+
+    /// The active collection is always reviewed; the server rejects pausing it.
+    func setReviewPaused(_ paused: Bool, collectionID: String) async throws {
+        try await api.setReviewPaused(collectionID: collectionID, paused: paused)
+        async let profile: Void = reloadProfile()
+        async let home: Void = refreshHome()
+        _ = await (profile, home)
+    }
+
+    func isReviewPaused(collectionID: String) -> Bool {
+        profile?.reviewPauses?.contains { $0.collectionId == collectionID } ?? false
+    }
+
+    private func refreshHome() async {
+        if let home = try? await api.learnHome() { self.home = home }
+    }
+
     func reloadProfile() async {
         if let profile = try? await api.profile() { self.profile = profile }
     }
@@ -207,6 +259,7 @@ final class LearnerStore {
         journey = nil
         journeyError = nil
         isLoadingOlderJourney = false
+        hasShownReviewChoice = false
     }
 
     /// `timeZone` defines the learner's "day" for the daily goal; `uiLocale` localizes the catalog.

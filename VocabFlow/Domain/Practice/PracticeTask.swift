@@ -25,6 +25,58 @@ struct PlanRequest: Encodable, Equatable {
     var challengeId: String?
     /// Nil is mixed practice; never empty (the backend rejects an empty list).
     var skills: [PracticeSkill]?
+    /// Daily only: due reviews and no new words.
+    var reviewOnly: Bool?
+    /// Daily only: an optional "I know this" recall before each new word.
+    var knownCheck: Bool?
+    /// Random practice only: where the words come from. Nil is every learned word.
+    var filter: PracticeFilter?
+}
+
+/// The source of a random practice. Encodes as the one key the backend expects.
+enum PracticeFilter: Encodable, Equatable, Hashable {
+    case collection(String)
+    case topic(String)
+    case customWords
+
+    private enum CodingKeys: String, CodingKey {
+        case collectionId, topicIds, customOnly
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .collection(let id): try container.encode(id, forKey: .collectionId)
+        case .topic(let id): try container.encode([id], forKey: .topicIds)
+        case .customWords: try container.encode(true, forKey: .customOnly)
+        }
+    }
+}
+
+/// Daily only: how many new words the plan gave and, when fewer than the goal, why.
+struct NewWordsIssue: Decodable, Equatable {
+    let requested: Int
+    let issued: Int
+    let withheldReason: NewWordReason?
+}
+
+struct SourceTopic: Decodable, Equatable {
+    let id: String
+    let name: String
+}
+
+/// One word the daily plan reviews, as the preview screen shows it.
+struct PlanReviewWord: Decodable, Equatable {
+    let wordId: String
+    let meaningId: String
+    let lemma: String
+    let sourceTopic: SourceTopic?
+}
+
+/// The optional recall before a Learn card. Passed first try, the card and `skippableTaskIDs` are skipped.
+struct KnownCheck: Equatable {
+    let learnStepID: String
+    let skippableTaskIDs: Set<String>
 }
 
 struct SessionPlan: Decodable, Equatable {
@@ -32,15 +84,51 @@ struct SessionPlan: Decodable, Equatable {
     let sessionID: String?
     let mode: SessionMode
     let steps: [PlanStep]
+    /// Daily only; nil from an older backend.
+    var newWords: NewWordsIssue? = nil
+    var reviewWords: [PlanReviewWord]? = nil
+    /// Review task id → its topic label.
+    var sourceTopics: [String: SourceTopic] = [:]
+    /// Known-check task id → the Learn step it can skip.
+    var knownChecks: [String: KnownCheck] = [:]
 
     private enum CodingKeys: String, CodingKey {
-        case sessionID = "sessionId", mode, steps
+        case sessionID = "sessionId", mode, steps, newWords, reviewWords
     }
 
-    init(sessionID: String?, mode: SessionMode, steps: [PlanStep]) {
+    /// The extra fields a step may carry, read alongside `PlanStep` so the step enum stays as it is.
+    private struct StepExtras: Decodable {
+        struct TaskID: Decodable { let id: String }
+        let id: String?
+        let task: TaskID?
+        let sourceTopic: SourceTopic?
+        let knownCheckTaskId: String?
+        let skippableTaskIds: [String]?
+    }
+
+    init(sessionID: String?, mode: SessionMode, steps: [PlanStep], newWords: NewWordsIssue? = nil,
+         knownChecks: [String: KnownCheck] = [:]) {
         self.sessionID = sessionID
         self.mode = mode
         self.steps = steps
+        self.newWords = newWords
+        self.knownChecks = knownChecks
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        sessionID = try container.decodeIfPresent(String.self, forKey: .sessionID)
+        mode = try container.decode(SessionMode.self, forKey: .mode)
+        steps = try container.decode([PlanStep].self, forKey: .steps)
+        newWords = try container.decodeIfPresent(NewWordsIssue.self, forKey: .newWords)
+        reviewWords = try container.decodeIfPresent([PlanReviewWord].self, forKey: .reviewWords)
+        let extras = try container.decode([StepExtras].self, forKey: .steps)
+        for extra in extras {
+            if let taskID = extra.task?.id, let topic = extra.sourceTopic { sourceTopics[taskID] = topic }
+            if let learnID = extra.id, let checkID = extra.knownCheckTaskId {
+                knownChecks[checkID] = KnownCheck(learnStepID: learnID, skippableTaskIDs: Set(extra.skippableTaskIds ?? []))
+            }
+        }
     }
 }
 
@@ -69,13 +157,14 @@ struct LearnCard: Decodable, Equatable {
 }
 
 enum TaskPhase: Equatable {
-    case dueReview, newPractice, checkpointChallenge, randomPractice, weakWordsPractice, other
+    case dueReview, newPractice, knownCheck, checkpointChallenge, randomPractice, weakWordsPractice, other
 
     /// Display-only on the backend, so a new phase must not break the session.
     init(rawValue: String) {
         switch rawValue {
         case "due_review": self = .dueReview
         case "new_practice": self = .newPractice
+        case "known_check": self = .knownCheck
         case "checkpoint_challenge": self = .checkpointChallenge
         case "random_practice": self = .randomPractice
         case "weak_words_practice": self = .weakWordsPractice
@@ -350,11 +439,23 @@ struct CommitSummary: Decodable, Equatable {
     let practiceTasks: Int
     /// Only for a checkpoint challenge (the Journey's review).
     var checkpoint: ReviewResult? = nil
+    /// Words passed with "I know this"; nil from an older backend.
+    var knownMeanings: Int? = nil
+}
+
+/// Set only by the commit that used up a topic, the scope or the whole collection; a retry repeats it.
+struct ScopeEvents: Decodable, Equatable {
+    let completedTopicIds: [String]
+    let scopeExhausted: Bool
+    let collectionCompleted: Bool
+
+    var isEmpty: Bool { completedTopicIds.isEmpty && !scopeExhausted && !collectionCompleted }
 }
 
 struct CommitResponse: Decodable, Equatable {
     let sessionId: String
     let summary: CommitSummary
+    var scopeEvents: ScopeEvents? = nil
 }
 
 struct CommitStatus: Decodable, Equatable {

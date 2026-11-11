@@ -129,12 +129,15 @@ struct TopicPicker: View {
             }
             .padding(.bottom, -Spacing.xs)
 
+            // Topics with new words left first; finished ones last but still selectable.
             FlowLayout(spacing: Spacing.xs, lineSpacing: Spacing.xs, alignment: .leading) {
-                ForEach(collection.topics) { topic in
+                ForEach(collection.topics.filter { !$0.isFinished } + collection.topics.filter(\.isFinished)) { topic in
                     TopicChip(
                         title: topic.name,
                         systemImage: topic.systemImage,
-                        isSelected: selectedIDs.contains(topic.id)
+                        isSelected: selectedIDs.contains(topic.id),
+                        progress: topic.total.map { (learned: topic.learned ?? 0, total: $0) },
+                        isFinished: topic.isFinished
                     ) {
                         onToggleTopic(topic.id)
                     }

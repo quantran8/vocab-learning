@@ -51,6 +51,11 @@ final class PracticeSessionStore {
         case blocked(reason: String)
     }
 
+    /// Where the shell goes after a session screen closes, when the learner picked a next step there.
+    enum FollowUp: Equatable {
+        case chooseTopics, randomPractice
+    }
+
     enum UnavailableReason {
         static let micDenied = "micPermissionDenied"
         static let recorderFailed = "recorderFailed"
@@ -70,6 +75,14 @@ final class PracticeSessionStore {
     /// Practice Lab: tasks are scored locally and nothing is planned, assessed or committed.
     private(set) var isSandbox = false
     var onSandboxEnd: (() -> Void)?
+    /// The last daily plan's new-word figures: why it had fewer new words than the goal, if it did.
+    private(set) var newWords: NewWordsIssue?
+    /// From the last commit; set only by the commit that used up a topic, the scope or the collection.
+    private(set) var scopeEvents: ScopeEvents?
+    /// Read and cleared by the shell once the session screen is gone.
+    private(set) var followUp: FollowUp?
+    /// Experiment: daily plans offer "I know this" before each new word. Read when a plan is requested.
+    var offersKnownCheck: @MainActor () -> Bool = { false }
     /// Falls back to the backend when the task has no reference text or on-device recognition can't run.
     var recordingScoring: RecordingScoring
 
@@ -81,8 +94,21 @@ final class PracticeSessionStore {
     private let recorder: VoiceRecording
     private let transcriber: SpeechTranscribing
     private var sessionID: String?
-    private var lastRequest: (mode: SessionMode, challengeID: String?, skills: [PracticeSkill]?)?
+    private var lastRequest: Request?
     private var completedLearnIDs: Set<String> = []
+    private var knownChecks: [String: KnownCheck] = [:]
+    /// Known-check tasks the learner declined, and the tasks a passed check made unnecessary. Never committed.
+    private var skippedTaskIDs: Set<String> = []
+    /// Learn steps a passed known check skipped.
+    private var knownLearnIDs: Set<String> = []
+
+    private struct Request {
+        var mode: SessionMode
+        var challengeID: String? = nil
+        var skills: [PracticeSkill]? = nil
+        var filter: PracticeFilter? = nil
+        var reviewOnly = false
+    }
     /// Encoded once: a retried commit must be byte-identical or the backend reports a conflict.
     private var commitBody: Data?
     private var pendingAudio: RecordedAudio?
@@ -121,6 +147,15 @@ final class PracticeSessionStore {
         return attempts[task.id]
     }
 
+    /// The current step is the optional "I know this" recall.
+    var isKnownCheck: Bool {
+        if case .practice(.knownCheck, _) = currentStep { return true }
+        return false
+    }
+
+    /// Words passed with "I know this" so far in this session.
+    var knownWordCount: Int { knownLearnIDs.count }
+
     /// Where the learner is in the current part. Review always comes before new words in a plan,
     /// and new words start counting from the beginning rather than continuing review's count.
     var partProgress: SessionPartProgress {
@@ -150,7 +185,9 @@ final class PracticeSessionStore {
 
     var isWeakPractice: Bool { lastRequest?.mode == .weakWordsPractice }
     var isDaily: Bool { lastRequest?.mode == .daily }
+    var isReviewOnly: Bool { lastRequest?.reviewOnly == true }
     var practiceSkills: [PracticeSkill]? { lastRequest?.skills }
+    var practiceFilter: PracticeFilter? { lastRequest?.filter }
     /// A denied microphone empties a speaking plan, and only Settings can fix that.
     var canRecord: Bool { recorder.canRecord }
 
@@ -158,23 +195,38 @@ final class PracticeSessionStore {
 
     func start(_ mode: SessionMode, challengeID: String? = nil) async {
         guard stage == .idle else { return }
-        lastRequest = (mode, challengeID, nil)
-        await plan(mode, challengeID: challengeID)
+        let request = Request(mode: mode, challengeID: challengeID)
+        lastRequest = request
+        await plan(request)
     }
 
-    /// Random practice on `skills`; an empty list is mixed practice.
-    func startPractice(_ skills: [PracticeSkill]) async {
+    /// A daily session of due reviews only: no new words and no Journey slot.
+    func startReviewOnly() async {
         guard stage == .idle else { return }
-        let skills = skills.isEmpty ? nil : skills
-        lastRequest = (.randomPractice, nil, skills)
-        await plan(.randomPractice, challengeID: nil, skills: skills)
+        let request = Request(mode: .daily, reviewOnly: true)
+        lastRequest = request
+        await plan(request)
+    }
+
+    /// Random practice on `skills` (empty is mixed practice), from `filter` (nil is every learned word).
+    func startPractice(_ skills: [PracticeSkill], filter: PracticeFilter? = nil) async {
+        guard stage == .idle else { return }
+        let request = Request(mode: .randomPractice, skills: skills.isEmpty ? nil : skills, filter: filter)
+        lastRequest = request
+        await plan(request)
+    }
+
+    /// The shell reads this once the session screen is gone.
+    func consumeFollowUp() -> FollowUp? {
+        defer { followUp = nil }
+        return followUp
     }
 
     func retry() async {
         switch stage {
         case .failed(.planning):
             guard let lastRequest else { return }
-            await plan(lastRequest.mode, challengeID: lastRequest.challengeID, skills: lastRequest.skills)
+            await plan(lastRequest)
         case .failed(.commit):
             await commit()
         default:
@@ -204,13 +256,18 @@ final class PracticeSessionStore {
     }
 
     /// Nothing is written: words stay unlearned until a session commits.
-    func close() {
+    /// `followUp` is where the learner asked to go next (choose topics, practise).
+    func close(followUp: FollowUp? = nil) {
         audio.stop()
         recorder.cancel()
         steps = []
         attempts = [:]
         stepIndex = 0
         completedLearnIDs = []
+        knownChecks = [:]
+        skippedTaskIDs = []
+        knownLearnIDs = []
+        self.followUp = followUp
         sessionID = nil
         commitBody = nil
         isSandbox = false
@@ -224,13 +281,36 @@ final class PracticeSessionStore {
         switch step {
         case .learn(let id, _):
             completedLearnIDs.insert(id)
-        case .practice(_, let task):
-            guard attempts[task.id]?.isFinished == true else { return }
+        case .practice(let phase, let task):
+            guard let attempt = attempts[task.id], attempt.isFinished else { return }
+            // Right first time, no hint: the word counts as known, so its card and own tasks are skipped.
+            if phase == .knownCheck, attempt.isRightFirstTime, let check = knownChecks[task.id] {
+                knownLearnIDs.insert(check.learnStepID)
+                skippedTaskIDs.formUnion(check.skippableTaskIDs)
+            }
         }
+        moveForward(from: step)
+    }
+
+    /// "Learn this word": the check is left unanswered and the word is taught as usual.
+    func declineKnownCheck() {
+        guard stage == .running, case .practice(.knownCheck, let task)? = currentStep else { return }
+        skippedTaskIDs.insert(task.id)
+        moveForward(from: currentStep!)
+    }
+
+    private func isSkipped(_ step: PlanStep) -> Bool {
+        switch step {
+        case .learn(let id, _): knownLearnIDs.contains(id)
+        case .practice(_, let task): skippedTaskIDs.contains(task.id)
+        }
+    }
+
+    private func moveForward(from step: PlanStep) {
         audio.stop()
         resetStepState()
-        if stepIndex + 1 < steps.count {
-            stepIndex += 1
+        if let next = steps.indices.first(where: { $0 > stepIndex && !isSkipped(steps[$0]) }) {
+            stepIndex = next
             if step.isDueReview, currentStep?.isDueReview == false {
                 stage = .reviewFinished
                 haptics.success()
@@ -414,11 +494,13 @@ final class PracticeSessionStore {
 
     // MARK: Private
 
-    private func plan(_ mode: SessionMode, challengeID: String?, skills: [PracticeSkill]? = nil) async {
+    private func plan(_ request: Request) async {
         stage = .planning
+        scopeEvents = nil
         do {
-            let plan = try await api.planSession(PlanRequest(mode: mode, capabilities: capabilities, challengeId: challengeID, skills: skills))
+            let plan = try await api.planSession(planRequest(request))
             guard stage == .planning else { return }
+            newWords = plan.newWords
             guard let id = plan.sessionID, !plan.steps.isEmpty else {
                 stage = .empty
                 return
@@ -439,11 +521,27 @@ final class PracticeSessionStore {
         PlanRequest.Capabilities(audioPlayback: audio.canPlay, microphone: recorder.canRecord)
     }
 
+    private func planRequest(_ request: Request) -> PlanRequest {
+        let isDaily = request.mode == .daily
+        return PlanRequest(
+            mode: request.mode,
+            capabilities: capabilities,
+            challengeId: request.challengeID,
+            skills: request.skills,
+            reviewOnly: isDaily && request.reviewOnly ? true : nil,
+            knownCheck: isDaily && !request.reviewOnly && offersKnownCheck() ? true : nil,
+            filter: request.filter
+        )
+    }
+
     private func load(_ plan: SessionPlan, id: String) {
         sessionID = id
         steps = plan.steps
         stepIndex = 0
         completedLearnIDs = []
+        knownChecks = plan.knownChecks
+        skippedTaskIDs = []
+        knownLearnIDs = []
         commitBody = nil
         attempts = [:]
         for case .practice(let phase, let task) in plan.steps {
@@ -453,8 +551,16 @@ final class PracticeSessionStore {
     }
 
     /// The preview is only informational, so a failed lookup goes straight to practice.
+    /// A current backend names the reviewed words with their topic; an older one leaves the library guess.
     private func loadReviewWords(for plan: SessionPlan) async -> [ReviewWord] {
-        guard plan.steps.contains(where: \.isDueReview), let words = try? await api.allWords() else { return [] }
+        guard plan.steps.contains(where: \.isDueReview) else { return [] }
+        if let planned = plan.reviewWords {
+            var seen = Set<String>()
+            return planned.filter { seen.insert($0.wordId).inserted }.map {
+                ReviewWord(id: $0.wordId, lemma: $0.lemma, dueAt: .now, topic: $0.sourceTopic?.name)
+            }
+        }
+        guard let words = try? await api.allWords() else { return [] }
         return ReviewWord.due(in: words, on: .now)
     }
 
@@ -466,6 +572,7 @@ final class PracticeSessionStore {
             stage = .committing
             let response = try await api.commitSession(sessionID: sessionID, body: body)
             guard stage == .committing else { return }
+            scopeEvents = response.scopeEvents
             await finish(response.summary)
         } catch {
             guard stage == .committing else { return }
@@ -475,7 +582,7 @@ final class PracticeSessionStore {
 
     private func makeCommitBody() -> CommitBody {
         let results = steps.compactMap { step -> TaskResult? in
-            guard case .practice(_, let task) = step else { return nil }
+            guard case .practice(_, let task) = step, !skippedTaskIDs.contains(task.id) else { return nil }
             return attempts[task.id]?.result
         }
         return CommitBody(learnStepsCompleted: steps.compactMap { step in
@@ -488,6 +595,7 @@ final class PracticeSessionStore {
         if error.code == "SESSION_PAYLOAD_CONFLICT" {
             // Already committed with other data: the saved result is the one that stands.
             if let status = try? await api.commitStatus(sessionID: sessionID), let response = status.response {
+                scopeEvents = response.scopeEvents
                 await finish(response.summary)
                 return
             }
@@ -510,12 +618,15 @@ final class PracticeSessionStore {
 
     /// A daily session goes straight from review to new words, even when the plan held only review.
     /// The review is already saved; if this plan fails or is more review, the session just ends.
+    /// Only when the plan held back nothing: any `withheldReason` means asking again would loop on the same answer.
     private func continueToNewWords() async -> Bool {
-        guard lastRequest?.mode == .daily, steps.allSatisfy(\.isDueReview),
-              let plan = try? await api.planSession(PlanRequest(mode: .daily, capabilities: capabilities)),
+        guard let request = lastRequest, request.mode == .daily, !request.reviewOnly, newWords?.withheldReason == nil,
+              steps.allSatisfy(\.isDueReview),
+              let plan = try? await api.planSession(planRequest(request)),
               let id = plan.sessionID, plan.steps.first?.isDueReview == false,
               stage == .committing
         else { return false }
+        newWords = plan.newWords
         load(plan, id: id)
         stage = .reviewFinished
         haptics.success()

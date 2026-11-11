@@ -8,6 +8,10 @@ struct HomeView: View {
     @Environment(\.motion) private var motion
     /// Pushes the Challenge Map onto Home's navigation stack.
     var onOpenChallengeMap: () -> Void = {}
+    /// Opens the Focus sheet (topics and collection).
+    var onChooseTopics: () -> Void = {}
+    var onOpenRandomPractice: () -> Void = {}
+    @State private var isChoosingReviewLoad = false
 
     var body: some View {
         let due = learner.home?.dueCount ?? 0
@@ -29,9 +33,17 @@ struct HomeView: View {
                 sectionTitle("Challenge")
                     .padding(.top, Spacing.xl + Spacing.l)
 
+                if isOutOfNewWords {
+                    Text("Choose new topics to keep your journey going.")
+                        .font(Typography.secondary)
+                        .foregroundStyle(Color.mutedInk)
+                        .padding(.top, Spacing.xs)
+                }
+
+                // Out of new words, "keep learning" means picking topics: Daily has nothing new to give.
                 ChallengeHomeCard(
                     onOpenMap: onOpenChallengeMap,
-                    onStartDaily: { start(.daily) }
+                    onStartDaily: { isOutOfNewWords ? onChooseTopics() : start(.daily) }
                 )
                 .padding(.top, Spacing.m)
             }
@@ -44,6 +56,30 @@ struct HomeView: View {
             async let mapRefresh: Void = challengeMap.refresh()
             _ = await (learnerRefresh, mapRefresh)
         }
+        // Never mid-session (Home isn't on screen then), at most once per launch.
+        .task(id: learner.home?.reviewLoad?.promptChoice) {
+            if learner.shouldOfferReviewChoice, !practice.isActive { isChoosingReviewLoad = true }
+        }
+        .sheet(isPresented: $isChoosingReviewLoad, onDismiss: {
+            Task { await learner.acknowledgeReviewChoice() }
+        }) {
+            if let load = learner.home?.reviewLoad {
+                ReviewLoadChoiceSheet(
+                    load: load,
+                    goal: learner.profile?.settings.dailyNewWordGoal ?? plan.current.wordsPerDay,
+                    onExtraReview: { startReviewOnly() },
+                    onLower: { value, mode in try await learner.setNewWordOverride(value: value, mode: mode) }
+                )
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(Color.canvas)
+            }
+        }
+    }
+
+    private var isOutOfNewWords: Bool {
+        challengeMap.map?.newWordsBlockedReason == .scopeExhausted
+            || DailyLessonStatus(home: learner.home, goal: plan.current.wordsPerDay).scope == .exhaustedNoCustom
     }
 
     private func sectionTitle(_ title: LocalizedStringKey) -> some View {
@@ -56,27 +92,161 @@ struct HomeView: View {
 
     /// The screen's one main action. It keeps the lesson's thick edge as an invitation into the lesson.
     private func dailyLesson(due: Int) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.l) {
+        let status = DailyLessonStatus(home: learner.home, goal: plan.current.wordsPerDay)
+        return VStack(alignment: .leading, spacing: Spacing.l) {
             HStack(alignment: .bottom, spacing: Spacing.m) {
                 VStack(alignment: .leading, spacing: Spacing.m) {
                     Text("Today’s session")
                         .font(Typography.emphasis)
                         .foregroundStyle(Color.ink)
                     StatRow(label: "Words to review", value: due)
-                    StatRow(label: "New words / day", value: plan.current.wordsPerDay)
+                    StatRow(label: "New words", value: status.newWords)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 LessonMascot()
             }
-            PrimaryButton(title: due > 0 ? "Start" : "Start Flow", shimmers: true) { start(.daily) }
+            notes(status)
+            actions(status, due: due)
         }
         .padding(Spacing.m + 2)
         .cardSurface()
     }
 
+    private var topicNames: String {
+        TopicCatalog.topics(ids: plan.current.topicIDs).map(\.name)
+            .formatted(.list(type: .and).locale(AppLanguage.active.locale))
+    }
+
+    /// Small fixed lines under the stats: why today has fewer new words, and the review backlog.
+    @ViewBuilder
+    private func notes(_ status: DailyLessonStatus) -> some View {
+        let lines = noteLines(status)
+        if !lines.isEmpty {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                    line
+                        .font(Typography.secondary)
+                        .foregroundStyle(Color.mutedInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if case .low = status.scope {
+                    Button(action: onChooseTopics) {
+                        Text("Add topics")
+                            .font(Typography.micro.weight(.heavy))
+                            .foregroundStyle(Color.selectedInk)
+                            .frame(minHeight: Spacing.minTouchTarget)
+                    }
+                }
+            }
+        }
+    }
+
+    private func noteLines(_ status: DailyLessonStatus) -> [Text] {
+        var lines: [Text] = []
+        switch status.scope {
+        case .exhaustedNoCustom:
+            lines.append(Text("You’ve learned every new word in \(topicNames). You can still review and practise them. Choose another topic or collection to learn new words."))
+        case .exhaustedWithCustom(let custom):
+            lines.append(Text("No new words left in your topics. \(custom) words you added are still to learn."))
+        case .low(let remaining, let sessions):
+            lines.append(Text("\(remaining) new words left, about \(sessions) sessions"))
+        case .ok:
+            break
+        }
+        switch status.reason {
+        case .userOverride(let until):
+            if let until {
+                lines.append(Text("\(status.newWords) new words today (lowered until \(until.formatted(.dateTime.weekday(.wide).locale(AppLanguage.active.locale))))"))
+            } else {
+                lines.append(Text("\(status.newWords) new words today (lowered until fewer words are waiting)"))
+            }
+        case .autoBalanced:
+            lines.append(Text("\(status.newWords) new words today, balanced with your reviews"))
+        case .scopeLimited:
+            if case .ok = status.scope { lines.append(Text("Only \(status.newWords) new words left today in \(topicNames)")) }
+        case .none:
+            break
+        }
+        if status.backlog > ReviewLoad.statusThreshold {
+            lines.append(Text("\(status.backlog) words waiting for review"))
+        }
+        return lines
+    }
+
+    @ViewBuilder
+    private func actions(_ status: DailyLessonStatus, due: Int) -> some View {
+        if case .exhaustedNoCustom = status.scope {
+            VStack(spacing: Spacing.s) {
+                if due > 0 {
+                    PrimaryButton(title: "Review \(due) words", shimmers: true) { startReviewOnly() }
+                } else {
+                    PrimaryButton(title: "Practise", shimmers: true, action: onOpenRandomPractice)
+                }
+                SecondaryButton(title: "Choose topics", action: onChooseTopics)
+                SecondaryButton(title: "Change collection", action: onChooseTopics)
+            }
+        } else {
+            VStack(spacing: Spacing.s) {
+                PrimaryButton(title: due > 0 ? "Start" : "Start Flow", shimmers: true) { start(.daily) }
+                if status.backlog > ReviewLoad.statusThreshold {
+                    SecondaryButton(title: "Extra review") { startReviewOnly() }
+                }
+            }
+        }
+    }
+
+    private func startReviewOnly() {
+        Task { await practice.startReviewOnly() }
+    }
+
     private func start(_ mode: SessionMode, challengeID: String? = nil) {
         Task { await practice.start(mode, challengeID: challengeID) }
+    }
+}
+
+// MARK: - Daily lesson status
+
+/// What the Daily Lesson card says, from `GET /me/learn-home`. Without the newer blocks it shows the goal as before.
+struct DailyLessonStatus: Equatable {
+    enum Scope: Equatable {
+        case ok
+        /// Less than one week of new words left.
+        case low(remaining: Int, sessions: Int)
+        case exhaustedWithCustom(Int)
+        case exhaustedNoCustom
+    }
+
+    enum Reason: Equatable {
+        case userOverride(until: Date?)
+        case autoBalanced
+        /// Fewer new words than chosen because that's all the scope holds.
+        case scopeLimited
+    }
+
+    let newWords: Int
+    let backlog: Int
+    let scope: Scope
+    let reason: Reason?
+
+    init(home: LearnHome?, goal: Int) {
+        let load = home?.reviewLoad
+        newWords = load?.effectiveNewPerSession ?? goal
+        backlog = load?.backlog ?? 0
+        switch home?.scope {
+        case let scope? where scope.status == .exhausted:
+            self.scope = scope.pendingCustomMeanings > 0 ? .exhaustedWithCustom(scope.pendingCustomMeanings) : .exhaustedNoCustom
+        case let scope? where scope.status == .low:
+            self.scope = .low(remaining: scope.remainingNewMeanings, sessions: scope.sessionsLeftEstimate ?? 1)
+        default:
+            self.scope = .ok
+        }
+        switch load?.newWordReason {
+        case .userOverride?: reason = .userOverride(until: load?.override?.mode == .untilDate ? load?.override?.until : nil)
+        case .autoBalanced?: reason = .autoBalanced
+        case .scopeLimited?: reason = .scopeLimited
+        default: reason = nil
+        }
     }
 }
 

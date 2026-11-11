@@ -42,6 +42,7 @@ struct MainShellView: View {
     @Environment(LearnerStore.self) private var learner
     @Environment(ChallengeMapStore.self) private var challengeMap
     @Environment(ChallengeRunStore.self) private var challengeRun
+    @Environment(PracticeSessionStore.self) private var practice
     @Environment(\.motion) private var motion
     /// Owned by the root: the route swap unmounts this view during a session, and closing one returns to this tab.
     @Binding var tab: MainTab
@@ -71,6 +72,12 @@ struct MainShellView: View {
         .tint(Color.interactive)
         .minimizingTabBarOnScroll()
         .task {
+            // A session screen may have asked for the next step (choose topics, practise) as it closed.
+            switch practice.consumeFollowUp() {
+            case .chooseTopics?: openFocus()
+            case .randomPractice?: openRandomPractice()
+            case nil: break
+            }
             async let learnerRefresh: Void = learner.refresh()
             async let mapRefresh: Void = challengeMap.refresh()
             // Settles a run the app was killed in; it refreshes the map again once done.
@@ -81,7 +88,11 @@ struct MainShellView: View {
 
     private var homeStack: some View {
         NavigationStack(path: $homePath) {
-            HomeView(onOpenChallengeMap: { homePath.append(.challengeMap) })
+            HomeView(
+                onOpenChallengeMap: { homePath.append(.challengeMap) },
+                onChooseTopics: openFocus,
+                onOpenRandomPractice: openRandomPractice
+            )
                 .background(Color.canvas)
                 // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
                 .navigationTitle(MainTab.home.title)
@@ -193,6 +204,17 @@ struct MainShellView: View {
                 showToast(error.asAPIError.userMessage)
             }
         }
+    }
+
+    /// The plan sheets hang off the Profile stack, so the Focus editor opens there.
+    private func openFocus() {
+        tab = .profile
+        planSheet = .focus
+    }
+
+    private func openRandomPractice() {
+        tab = .words
+        wordsPath = [.randomPractice]
     }
 
     private func showToast(_ text: String) {

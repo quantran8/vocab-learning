@@ -38,6 +38,20 @@ The project uses Xcode file-system synchronized groups (`objectVersion = 77`): n
 - `Features/Auth/`: `AuthView` (log in, password reset by emailed code in two steps) hosts its own `NavigationStack` to push `SignUpView`. New passwords follow `PasswordPolicy` (shown live by `PasswordRuleList`; the backend enforces the same rules). Sign in with Apple, and Google without the SDK (`SocialSignIn.swift`: OAuth code + PKCE in `WebAuthenticationSession`, client ID from Info.plist `GoogleClientID`). Both send an ID token plus the raw nonce to the backend. Change password lives in Settings (`ChangePasswordSheet`). Provider setup (Google Cloud, Apple Developer, Supabase templates/SMTP) is in `docs/AUTH_SETUP.md`.
 - `Features/PlacementTest/`: `PlacementTestStore` and `PlacementTestView` run the level test, hosted as an onboarding step and as a full-screen cover from `EditLevelView`. No answer key on the client; the backend scores it and saves the level.
 
+### Scope completion, review load, "I know this"
+Contract: `vocab-backend/docs/FRONTEND_FLOW.md` §13. Every new field is optional on decode, so an older backend still works.
+- **Daily auto-continue:** `PracticeSessionStore` plans the next daily after an all-review plan only when `newWords.withheldReason == nil`. Any reason (scope exhausted, override, review only…) would get the same answer again, so the session ends instead. Don't loosen this; it is what stops a plan loop.
+- **Extra plan data:** `SessionPlan` decodes `steps` twice. Once as `[PlanStep]`, and once for the extras (`sourceTopics` by task id, `knownChecks` by check-task id), so `PlanStep` keeps its shape. `reviewWords` feeds the "Review words you've learned" preview with topic labels; without it the store falls back to `ReviewWord.due` from the library.
+- **Review only:** `startReviewOnly()` sends `reviewOnly: true` and never continues to new words. Home offers it as "Extra review" when the backlog is above `ReviewLoad.statusThreshold`, and as "Review N words" when the scope is exhausted.
+- **"I know this"** (opt-in: Settings › Skip words I know, `AppSettingsStore.offersKnownCheck`): daily plans carry a `known_check` typing task before each Learn card.
+  - Right first time without a hint (`TaskAttempt.isRightFirstTime`, the backend's rule too): the store skips the card and its `skippableTaskIds`.
+  - "Learn it" (`declineKnownCheck`) drops the check.
+  - Skipped tasks and known Learn steps are left out of the commit body. Sending them back would be harmless, but a mismatch is a 422.
+- **Home:** the Daily Lesson card is driven by `DailyLessonStatus`, a pure function of `LearnHome`. `ReviewLoadChoiceSheet` opens from Home when `LearnerStore.shouldOfferReviewChoice`: at most once per launch, never during a session. Any way out of the sheet calls `POST /me/review-load/ack`.
+- **Follow-up after closing:** a session screen can't present shell sheets, so it calls `close(followUp:)` (`.chooseTopics` or `.randomPractice`). `MainShellView` reads it with `consumeFollowUp()` when it reappears. The Focus editor lives on the Profile stack, so "Choose topics" switches tab first.
+- **Topic progress:** `learnedMeanings`/`totalMeanings` come from `GET /catalog/collections`, which `LearnerStore.refresh()` reloads. "Finished" is computed (`Topic.isFinished`), never stored, so new content reopens a topic.
+- **Profile:** the Profile tab owns the per-collection review pauses, the auto-balance toggle and cancelling an override.
+
 ### Challenge (Match Madness)
 - Replaces the Journey/Checkpoint UI (Home card `ChallengeHomeCard`, map `ChallengeMapView` pushed as `ShellPage.challengeMap`). The old Journey files and `LearnerStore` checkpoint/journey loading remain only until the backend migration; nothing user-facing routes to them. Challenge never touches Daily, SRS or `PracticeSessionStore`.
 - Wire models live in `Domain/Challenge/ChallengeMapModels.swift` and `ChallengeRunModels.swift`, matching `vocab-backend/docs/FRONTEND_FLOW.md` §12. Unknown enum values decode to `.unknown`. Map levels carry the current goal and star rules for the level sheet; the run plan has the final say.

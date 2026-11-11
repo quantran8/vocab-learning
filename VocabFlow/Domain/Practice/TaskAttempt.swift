@@ -71,7 +71,8 @@ struct TaskAttempt: Equatable {
     init(task: PracticeTask, phase: TaskPhase) {
         self.task = task
         let isRecall = task.template == .typing || task.template == .flyReorder
-        requiresSubmission = phase == .newPractice && isRecall
+        // A known check must be tried before the answer can be shown.
+        requiresSubmission = (phase == .newPractice || phase == .knownCheck) && isRecall
     }
 
     /// A local display figure, not a score.
