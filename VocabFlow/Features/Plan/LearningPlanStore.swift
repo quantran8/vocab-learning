@@ -122,11 +122,12 @@ final class LearningPlanStore {
 
     /// The account already has a plan (new device, or returning after sign-out). The server owns the
     /// scope and daily goal; learning days and reminders stay on this device.
-    func adopt(_ scope: LearningScope, wordsPerDay: Int) {
+    func adopt(_ scope: LearningScope, wordsPerDay: Int, reviewsPerSession: Int?) {
         var next = current
         next.collectionID = scope.collectionId
         next.topicIDs = Set(scope.topicIds)
         next.wordsPerDay = min(wordsPerDay, LearningPreferences.wordsPerDayRange.upperBound)
+        next.reviewsPerSession = reviewsPerSession
         storage.preferences = next
         preferences = next
         storage.hasCompletedOnboarding = true

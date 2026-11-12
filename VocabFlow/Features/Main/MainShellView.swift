@@ -2,12 +2,13 @@ import SwiftUI
 import UIKit
 
 enum MainTab: CaseIterable, Hashable {
-    case home, words, profile
+    case home, words, ranking, profile
 
     var title: LocalizedStringKey {
         switch self {
         case .home: "Home"
         case .words: "My Words"
+        case .ranking: "Ranking"
         case .profile: "Profile"
         }
     }
@@ -16,6 +17,7 @@ enum MainTab: CaseIterable, Hashable {
         switch self {
         case .home: "house"
         case .words: "book"
+        case .ranking: "trophy"
         case .profile: "person"
         }
     }
@@ -26,6 +28,7 @@ enum ShellPage: Hashable {
     case settings
     case randomPractice
     case challengeMap
+    case tier
 }
 
 /// Plan editors Profile presents as bottom sheets.
@@ -35,7 +38,7 @@ enum PlanSheet: String, Identifiable {
     var id: String { rawValue }
 }
 
-/// Home · My Words · Profile in the system `TabView`, so the tab bar is whatever the OS provides:
+/// Home · My Words · Ranking · Profile in the system `TabView`, so the tab bar is whatever the OS provides:
 /// Liquid Glass on iOS 26+, the classic bar before that. Session screens live outside this shell.
 struct MainShellView: View {
     @Environment(LearningPlanStore.self) private var plan
@@ -51,6 +54,7 @@ struct MainShellView: View {
     /// Owned by the root too: changing the language rebuilds this view, and Settings must stay open.
     @Binding var profilePath: [ShellPage]
     @State private var wordsPath: [ShellPage] = []
+    @State private var rankingPath: [ShellPage] = []
     @State private var planSheet: PlanSheet?
     @State private var toast: String?
     @State private var toastToken = UUID()
@@ -64,6 +68,10 @@ struct MainShellView: View {
             wordsStack
                 .tabItem { Label(MainTab.words.title, systemImage: MainTab.words.systemImage) }
                 .tag(MainTab.words)
+
+            rankingStack
+                .tabItem { Label(MainTab.ranking.title, systemImage: MainTab.ranking.systemImage) }
+                .tag(MainTab.ranking)
 
             profileStack
                 .tabItem { Label(MainTab.profile.title, systemImage: MainTab.profile.systemImage) }
@@ -112,13 +120,24 @@ struct MainShellView: View {
         }
     }
 
+    private var rankingStack: some View {
+        NavigationStack(path: $rankingPath) {
+            RankingView()
+                // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
+                .navigationTitle(MainTab.ranking.title)
+                .toolbar(.hidden, for: .navigationBar)
+                .navigationDestination(for: ShellPage.self, destination: destination)
+        }
+    }
+
     private var profileStack: some View {
         NavigationStack(path: $profilePath) {
             ProfileView(
                 onEditLevel: { planSheet = .level },
                 onEditFocus: { planSheet = .focus },
                 onEditRoutine: { planSheet = .routine },
-                onOpenSettings: { profilePath.append(.settings) }
+                onOpenSettings: { profilePath.append(.settings) },
+                onOpenTier: { profilePath.append(.tier) }
             )
             .background(Color.canvas)
             // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
@@ -156,6 +175,10 @@ struct MainShellView: View {
                 .iconOnlyBackButton()
         case .challengeMap:
             ChallengeMapView()
+                .toolbar(.hidden, for: .tabBar)
+                .iconOnlyBackButton()
+        case .tier:
+            TierDetailView()
                 .toolbar(.hidden, for: .tabBar)
                 .iconOnlyBackButton()
         }

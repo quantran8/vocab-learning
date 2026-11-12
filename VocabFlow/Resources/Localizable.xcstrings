@@ -4,6 +4,136 @@
     "" : {
 
     },
+    "About today’s session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thông tin về phiên hôm nay"
+          }
+        }
+      }
+    },
+    "Choose a new collection to keep your journey going." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chọn Collection mới để tiếp tục hành trình."
+          }
+        }
+      }
+    },
+    "Decrease reviews per session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Giảm số từ ôn mỗi buổi"
+          }
+        }
+      }
+    },
+    "Follows your new words, at least %lld." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo số từ mới, ít nhất %lld từ."
+          }
+        }
+      }
+    },
+    "I know this word" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tôi biết từ này"
+          }
+        }
+      }
+    },
+    "Increase reviews per session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tăng số từ ôn mỗi buổi"
+          }
+        }
+      }
+    },
+    "Match new words" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Theo số từ mới"
+          }
+        }
+      }
+    },
+    "Reviews / session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ ôn / buổi"
+          }
+        }
+      }
+    },
+    "Reviews per session" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Số từ ôn mỗi buổi"
+          }
+        }
+      }
+    },
+    "Skips learning this word" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bỏ qua phần học từ này"
+          }
+        }
+      }
+    },
+    "Words due for review wait for the next session." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ đến hạn còn lại sẽ được ôn ở buổi sau."
+          }
+        }
+      }
+    },
+    "You can still review and practise the words you learned. Choose another collection to learn new words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn vẫn ôn và luyện được từ đã học. Chọn Collection khác để học từ mới."
+          }
+        }
+      }
+    },
+    "You’ve learned every new word in %@. You can still review and practise them. Choose another collection to learn new words." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã học hết từ mới trong %@. Bạn vẫn ôn và luyện được từ đã học. Chọn Collection khác để học từ mới."
+          }
+        }
+      }
+    },
     "“%@” — “%@” fits this context." : {
       "localizations" : {
         "en" : {
@@ -56,6 +186,16 @@
         }
       }
     },
+    "#%lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "#%lld"
+          }
+        }
+      }
+    },
     "%@ It’s added to your words to review." : {
       "localizations" : {
         "vi" : {
@@ -72,6 +212,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@, lựa chọn"
+          }
+        }
+      }
+    },
+    "%@, Tier %lld, %lld LP earned, %lld learning days" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, Tier %2$lld, %3$lld LP earned, %4$lld learning days"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@, Tier %2$lld, %3$lld LP tích lũy, %4$lld ngày học"
           }
         }
       }
@@ -189,6 +345,94 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld ví dụ"
+          }
+        }
+      }
+    },
+    "%lld learning days" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld ngày học"
+          }
+        }
+      }
+    },
+    "%lld LP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld LP"
+          }
+        }
+      }
+    },
+    "%lld LP earned" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld LP tích lũy"
+          }
+        }
+      }
+    },
+    "%lld LP in total" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tổng %lld LP"
+          }
+        }
+      }
+    },
+    "%lld more learning days to reach %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld more learning days to reach %2$@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld ngày học để tới %2$@"
+          }
+        }
+      }
+    },
+    "%lld more LP and %lld more learning days to reach %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld more LP and %2$lld more learning days to reach %3$@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld LP và %2$lld ngày học để tới %3$@"
+          }
+        }
+      }
+    },
+    "%lld more LP to reach %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$lld more LP to reach %2$@"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Còn %1$lld LP để tới %2$@"
           }
         }
       }
@@ -456,6 +700,16 @@
         }
       }
     },
+    "+%lld LP" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld LP"
+          }
+        }
+      }
+    },
     "+%lld more" : {
       "comment" : "A button that shows the number of hidden topics.",
       "isCommentAutoGenerated" : true,
@@ -474,6 +728,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã học 1 / 1 nghĩa"
+          }
+        }
+      }
+    },
+    "3–20 letters, numbers, “_” or “.”, starting with a letter." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "3–20 ký tự gồm chữ, số, “_” hoặc “.”, bắt đầu bằng chữ cái."
           }
         }
       }
@@ -499,6 +763,16 @@
         }
       }
     },
+    "A learning day is a UTC day with at least %lld LP. Days don’t need to be in a row, and taking a break never lowers your Tier." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Một ngày học là một ngày (theo giờ UTC) có ít nhất %lld LP. Các ngày không cần liên tiếp, và nghỉ học không bao giờ làm giảm Tier của bạn."
+          }
+        }
+      }
+    },
     "A little, every day." : {
       "comment" : "A description of the onboarding flow.",
       "isCommentAutoGenerated" : true,
@@ -511,6 +785,16 @@
         }
       }
     },
+    "A milestone for the long stretch you’ve given to learning." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Đây là dấu mốc cho một chặng dài bạn đã dành cho việc học."
+          }
+        }
+      }
+    },
     "About Syll" : {
       "comment" : "Title of a setting row that opens a link to the app's website.",
       "isCommentAutoGenerated" : true,
@@ -519,6 +803,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Về Syll"
+          }
+        }
+      }
+    },
+    "About top %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Khoảng top %@"
           }
         }
       }
@@ -828,6 +1122,16 @@
         }
       }
     },
+    "Around me" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quanh tôi"
+          }
+        }
+      }
+    },
     "Art & Music" : {
       "comment" : "Topic name for art and music.",
       "isCommentAutoGenerated" : true,
@@ -893,6 +1197,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Không có âm thanh"
+          }
+        }
+      }
+    },
+    "Avatar" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ảnh đại diện"
+          }
+        }
+      }
+    },
+    "Avatar %lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ảnh đại diện %lld"
           }
         }
       }
@@ -1093,6 +1417,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã hoàn thành ghép câu"
+          }
+        }
+      }
+    },
+    "Building Up" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tích lũy"
           }
         }
       }
@@ -1663,6 +1997,16 @@
         }
       }
     },
+    "Committed" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiên trì"
+          }
+        }
+      }
+    },
     "Communication" : {
       "comment" : "Topic name for communication-related content.",
       "isCommentAutoGenerated" : true,
@@ -1671,6 +2015,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Giao tiếp"
+          }
+        }
+      }
+    },
+    "Compare the LP you earn this week with other learners. It starts again every Monday." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "So sánh LP bạn kiếm được trong tuần này với những người học khác. Bảng bắt đầu lại vào mỗi thứ Hai."
           }
         }
       }
@@ -2010,6 +2364,16 @@
         }
       }
     },
+    "Dedicated" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bền bỉ"
+          }
+        }
+      }
+    },
     "Definition" : {
       "comment" : "Section title for the definition of a word.",
       "isCommentAutoGenerated" : true,
@@ -2121,6 +2485,26 @@
         }
       }
     },
+    "Each word earns LP a limited number of times a day, so this session added none." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mỗi từ chỉ nhận LP một số lần nhất định mỗi ngày, nên buổi học này không cộng thêm LP."
+          }
+        }
+      }
+    },
+    "Earn LP this week to appear on the board." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kiếm LP trong tuần này để xuất hiện trên bảng."
+          }
+        }
+      }
+    },
     "Economy" : {
       "comment" : "Topic name for vocabulary used in the economy sector.",
       "isCommentAutoGenerated" : true,
@@ -2165,6 +2549,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sửa trình độ"
+          }
+        }
+      }
+    },
+    "Edit name and avatar" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sửa tên và ảnh đại diện"
           }
         }
       }
@@ -2307,6 +2701,16 @@
         }
       }
     },
+    "Estimated" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ước lượng"
+          }
+        }
+      }
+    },
     "Every day" : {
       "comment" : "A button that toggles the selection of all days.",
       "isCommentAutoGenerated" : true,
@@ -2417,6 +2821,16 @@
         }
       }
     },
+    "Extra practice +%lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luyện thêm +%lld"
+          }
+        }
+      }
+    },
     "Fill in every field" : {
       "comment" : "The text that appears in the button that triggers the save action.",
       "isCommentAutoGenerated" : true
@@ -2484,6 +2898,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hoàn thành Tổng ôn để mở từ mới."
+          }
+        }
+      }
+    },
+    "First Steps" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bước đầu"
           }
         }
       }
@@ -2758,6 +3182,26 @@
         }
       }
     },
+    "If you join, your name, avatar, Tier and LP this week are public." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nếu tham gia, tên, ảnh đại diện, Tier và LP tuần này của bạn sẽ công khai."
+          }
+        }
+      }
+    },
+    "If you join, your name, avatar, Tier and LP this week are public. Your email, level and words are never shown." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nếu tham gia, tên, ảnh đại diện, Tier và LP tuần này của bạn sẽ công khai. Email, trình độ và các từ bạn học không bao giờ được hiển thị."
+          }
+        }
+      }
+    },
     "If you leave, Syll saves it the next time you open the app." : {
       "localizations" : {
         "vi" : {
@@ -2776,6 +3220,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Trong ngữ cảnh"
+          }
+        }
+      }
+    },
+    "In Motion" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vào nhịp"
           }
         }
       }
@@ -2926,6 +3380,36 @@
         }
       }
     },
+    "Join" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tham gia"
+          }
+        }
+      }
+    },
+    "Join the leaderboard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tham gia bảng xếp hạng"
+          }
+        }
+      }
+    },
+    "Join the leaderboard to see who’s around you." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tham gia bảng xếp hạng để xem những ai ở quanh bạn."
+          }
+        }
+      }
+    },
     "Journey" : {
       "localizations" : {
         "vi" : {
@@ -2942,6 +3426,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Làm tiếp"
+          }
+        }
+      }
+    },
+    "Keep going at your own pace." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cứ tiếp tục theo nhịp của bạn."
           }
         }
       }
@@ -3035,6 +3529,26 @@
         }
       }
     },
+    "Lasting Mark" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dấu ấn dài lâu"
+          }
+        }
+      }
+    },
+    "Leaderboard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng xếp hạng"
+          }
+        }
+      }
+    },
     "Learn" : {
       "localizations" : {
         "vi" : {
@@ -3113,6 +3627,16 @@
         }
       }
     },
+    "Learn on a few days to unlock your first milestone." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Học vài ngày để mở khóa dấu mốc đầu tiên."
+          }
+        }
+      }
+    },
     "Learn words to unlock your first challenge." : {
       "localizations" : {
         "vi" : {
@@ -3165,6 +3689,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ngày học"
+          }
+        }
+      }
+    },
+    "Learning days %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Learning days %1$lld/%2$lld"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ngày học %1$lld/%2$lld"
           }
         }
       }
@@ -3425,6 +3965,26 @@
         }
       }
     },
+    "Lifetime achievement" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thành tích tích lũy"
+          }
+        }
+      }
+    },
+    "Lifetime Tier" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tier trọn đời"
+          }
+        }
+      }
+    },
     "Light" : {
       "comment" : "A description of the light theme.",
       "isCommentAutoGenerated" : true,
@@ -3578,6 +4138,32 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đang tra từ của bạn…"
+          }
+        }
+      }
+    },
+    "LP %lld/%lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "LP %1$lld/%2$lld"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LP %1$lld/%2$lld"
+          }
+        }
+      }
+    },
+    "LP this week" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "LP tuần này"
           }
         }
       }
@@ -3802,6 +4388,16 @@
         }
       }
     },
+    "Milestones" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dấu mốc đã mở khóa"
+          }
+        }
+      }
+    },
     "Mistakes" : {
       "localizations" : {
         "vi" : {
@@ -3873,6 +4469,16 @@
         }
       }
     },
+    "Name" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên"
+          }
+        }
+      }
+    },
     "Need practice" : {
       "localizations" : {
         "vi" : {
@@ -3937,6 +4543,16 @@
         }
       }
     },
+    "New milestone" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dấu mốc mới"
+          }
+        }
+      }
+    },
     "New password" : {
       "comment" : "Label of the new password field.",
       "localizations" : {
@@ -3968,6 +4584,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Từ mới / ngày"
+          }
+        }
+      }
+    },
+    "New words +%lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Từ mới +%lld"
           }
         }
       }
@@ -4120,6 +4746,16 @@
         }
       }
     },
+    "No learning recorded this week yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuần này bạn chưa có hoạt động học được ghi nhận."
+          }
+        }
+      }
+    },
     "No longer available" : {
       "comment" : "A description of a word that is no longer available.",
       "isCommentAutoGenerated" : true,
@@ -4128,6 +4764,32 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Không còn khả dụng"
+          }
+        }
+      }
+    },
+    "No Tier yet" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có Tier"
+          }
+        }
+      }
+    },
+    "No Tier yet, %lld LP earned, %lld learning days" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "No Tier yet, %1$lld LP earned, %2$lld learning days"
+          }
+        },
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chưa có Tier, %1$lld LP tích lũy, %2$lld ngày học"
           }
         }
       }
@@ -4152,6 +4814,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chưa có từ nào"
+          }
+        }
+      }
+    },
+    "Nobody is on the board yet this week." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuần này chưa có ai trên bảng."
           }
         }
       }
@@ -4194,6 +4866,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Chưa học"
+          }
+        }
+      }
+    },
+    "Not now" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Để sau"
+          }
+        }
+      }
+    },
+    "Not on the board" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Không tham gia bảng"
           }
         }
       }
@@ -4369,6 +5061,16 @@
         }
       }
     },
+    "Offensive name" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên phản cảm"
+          }
+        }
+      }
+    },
     "Office" : {
       "comment" : "Topic name for the office category in the TOEIC vocabulary collection.",
       "isCommentAutoGenerated" : true,
@@ -4399,6 +5101,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Một buổi học chưa đủ để thành thạo — hãy quay lại với các từ dưới đây sau một hai ngày."
+          }
+        }
+      }
+    },
+    "Only shown on the leaderboard if you join it. Your email is never shown." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chỉ hiện trên bảng xếp hạng nếu bạn tham gia. Email của bạn không bao giờ được hiển thị."
           }
         }
       }
@@ -4494,6 +5206,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Mật khẩu"
+          }
+        }
+      }
+    },
+    "Past weeks" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Các tuần trước"
           }
         }
       }
@@ -4688,6 +5410,16 @@
         }
       }
     },
+    "Pretending to be someone else" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mạo danh người khác"
+          }
+        }
+      }
+    },
     "Preview the mascot’s Rive animations" : {
       "comment" : "Settings row subtitle for the mascot animation preview.",
       "localizations" : {
@@ -4824,6 +5556,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Luyện tập ngẫu nhiên"
+          }
+        }
+      }
+    },
+    "Ranking" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xếp hạng"
           }
         }
       }
@@ -5165,6 +5907,26 @@
         }
       }
     },
+    "Report" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Báo cáo"
+          }
+        }
+      }
+    },
+    "Report %@?" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Báo cáo %@?"
+          }
+        }
+      }
+    },
     "Reset your password" : {
       "comment" : "Title of the password reset screen.",
       "localizations" : {
@@ -5172,6 +5934,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đặt lại mật khẩu"
+          }
+        }
+      }
+    },
+    "Resets %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Làm mới vào %@"
           }
         }
       }
@@ -5244,6 +6016,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã hoàn thành Tổng ôn"
+          }
+        }
+      }
+    },
+    "Reviews +%lld" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ôn tập +%lld"
           }
         }
       }
@@ -5605,6 +6387,16 @@
         }
       }
     },
+    "Show me on the leaderboard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hiện tôi trên bảng xếp hạng"
+          }
+        }
+      }
+    },
     "Show password" : {
       "comment" : "Accessibility label for the button that reveals the password.",
       "localizations" : {
@@ -5671,6 +6463,16 @@
         }
       }
     },
+    "Shows your Tier and milestones" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xem Tier và các dấu mốc của bạn"
+          }
+        }
+      }
+    },
     "Sign up" : {
       "comment" : "Button title for signing up.",
       "isCommentAutoGenerated" : true,
@@ -5728,6 +6530,16 @@
         }
       }
     },
+    "Small sessions have added up to a clear achievement." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Công sức từ từng buổi học nhỏ đã cộng dồn thành một thành tích rõ ràng."
+          }
+        }
+      }
+    },
     "Society" : {
       "comment" : "Topic name for vocabulary used in a society context.",
       "isCommentAutoGenerated" : true,
@@ -5746,6 +6558,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Một số từ trong chương này không còn dùng được. Học thêm vài từ để chơi tiếp. Các ngôi sao của bạn vẫn được giữ nguyên."
+          }
+        }
+      }
+    },
+    "Something else" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lý do khác"
           }
         }
       }
@@ -5911,6 +6733,16 @@
         }
       }
     },
+    "Steady Effort" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nỗ lực đều đặn"
+          }
+        }
+      }
+    },
     "Step %lld of %lld" : {
       "comment" : "A label that describes the current step and total number of steps. The first argument is the current step number. The second argument is the total number of steps.",
       "isCommentAutoGenerated" : true,
@@ -5949,6 +6781,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Phản hồi rung nhẹ khi chạm"
+          }
+        }
+      }
+    },
+    "Suspicious activity" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hoạt động đáng ngờ"
           }
         }
       }
@@ -6065,6 +6907,26 @@
         }
       }
     },
+    "Thanks. We’ll take a look." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cảm ơn bạn. Chúng tôi sẽ xem xét."
+          }
+        }
+      }
+    },
+    "That avatar isn’t available any more." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ảnh đại diện này không còn nữa."
+          }
+        }
+      }
+    },
     "That code is wrong or has expired. Check the latest email or send a new code." : {
       "comment" : "Error when the reset code is rejected.",
       "localizations" : {
@@ -6100,6 +6962,26 @@
         }
       }
     },
+    "That name is taken. Try another one." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên này đã có người dùng. Hãy thử tên khác."
+          }
+        }
+      }
+    },
+    "That name isn’t allowed. Try another one." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên này không được phép. Hãy thử tên khác."
+          }
+        }
+      }
+    },
     "The answer is “%@”" : {
       "localizations" : {
         "vi" : {
@@ -6128,6 +7010,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Ngôn ngữ hiển thị của ứng dụng"
+          }
+        }
+      }
+    },
+    "The leaderboard isn’t open yet." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng xếp hạng chưa mở."
+          }
+        }
+      }
+    },
+    "The leaderboard opens soon. Your LP and Tier already count." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng xếp hạng sắp mở. LP và Tier của bạn đã được ghi nhận."
           }
         }
       }
@@ -6266,6 +7168,16 @@
         }
       }
     },
+    "This week" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuần này"
+          }
+        }
+      }
+    },
     "This word is no longer on your learning path." : {
       "comment" : "Error message displayed when a word is no longer on the user's learning path.",
       "isCommentAutoGenerated" : true,
@@ -6336,6 +7248,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "TOEIC"
+          }
+        }
+      }
+    },
+    "Top 100" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top 100"
           }
         }
       }
@@ -6528,6 +7450,16 @@
         }
       }
     },
+    "Use 3–20 letters, numbers, “_” or “.”, starting with a letter." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dùng 3–20 ký tự gồm chữ, số, “_” hoặc “.”, bắt đầu bằng chữ cái."
+          }
+        }
+      }
+    },
     "Use letters, spaces, hyphens and apostrophes, starting with a letter." : {
       "comment" : "Hint to display when a word contains invalid characters.",
       "isCommentAutoGenerated" : true,
@@ -6702,6 +7634,46 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Từ còn yếu"
+          }
+        }
+      }
+    },
+    "Week of %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tuần %@"
+          }
+        }
+      }
+    },
+    "Weekly leaderboard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bảng xếp hạng tuần"
+          }
+        }
+      }
+    },
+    "Weekly rank" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hạng tuần"
+          }
+        }
+      }
+    },
+    "Weekly ranking" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Xếp hạng tuần"
           }
         }
       }
@@ -6990,12 +7962,32 @@
         }
       }
     },
+    "You" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn"
+          }
+        }
+      }
+    },
     "You can change this anytime in Settings." : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn có thể đổi bất cứ lúc nào trong Cài đặt."
+          }
+        }
+      }
+    },
+    "You can change your name again on %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn có thể đổi tên lại vào %@"
           }
         }
       }
@@ -7012,12 +8004,32 @@
         }
       }
     },
+    "You changed your name recently. You can change it again later." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn vừa đổi tên gần đây. Bạn có thể đổi lại sau."
+          }
+        }
+      }
+    },
     "You recalled every word on the first try without hints." : {
       "localizations" : {
         "vi" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn đã nhớ mọi từ ngay lần đầu mà không cần gợi ý."
+          }
+        }
+      }
+    },
+    "You unlocked %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn vừa mở khóa %@"
           }
         }
       }
@@ -7040,6 +8052,66 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn đã sẵn sàng"
+          }
+        }
+      }
+    },
+    "You’re not on the leaderboard" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn chưa có trên bảng xếp hạng"
+          }
+        }
+      }
+    },
+    "You’ve learned on many different days, at your own pace." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã dành thời gian học ở nhiều ngày khác nhau, theo nhịp riêng."
+          }
+        }
+      }
+    },
+    "You’ve put in real effort and keep building this journey." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã đầu tư công sức đáng kể và tiếp tục xây dựng hành trình này."
+          }
+        }
+      }
+    },
+    "You’ve reached the highest Tier. Your LP and learning days keep adding up." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã đạt Tier cao nhất. LP và ngày học của bạn vẫn tiếp tục cộng dồn."
+          }
+        }
+      }
+    },
+    "You’ve sent the most reports for today." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hôm nay bạn đã gửi đủ số báo cáo cho phép."
+          }
+        }
+      }
+    },
+    "You’ve started putting effort into your learning journey." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bạn đã bắt đầu dành công sức cho hành trình học của mình."
           }
         }
       }
@@ -7129,6 +8201,16 @@
         }
       }
     },
+    "Your effort has become a lasting mark on your journey with Syll." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Những nỗ lực tích lũy đã trở thành dấu ấn đáng nhớ trong hành trình với Syll."
+          }
+        }
+      }
+    },
     "Your English level" : {
       "localizations" : {
         "vi" : {
@@ -7175,6 +8257,26 @@
         }
       }
     },
+    "Your name, avatar, Tier and LP this week become public" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tên, ảnh đại diện, Tier và LP tuần này của bạn sẽ công khai"
+          }
+        }
+      }
+    },
+    "Your next session unlocks %@" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buổi học tiếp theo sẽ mở khóa %@"
+          }
+        }
+      }
+    },
     "Your password has been changed." : {
       "comment" : "Confirmation after changing the password.",
       "localizations" : {
@@ -7182,6 +8284,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Đã đổi mật khẩu."
+          }
+        }
+      }
+    },
+    "Your past weeks will show up here." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Các tuần trước của bạn sẽ hiện ở đây."
           }
         }
       }
@@ -7204,6 +8316,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tiến độ, từ vựng và cài đặt của bạn sẽ bị xóa vĩnh viễn. Không thể hoàn tác."
+          }
+        }
+      }
+    },
+    "Your public profile" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hồ sơ công khai"
           }
         }
       }
@@ -7247,6 +8369,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Lịch học của bạn"
+          }
+        }
+      }
+    },
+    "Your sessions are adding up into your first stretch of progress." : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Những lần học đang nối tiếp nhau, tạo nên tiến trình đầu tiên."
           }
         }
       }
@@ -7385,16 +8517,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tất cả từ đã học"
-          }
-        }
-      }
-    },
-    "Already know this word?" : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bạn đã biết từ này?"
           }
         }
       }
@@ -7559,26 +8681,6 @@
         }
       }
     },
-    "Learn it" : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Học từ này"
-          }
-        }
-      }
-    },
-    "Learning" : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Học tập"
-          }
-        }
-      }
-    },
     "Lower new words" : {
       "localizations" : {
         "vi" : {
@@ -7725,46 +8827,6 @@
         }
       }
     },
-    "Skip words I know" : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bỏ qua từ đã biết"
-          }
-        }
-      }
-    },
-    "Skips this check and shows the word" : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bỏ qua phần kiểm tra và hiện từ"
-          }
-        }
-      }
-    },
-    "Try recalling a new word before it is taught. Experimental." : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Thử nhớ lại từ mới trước khi học. Đang thử nghiệm."
-          }
-        }
-      }
-    },
-    "Type it right the first time and you can skip learning it." : {
-      "localizations" : {
-        "vi" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Gõ đúng ngay lần đầu là bạn được bỏ qua phần học từ này."
-          }
-        }
-      }
-    },
     "Until %@" : {
       "localizations" : {
         "vi" : {
@@ -7901,6 +8963,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bạn đã học hết bộ %@!"
+          }
+        }
+      }
+    },
+    "Your Tier" : {
+      "localizations" : {
+        "vi" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tier của bạn"
           }
         }
       }

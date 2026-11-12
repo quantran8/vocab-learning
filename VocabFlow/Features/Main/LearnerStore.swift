@@ -54,7 +54,7 @@ final class LearnerStore {
             await syncDeviceSettings(profile.settings, weeklySessionGoal: localWeeklyGoal)
             if let scope = profile.scope, profile.hasFinishedOnboarding {
                 TopicCatalog.update(with: try await api.catalog())
-                plan.adopt(scope, wordsPerDay: profile.settings.dailyNewWordGoal)
+                plan.adopt(scope, wordsPerDay: profile.settings.dailyNewWordGoal, reviewsPerSession: profile.settings.reviewsPerSession)
             } else {
                 plan.resetOnboarding()
             }
@@ -173,8 +173,17 @@ final class LearnerStore {
     /// Scope and goal go to the server first, so a failed save leaves the local plan unchanged.
     func savePlan(_ preferences: LearningPreferences) async throws {
         try await api.updateScope(LearningScope(collectionId: preferences.collectionID, topicIds: Array(preferences.topicIDs)))
-        try await api.updateSettings(SettingsUpdate(dailyNewWordGoal: preferences.wordsPerDay, weeklySessionGoal: preferences.weeklySessionGoal))
+        var update = SettingsUpdate(dailyNewWordGoal: preferences.wordsPerDay, weeklySessionGoal: preferences.weeklySessionGoal)
+        // Sent only when changed, so a backend without the field never sees it.
+        if preferences.reviewsPerSession != profile?.settings.reviewsPerSession {
+            update.reviewsPerSession = .some(preferences.reviewsPerSession)
+        }
+        try await api.updateSettings(update)
         plan.save(preferences)
+        // Home's review count (`dueCap`) follows both numbers.
+        async let profile: Void = reloadProfile()
+        if let home = try? await api.learnHome() { self.home = home }
+        await profile
     }
 
     /// The level goes to the server first; the profile is re-read so Profile shows what the server kept.

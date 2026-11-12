@@ -36,6 +36,10 @@ struct UserSettings: Decodable, Equatable {
     var weeklySessionGoal: Int? = nil
     /// Opt-in: fewer new words while the review backlog is large. Nil from an older backend.
     var autoBalanceNewWords: Bool? = nil
+    /// Public on the weekly leaderboard. Off until the learner opts in; nil from a backend without ranking.
+    var leaderboardVisible: Bool? = nil
+    /// Reviews per daily session the learner chose; nil follows the new-word goal (or an older backend).
+    var reviewsPerSession: Int? = nil
 }
 
 struct LearningScope: Codable, Equatable {
@@ -51,6 +55,13 @@ struct UserProfile: Decodable, Equatable {
     let scope: LearningScope?
     /// Collections whose words the learner stopped reviewing. Nil from an older backend.
     var reviewPauses: [ReviewPause]? = nil
+    /// Public identity and lifetime Tier (FRONTEND_FLOW §14). Nil from a backend without ranking.
+    var username: String? = nil
+    var avatarKey: String? = nil
+    /// Nil means the name can change now.
+    var usernameChangeAvailableAt: Date? = nil
+    var rankingIntroSeen: Bool? = nil
+    var tierSummary: TierSummary? = nil
 
     var hasFinishedOnboarding: Bool { proficiencyLevel != nil && scope != nil }
 }
@@ -64,6 +75,10 @@ struct SettingsUpdate: Encodable, Equatable {
     /// The number of learning days a week; the backend sizes each Journey segment by it.
     var weeklySessionGoal: Int?
     var autoBalanceNewWords: Bool?
+    /// Only from an explicit "Join" or the Settings toggle, never from seeing the intro.
+    var leaderboardVisible: Bool?
+    /// `.some(nil)` is sent as `null`: back to following the new-word goal.
+    var reviewsPerSession: Int?? = nil
 }
 
 struct ReviewPause: Decodable, Equatable {
@@ -399,6 +414,16 @@ protocol VocabAPI: Sendable {
     func challengeRunStatus(runID: String) async throws -> ChallengeRunStatus
     /// Abandons an issued run, or settles an orphaned started one with 0 stars.
     func quitChallengeRun(runID: String) async throws
+
+    // LP, Tier and the weekly ranking. The leaderboard and reports answer 403 RANKING_DISABLED until launch.
+    func rankingMeta() async throws -> RankingMeta
+    func myRanking() async throws -> MyRanking
+    func tierDetail() async throws -> TierDetail
+    func leaderboard(_ view: LeaderboardView) async throws -> Leaderboard
+    func rankingHistory(weeks: Int) async throws -> RankingHistory
+    func markRankingIntroSeen() async throws
+    func updatePublicProfile(_ update: PublicProfileUpdate) async throws -> PublicProfile
+    func reportLearner(username: String, reason: ReportReason) async throws
 }
 
 /// Older test doubles and previews keep compiling: these calls just fail offline.
@@ -409,6 +434,15 @@ extension VocabAPI {
     }
     func clearNewWordOverride() async throws {}
     func setReviewPaused(collectionID: String, paused: Bool) async throws {}
+
+    func rankingMeta() async throws -> RankingMeta { throw APIError.transport }
+    func myRanking() async throws -> MyRanking { throw APIError.transport }
+    func tierDetail() async throws -> TierDetail { throw APIError.transport }
+    func leaderboard(_ view: LeaderboardView) async throws -> Leaderboard { throw APIError.transport }
+    func rankingHistory(weeks: Int) async throws -> RankingHistory { throw APIError.transport }
+    func markRankingIntroSeen() async throws {}
+    func updatePublicProfile(_ update: PublicProfileUpdate) async throws -> PublicProfile { throw APIError.transport }
+    func reportLearner(username: String, reason: ReportReason) async throws {}
 }
 
 extension VocabAPI {
@@ -668,6 +702,44 @@ struct LiveVocabAPI: VocabAPI {
         _ = try await client.sendRaw(emptyPost("challenge/runs/\(runID)/quit"))
     }
 
+    func rankingMeta() async throws -> RankingMeta {
+        try await client.send(get("ranking/meta"))
+    }
+
+    func myRanking() async throws -> MyRanking {
+        try await client.send(get("me/ranking"))
+    }
+
+    func tierDetail() async throws -> TierDetail {
+        try await client.send(get("me/tier"))
+    }
+
+    func leaderboard(_ view: LeaderboardView) async throws -> Leaderboard {
+        var request = get("ranking/leaderboard")
+        request.query = [URLQueryItem(name: "view", value: view.rawValue)]
+        return try await client.send(request)
+    }
+
+    func rankingHistory(weeks: Int) async throws -> RankingHistory {
+        var request = get("me/ranking/history")
+        request.query = [URLQueryItem(name: "weeks", value: String(weeks))]
+        return try await client.send(request)
+    }
+
+    func markRankingIntroSeen() async throws {
+        _ = try await client.sendRaw(emptyPost("me/ranking/intro-seen"))
+    }
+
+    func updatePublicProfile(_ update: PublicProfileUpdate) async throws -> PublicProfile {
+        var request = try post("me/profile", update)
+        request.method = .put
+        return try await client.send(request)
+    }
+
+    func reportLearner(username: String, reason: ReportReason) async throws {
+        _ = try await client.sendRaw(try post("ranking/reports", LearnerReport(username: username, reason: reason)))
+    }
+
     /// A POST whose body is `{}`.
     private func emptyPost(_ path: String) -> APIRequest {
         var request = APIRequest(method: .post, path: path)
@@ -750,6 +822,11 @@ struct LiveVocabAPI: VocabAPI {
 
     private struct CustomWordsResponse: Decodable {
         let words: [CustomWord]
+    }
+
+    private struct LearnerReport: Encodable {
+        let username: String
+        let reason: ReportReason
     }
 }
 

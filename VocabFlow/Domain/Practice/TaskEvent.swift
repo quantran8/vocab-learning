@@ -107,5 +107,7 @@ struct TaskResult: Encodable, Equatable {
 
 struct CommitBody: Encodable, Equatable {
     let learnStepsCompleted: [String]
+    /// Learn steps marked "I know this word"; omitted when empty so older bodies stay byte-identical.
+    var knownLearnSteps: [String]? = nil
     let taskResults: [TaskResult]
 }

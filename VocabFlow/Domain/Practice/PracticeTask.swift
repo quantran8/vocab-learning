@@ -456,6 +456,10 @@ struct CommitResponse: Decodable, Equatable {
     let sessionId: String
     let summary: CommitSummary
     var scopeEvents: ScopeEvents? = nil
+    /// LP and lifetime Tier from this commit; nil from a backend without them. A retry repeats them.
+    var lp: CommitLP? = nil
+    var tier: CommitTier? = nil
+    var ranking: CommitRanking? = nil
 }
 
 struct CommitStatus: Decodable, Equatable {

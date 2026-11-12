@@ -54,6 +54,20 @@ enum APIError: Error, Equatable {
                 String(localized: "That meaning is no longer available.", bundle: .appLanguage)
             case "LEXICAL_PROVIDER_UNAVAILABLE":
                 String(localized: "We couldn’t prepare this word just now. Please try again.", bundle: .appLanguage)
+            case "USERNAME_TAKEN":
+                String(localized: "That name is taken. Try another one.", bundle: .appLanguage)
+            case "USERNAME_INVALID":
+                String(localized: "Use 3–20 letters, numbers, “_” or “.”, starting with a letter.", bundle: .appLanguage)
+            case "USERNAME_NOT_ALLOWED":
+                String(localized: "That name isn’t allowed. Try another one.", bundle: .appLanguage)
+            case "AVATAR_INVALID":
+                String(localized: "That avatar isn’t available any more.", bundle: .appLanguage)
+            case "USERNAME_CHANGE_TOO_SOON":
+                String(localized: "You changed your name recently. You can change it again later.", bundle: .appLanguage)
+            case "REPORT_LIMIT_REACHED":
+                String(localized: "You’ve sent the most reports for today.", bundle: .appLanguage)
+            case "RANKING_DISABLED":
+                String(localized: "The leaderboard isn’t open yet.", bundle: .appLanguage)
             default:
                 requestID.map { String(localized: "Something went wrong. Reference: \($0)", bundle: .appLanguage) }
                     ?? String(localized: "Something went wrong. Please try again.", bundle: .appLanguage)

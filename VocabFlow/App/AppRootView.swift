@@ -189,5 +189,6 @@ private enum RouteID: Hashable {
         .environment(CustomWordStore(api: OfflineVocabAPI(), audio: SilentAudioClips()))
         .environment(PlacementTestStore(api: OfflineVocabAPI(), haptics: NoOpFeedback()))
         .environment(ChallengeMapStore(api: OfflineVocabAPI()))
+        .environment(RankingStore(api: OfflineVocabAPI()))
         .environment(ChallengeRunStore(api: OfflineVocabAPI(), haptics: NoOpFeedback(), defaults: nil))
 }

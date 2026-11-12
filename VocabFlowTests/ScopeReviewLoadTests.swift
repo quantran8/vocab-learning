@@ -96,6 +96,30 @@ final class ScopeReviewLoadTests: XCTestCase {
         XCTAssertEqual(status.reason, .autoBalanced)
         XCTAssertEqual(status.newWords, 2)
         XCTAssertEqual(status.backlog, 34)
+        XCTAssertEqual(status.sessionReviews, 10, "Capped at the planner's dueCap")
+    }
+
+    func testReviewsPerSessionFollowNewWordsAtLeastFive() {
+        var preferences = LearningPreferences.default
+        preferences.wordsPerDay = 3
+        XCTAssertEqual(preferences.effectiveReviewsPerSession, 5)
+        preferences.wordsPerDay = 12
+        XCTAssertEqual(preferences.effectiveReviewsPerSession, 12)
+        preferences.adjustReviewsPerSession(by: -1)
+        XCTAssertEqual(preferences.reviewsPerSession, 11)
+        preferences.reviewsPerSession = 5
+        preferences.adjustReviewsPerSession(by: -1)
+        XCTAssertEqual(preferences.reviewsPerSession, 5)
+    }
+
+    func testResettingReviewsPerSessionSendsNull() throws {
+        let encode = { (update: SettingsUpdate) in String(decoding: try JSONEncoder().encode(update), as: UTF8.self) }
+        XCTAssertEqual(try encode(SettingsUpdate(reviewsPerSession: .some(nil))), #"{"reviewsPerSession":null}"#)
+        XCTAssertEqual(try encode(SettingsUpdate(dailyNewWordGoal: 5)), #"{"dailyNewWordGoal":5}"#)
+    }
+
+    func testSessionReviewsBelowTheCapAreTheWholeBacklog() {
+        XCTAssertEqual(DailyLessonStatus(home: home(load: load(backlog: 4)), goal: 5).sessionReviews, 4)
     }
 
     // MARK: Session
@@ -164,20 +188,18 @@ final class ScopeReviewLoadTests: XCTestCase {
         )
     }
 
-    func testKnownCheckIsRequestedOnlyWhenOffered() async {
+    func testDailyAlwaysAsksForKnownChecks() async {
         let store = makeStore(knownCheckPlan)
-        store.offersKnownCheck = { true }
         await store.start(.daily)
         XCTAssertEqual(api.planRequests.last?.knownCheck, true)
+        XCTAssertEqual(store.knownCheckOffer?.word, PracticeFixtures.card.word)
     }
 
-    func testPassedCheckSkipsTheCardAndItsOwnTasks() async throws {
+    func testMarkedKnownSkipsTheCheckCardAndOwnTasks() async throws {
         let store = makeStore(knownCheckPlan)
         api.commitResults = [.success(CommitResponse(sessionId: "s1", summary: summary))]
         await store.start(.daily)
-        XCTAssertTrue(store.isKnownCheck)
-        store.submitText("clarify")
-        store.advance()
+        store.markKnown()
 
         XCTAssertEqual(store.knownWordCount, 1)
         guard case .practice(_, let task)? = store.currentStep else { return XCTFail("Expected the shared match task") }
@@ -189,17 +211,18 @@ final class ScopeReviewLoadTests: XCTestCase {
 
         let body = try commitBody()
         XCTAssertEqual(body["learnStepsCompleted"] as? [String], [])
+        XCTAssertEqual(body["knownLearnSteps"] as? [String], ["l1"])
         let ids = (body["taskResults"] as? [[String: Any]])?.compactMap { $0["taskId"] as? String }
-        XCTAssertEqual(ids, ["k1", "t-match"])
+        XCTAssertEqual(ids, ["t-match"])
     }
 
-    func testDeclinedCheckTeachesTheWordAndSendsNoCheckResult() async throws {
+    func testContinueOnTheOfferedCardLearnsTheWordAndSendsNoCheckResult() async throws {
         let store = makeStore(knownCheckPlan)
         api.commitResults = [.success(CommitResponse(sessionId: "s1", summary: summary))]
         await store.start(.daily)
         store.declineKnownCheck()
-        guard case .learn("l1", _)? = store.currentStep else { return XCTFail("Expected the Learn card") }
-        store.advance()
+        guard case .practice(_, let task)? = store.currentStep else { return XCTFail("Expected the word's first task") }
+        XCTAssertEqual(task.id, "n1", "The card was already shown with the offer")
         store.submitOption(3)
         store.advance()
         store.submitPair(leftID: 1, rightID: 5)
@@ -209,18 +232,9 @@ final class ScopeReviewLoadTests: XCTestCase {
 
         let body = try commitBody()
         XCTAssertEqual(body["learnStepsCompleted"] as? [String], ["l1"])
+        XCTAssertNil(body["knownLearnSteps"])
         let ids = (body["taskResults"] as? [[String: Any]])?.compactMap { $0["taskId"] as? String }
         XCTAssertEqual(ids, ["n1", "t-match"])
-        XCTAssertEqual(store.knownWordCount, 0)
-    }
-
-    func testWrongCheckGoesOnToTheCard() async {
-        let store = makeStore(knownCheckPlan)
-        await store.start(.daily)
-        store.submitText("nope")
-        store.reveal()
-        store.advance()
-        guard case .learn("l1", _)? = store.currentStep else { return XCTFail("Expected the Learn card") }
         XCTAssertEqual(store.knownWordCount, 0)
     }
 }

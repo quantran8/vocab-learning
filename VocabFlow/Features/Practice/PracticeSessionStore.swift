@@ -79,10 +79,10 @@ final class PracticeSessionStore {
     private(set) var newWords: NewWordsIssue?
     /// From the last commit; set only by the commit that used up a topic, the scope or the collection.
     private(set) var scopeEvents: ScopeEvents?
+    /// LP and Tier from every commit since the session screen opened (review, then new words). Nil from an old backend.
+    private(set) var effort: SessionEffort?
     /// Read and cleared by the shell once the session screen is gone.
     private(set) var followUp: FollowUp?
-    /// Experiment: daily plans offer "I know this" before each new word. Read when a plan is requested.
-    var offersKnownCheck: @MainActor () -> Bool = { false }
     /// Falls back to the backend when the task has no reference text or on-device recognition can't run.
     var recordingScoring: RecordingScoring
 
@@ -147,10 +147,13 @@ final class PracticeSessionStore {
         return attempts[task.id]
     }
 
-    /// The current step is the optional "I know this" recall.
-    var isKnownCheck: Bool {
-        if case .practice(.knownCheck, _) = currentStep { return true }
-        return false
+    /// The check step is never answered: it shows its word's Learn card, offering "I know this word".
+    /// See memory known-check-on-intro-card.
+    var knownCheckOffer: LearnCard? {
+        guard case .practice(.knownCheck, let task)? = currentStep,
+              let learnID = knownChecks[task.id]?.learnStepID else { return nil }
+        for case .learn(learnID, let card) in steps { return card }
+        return nil
     }
 
     /// Words passed with "I know this" so far in this session.
@@ -281,27 +284,34 @@ final class PracticeSessionStore {
         switch step {
         case .learn(let id, _):
             completedLearnIDs.insert(id)
-        case .practice(let phase, let task):
-            guard let attempt = attempts[task.id], attempt.isFinished else { return }
-            // Right first time, no hint: the word counts as known, so its card and own tasks are skipped.
-            if phase == .knownCheck, attempt.isRightFirstTime, let check = knownChecks[task.id] {
-                knownLearnIDs.insert(check.learnStepID)
-                skippedTaskIDs.formUnion(check.skippableTaskIDs)
-            }
+        case .practice(_, let task):
+            guard attempts[task.id]?.isFinished == true else { return }
         }
         moveForward(from: step)
     }
 
-    /// "Learn this word": the check is left unanswered and the word is taught as usual.
+    /// "Continue" on the offered card: the word is learned from it, and the check is never answered.
     func declineKnownCheck() {
-        guard stage == .running, case .practice(.knownCheck, let task)? = currentStep else { return }
+        guard stage == .running, case .practice(.knownCheck, let task)? = currentStep,
+              let learnID = knownChecks[task.id]?.learnStepID else { return }
         skippedTaskIDs.insert(task.id)
+        completedLearnIDs.insert(learnID)
+        moveForward(from: currentStep!)
+    }
+
+    /// "I know this word": no recall; the word goes out in `knownLearnSteps`, its card and own tasks are skipped.
+    func markKnown() {
+        guard stage == .running, case .practice(.knownCheck, let task)? = currentStep,
+              let check = knownChecks[task.id] else { return }
+        knownLearnIDs.insert(check.learnStepID)
+        skippedTaskIDs.insert(task.id)
+        skippedTaskIDs.formUnion(check.skippableTaskIDs)
         moveForward(from: currentStep!)
     }
 
     private func isSkipped(_ step: PlanStep) -> Bool {
         switch step {
-        case .learn(let id, _): knownLearnIDs.contains(id)
+        case .learn(let id, _): knownLearnIDs.contains(id) || completedLearnIDs.contains(id)
         case .practice(_, let task): skippedTaskIDs.contains(task.id)
         }
     }
@@ -497,6 +507,7 @@ final class PracticeSessionStore {
     private func plan(_ request: Request) async {
         stage = .planning
         scopeEvents = nil
+        effort = nil
         do {
             let plan = try await api.planSession(planRequest(request))
             guard stage == .planning else { return }
@@ -529,7 +540,7 @@ final class PracticeSessionStore {
             challengeId: request.challengeID,
             skills: request.skills,
             reviewOnly: isDaily && request.reviewOnly ? true : nil,
-            knownCheck: isDaily && !request.reviewOnly && offersKnownCheck() ? true : nil,
+            knownCheck: isDaily && !request.reviewOnly ? true : nil,
             filter: request.filter
         )
     }
@@ -572,7 +583,7 @@ final class PracticeSessionStore {
             stage = .committing
             let response = try await api.commitSession(sessionID: sessionID, body: body)
             guard stage == .committing else { return }
-            scopeEvents = response.scopeEvents
+            record(response)
             await finish(response.summary)
         } catch {
             guard stage == .committing else { return }
@@ -585,17 +596,23 @@ final class PracticeSessionStore {
             guard case .practice(_, let task) = step, !skippedTaskIDs.contains(task.id) else { return nil }
             return attempts[task.id]?.result
         }
-        return CommitBody(learnStepsCompleted: steps.compactMap { step in
-            guard case .learn(let id, _) = step, completedLearnIDs.contains(id) else { return nil }
+        let learnIDs = steps.compactMap { step -> String? in
+            guard case .learn(let id, _) = step else { return nil }
             return id
-        }, taskResults: results)
+        }
+        let known = learnIDs.filter(knownLearnIDs.contains)
+        return CommitBody(
+            learnStepsCompleted: learnIDs.filter(completedLearnIDs.contains),
+            knownLearnSteps: known.isEmpty ? nil : known,
+            taskResults: results
+        )
     }
 
     private func handleCommitFailure(_ error: APIError, sessionID: String) async {
         if error.code == "SESSION_PAYLOAD_CONFLICT" {
             // Already committed with other data: the saved result is the one that stands.
             if let status = try? await api.commitStatus(sessionID: sessionID), let response = status.response {
-                scopeEvents = response.scopeEvents
+                record(response)
                 await finish(response.summary)
                 return
             }
@@ -607,6 +624,14 @@ final class PracticeSessionStore {
         } else {
             stage = .failed(.sessionLost(error.userMessage))
         }
+    }
+
+    private func record(_ response: CommitResponse) {
+        scopeEvents = response.scopeEvents
+        guard let lp = response.lp else { return }
+        var total = effort ?? SessionEffort()
+        total.add(lp: lp, tier: response.tier)
+        effort = total
     }
 
     private func finish(_ summary: CommitSummary) async {

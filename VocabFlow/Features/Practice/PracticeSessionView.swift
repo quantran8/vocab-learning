@@ -4,6 +4,7 @@ import SwiftUI
 struct PracticeSessionView: View {
     @Environment(PracticeSessionStore.self) private var store
     @Environment(LearnerStore.self) private var learner
+    @Environment(LearningPlanStore.self) private var plan
     @Environment(\.motion) private var motion
 
     var body: some View {
@@ -16,8 +17,10 @@ struct PracticeSessionView: View {
             StatusScreen(title: "Saving your progress", isBusy: true, showsFlyingSyllie: true)
         case .empty where store.isDaily && store.newWords?.withheldReason == .scopeExhausted:
             // Nothing new left in the scope and nothing due: offer the ways forward instead of a blank screen.
-            StatusScreen(title: "You’ve learned every new word here", message: Text("You can still review and practise the words you learned. Choose another topic or collection to learn new words.")) {
-                PrimaryButton(title: "Choose topics") {
+            StatusScreen(title: "You’ve learned every new word here", message: plan.current.hasAllTopics
+                ? Text("You can still review and practise the words you learned. Choose another collection to learn new words.")
+                : Text("You can still review and practise the words you learned. Choose another topic or collection to learn new words.")) {
+                PrimaryButton(title: plan.current.hasAllTopics ? "Change collection" : "Choose topics") {
                     motion.perform(MotionTokens.transition) { store.close(followUp: .chooseTopics) }
                 }
                 SecondaryButton(title: "Practise") {
@@ -554,54 +557,13 @@ private struct PracticeFlowView: View {
             LearnCardStep(card: card)
         case .practice(let phase, let task):
             if let attempt = store.attempts[task.id] {
-                if phase == .knownCheck {
-                    PracticeTaskView(attempt: attempt)
-                        .safeAreaInset(edge: .top) { KnownCheckBanner(isAnswered: attempt.isFinished) }
+                if phase == .knownCheck, let card = store.knownCheckOffer {
+                    LearnCardStep(card: card, offersKnownCheck: true)
                 } else {
                     PracticeTaskView(attempt: attempt)
                 }
             }
         }
-    }
-}
-
-/// Over the optional "I know this" recall: says what a right answer does, and lets the learner just learn the word.
-private struct KnownCheckBanner: View {
-    let isAnswered: Bool
-    @Environment(PracticeSessionStore.self) private var store
-    @Environment(\.motion) private var motion
-
-    var body: some View {
-        HStack(spacing: Spacing.s) {
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text("Already know this word?")
-                    .font(Typography.secondary.weight(.heavy))
-                    .foregroundStyle(Color.ink)
-                Text("Type it right the first time and you can skip learning it.")
-                    .font(Typography.micro)
-                    .foregroundStyle(Color.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: Spacing.s)
-            if !isAnswered {
-                Button {
-                    motion.perform(MotionTokens.transition) { store.declineKnownCheck() }
-                } label: {
-                    Text("Learn it")
-                        .font(Typography.micro.weight(.heavy))
-                        .foregroundStyle(Color.selectedInk)
-                        .frame(minHeight: Spacing.minTouchTarget)
-                        .padding(.horizontal, Spacing.s)
-                        .background(Color.selectedSurface, in: Capsule())
-                }
-                .buttonStyle(PressScaleButtonStyle())
-                .accessibilityHint(Text("Skips this check and shows the word"))
-            }
-        }
-        .padding(Spacing.s)
-        .cardSurface(radius: Radii.tile)
-        .padding(.horizontal, Spacing.screenGutter)
-        .padding(.top, Spacing.xs)
     }
 }
 
@@ -624,6 +586,7 @@ struct PracticeTaskView: View {
 
 private struct LearnCardStep: View {
     let card: LearnCard
+    var offersKnownCheck = false
     @Environment(PracticeSessionStore.self) private var store
     @Environment(LearnerStore.self) private var learner
     @Environment(\.motion) private var motion
@@ -660,8 +623,20 @@ private struct LearnCardStep: View {
         }
         .stepActionBar {
             PinnedActionBar {
-                PrimaryButton(title: "Continue") {
-                    motion.perform(MotionTokens.transition) { store.advance() }
+                if offersKnownCheck {
+                    VStack(spacing: Spacing.s) {
+                        PrimaryButton(title: "Continue") {
+                            motion.perform(MotionTokens.transition) { store.declineKnownCheck() }
+                        }
+                        SecondaryButton(title: "I know this word") {
+                            motion.perform(MotionTokens.transition) { store.markKnown() }
+                        }
+                        .accessibilityHint(Text("Skips learning this word"))
+                    }
+                } else {
+                    PrimaryButton(title: "Continue") {
+                        motion.perform(MotionTokens.transition) { store.advance() }
+                    }
                 }
             }
         }
@@ -758,6 +733,11 @@ struct PracticeResultsView: View {
 
                     statGrid
                         .padding(.top, Spacing.xl)
+
+                    if let effort = store.effort {
+                        SessionEffortCard(effort: effort)
+                            .padding(.top, Spacing.l)
+                    }
 
                     if let events = store.scopeEvents, !events.isEmpty {
                         ScopeCompletionCard(events: events)
@@ -889,8 +869,11 @@ private struct ScopeCompletionCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            PrimaryButton(title: events.collectionCompleted ? "Choose a collection" : "Choose the next topic") {
-                motion.perform(MotionTokens.transition) { store.close(followUp: .chooseTopics) }
+            // With every topic already chosen there is no next topic to pick until the collection is done.
+            if events.collectionCompleted || !plan.current.hasAllTopics {
+                PrimaryButton(title: events.collectionCompleted ? "Choose a collection" : "Choose the next topic") {
+                    motion.perform(MotionTokens.transition) { store.close(followUp: .chooseTopics) }
+                }
             }
             SecondaryButton(title: "Later") {
                 motion.perform(MotionTokens.transition) { store.close() }

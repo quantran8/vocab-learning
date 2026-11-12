@@ -147,16 +147,19 @@ struct TopicPicker: View {
     }
 }
 
-/// − value + inside a card, clamped to `LearningPreferences.wordsPerDayRange`.
+/// − value + inside a card, clamped to `range`.
 struct WordsPerDayStepper: View {
     let value: Int
+    var range: ClosedRange<Int> = LearningPreferences.wordsPerDayRange
+    var label: LocalizedStringKey = "New words per day"
+    var decreaseLabel: LocalizedStringKey = "Decrease new words per day"
+    var increaseLabel: LocalizedStringKey = "Increase new words per day"
     let onAdjust: (Int) -> Void
     @Environment(\.motion) private var motion
 
     var body: some View {
-        let range = LearningPreferences.wordsPerDayRange
         HStack(spacing: Spacing.xs - 1) {
-            stepperButton("minus", label: "Decrease new words per day", isEnabled: value > range.lowerBound) {
+            stepperButton("minus", label: decreaseLabel, isEnabled: value > range.lowerBound) {
                 onAdjust(-1)
             }
             HStack(alignment: .firstTextBaseline, spacing: Spacing.xs - 1) {
@@ -172,7 +175,7 @@ struct WordsPerDayStepper: View {
             }
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel(Text("New words per day"))
+            .accessibilityLabel(Text(label))
             .accessibilityValue(Text("\(value) words"))
             .accessibilityAdjustableAction { direction in
                 switch direction {
@@ -181,7 +184,7 @@ struct WordsPerDayStepper: View {
                 @unknown default: break
                 }
             }
-            stepperButton("plus", label: "Increase new words per day", isEnabled: value < range.upperBound) {
+            stepperButton("plus", label: increaseLabel, isEnabled: value < range.upperBound) {
                 onAdjust(1)
             }
         }

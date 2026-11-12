@@ -218,6 +218,29 @@ final class StubVocabAPI: VocabAPI, @unchecked Sendable {
     }
 
     func quitChallengeRun(runID: String) async throws { quitRuns.append(runID) }
+
+    // Ranking
+    var rankingMetaResult: Result<RankingMeta, APIError> = .failure(.transport)
+    var myRankingResult: Result<MyRanking, APIError> = .failure(.transport)
+    var leaderboards: [LeaderboardView: Result<Leaderboard, APIError>] = [:]
+    private(set) var leaderboardRequests: [LeaderboardView] = []
+    private(set) var introSeenCalls = 0
+    private(set) var profileUpdates: [PublicProfileUpdate] = []
+    var profileUpdateResult: Result<PublicProfile, APIError> = .failure(.transport)
+    private(set) var reports: [(String, ReportReason)] = []
+
+    func rankingMeta() async throws -> RankingMeta { try rankingMetaResult.get() }
+    func myRanking() async throws -> MyRanking { try myRankingResult.get() }
+    func leaderboard(_ view: LeaderboardView) async throws -> Leaderboard {
+        leaderboardRequests.append(view)
+        return try (leaderboards[view] ?? .failure(.transport)).get()
+    }
+    func markRankingIntroSeen() async throws { introSeenCalls += 1 }
+    func updatePublicProfile(_ update: PublicProfileUpdate) async throws -> PublicProfile {
+        profileUpdates.append(update)
+        return try profileUpdateResult.get()
+    }
+    func reportLearner(username: String, reason: ReportReason) async throws { reports.append((username, reason)) }
 }
 
 final class StubTranscriber: SpeechTranscribing {

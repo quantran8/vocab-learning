@@ -12,6 +12,7 @@ struct HomeView: View {
     var onChooseTopics: () -> Void = {}
     var onOpenRandomPractice: () -> Void = {}
     @State private var isChoosingReviewLoad = false
+    @State private var isShowingLessonInfo = false
 
     var body: some View {
         let due = learner.home?.dueCount ?? 0
@@ -34,7 +35,9 @@ struct HomeView: View {
                     .padding(.top, Spacing.xl + Spacing.l)
 
                 if isOutOfNewWords {
-                    Text("Choose new topics to keep your journey going.")
+                    Text(plan.current.hasAllTopics
+                         ? "Choose a new collection to keep your journey going."
+                         : "Choose new topics to keep your journey going.")
                         .font(Typography.secondary)
                         .foregroundStyle(Color.mutedInk)
                         .padding(.top, Spacing.xs)
@@ -96,17 +99,19 @@ struct HomeView: View {
         return VStack(alignment: .leading, spacing: Spacing.l) {
             HStack(alignment: .bottom, spacing: Spacing.m) {
                 VStack(alignment: .leading, spacing: Spacing.m) {
-                    Text("Today’s session")
-                        .font(Typography.emphasis)
-                        .foregroundStyle(Color.ink)
-                    StatRow(label: "Words to review", value: due)
+                    HStack(spacing: Spacing.xs) {
+                        Text("Today’s session")
+                            .font(Typography.emphasis)
+                            .foregroundStyle(Color.ink)
+                        lessonInfoButton(status)
+                    }
+                    StatRow(label: "Words to review", value: status.sessionReviews)
                     StatRow(label: "New words", value: status.newWords)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
                 LessonMascot()
             }
-            notes(status)
             actions(status, due: due)
         }
         .padding(Spacing.m + 2)
@@ -118,35 +123,59 @@ struct HomeView: View {
             .formatted(.list(type: .and).locale(AppLanguage.active.locale))
     }
 
-    /// Small fixed lines under the stats: why today has fewer new words, and the review backlog.
+    /// The card shows only this session's counts; why it looks this way (scope, lowered goal, backlog) sits behind ⓘ.
     @ViewBuilder
-    private func notes(_ status: DailyLessonStatus) -> some View {
+    private func lessonInfoButton(_ status: DailyLessonStatus) -> some View {
         let lines = noteLines(status)
         if !lines.isEmpty {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                    line
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.mutedInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if case .low = status.scope {
-                    Button(action: onChooseTopics) {
-                        Text("Add topics")
-                            .font(Typography.micro.weight(.heavy))
-                            .foregroundStyle(Color.selectedInk)
-                            .frame(minHeight: Spacing.minTouchTarget)
-                    }
+            Button {
+                isShowingLessonInfo = true
+            } label: {
+                Image(systemName: "info.circle")
+                    .font(Typography.secondary.weight(.semibold))
+                    .foregroundStyle(Color.mutedInk)
+                    .frame(minWidth: Spacing.minTouchTarget, minHeight: Spacing.minTouchTarget)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(Text("About today’s session"))
+            .popover(isPresented: $isShowingLessonInfo) {
+                lessonInfo(lines, status: status)
+                    .presentationCompactAdaptation(.popover)
+            }
+        }
+    }
+
+    private func lessonInfo(_ lines: [Text], status: DailyLessonStatus) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.s) {
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                line
+                    .font(Typography.secondary)
+                    .foregroundStyle(Color.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if case .low = status.scope, !plan.current.hasAllTopics {
+                Button {
+                    isShowingLessonInfo = false
+                    onChooseTopics()
+                } label: {
+                    Text("Add topics")
+                        .font(Typography.micro.weight(.heavy))
+                        .foregroundStyle(Color.selectedInk)
+                        .frame(minHeight: Spacing.minTouchTarget)
                 }
             }
         }
+        .padding(Spacing.m)
+        .frame(width: 280, alignment: .leading)
     }
 
     private func noteLines(_ status: DailyLessonStatus) -> [Text] {
         var lines: [Text] = []
         switch status.scope {
         case .exhaustedNoCustom:
-            lines.append(Text("You’ve learned every new word in \(topicNames). You can still review and practise them. Choose another topic or collection to learn new words."))
+            lines.append(plan.current.hasAllTopics
+                ? Text("You’ve learned every new word in \(topicNames). You can still review and practise them. Choose another collection to learn new words.")
+                : Text("You’ve learned every new word in \(topicNames). You can still review and practise them. Choose another topic or collection to learn new words."))
         case .exhaustedWithCustom(let custom):
             lines.append(Text("No new words left in your topics. \(custom) words you added are still to learn."))
         case .low(let remaining, let sessions):
@@ -168,7 +197,7 @@ struct HomeView: View {
         case .none:
             break
         }
-        if status.backlog > ReviewLoad.statusThreshold {
+        if status.backlog > status.sessionReviews {
             lines.append(Text("\(status.backlog) words waiting for review"))
         }
         return lines
@@ -179,11 +208,14 @@ struct HomeView: View {
         if case .exhaustedNoCustom = status.scope {
             VStack(spacing: Spacing.s) {
                 if due > 0 {
-                    PrimaryButton(title: "Review \(due) words", shimmers: true) { startReviewOnly() }
+                    PrimaryButton(title: "Review \(status.sessionReviews) words", shimmers: true) { startReviewOnly() }
                 } else {
                     PrimaryButton(title: "Practise", shimmers: true, action: onOpenRandomPractice)
                 }
-                SecondaryButton(title: "Choose topics", action: onChooseTopics)
+                // Every topic of the collection is already chosen: only another collection brings new words.
+                if !plan.current.hasAllTopics {
+                    SecondaryButton(title: "Choose topics", action: onChooseTopics)
+                }
                 SecondaryButton(title: "Change collection", action: onChooseTopics)
             }
         } else {
@@ -226,13 +258,17 @@ struct DailyLessonStatus: Equatable {
 
     let newWords: Int
     let backlog: Int
+    /// Reviews the next daily session holds: the backlog up to the planner's cap.
+    let sessionReviews: Int
     let scope: Scope
     let reason: Reason?
 
     init(home: LearnHome?, goal: Int) {
         let load = home?.reviewLoad
         newWords = load?.effectiveNewPerSession ?? goal
-        backlog = load?.backlog ?? 0
+        backlog = load?.backlog ?? home?.dueCount ?? 0
+        let due = home?.dueCount ?? backlog
+        sessionReviews = load.map { min(due, $0.dueCap) } ?? due
         switch home?.scope {
         case let scope? where scope.status == .exhausted:
             self.scope = scope.pendingCustomMeanings > 0 ? .exhaustedWithCustom(scope.pendingCustomMeanings) : .exhaustedNoCustom

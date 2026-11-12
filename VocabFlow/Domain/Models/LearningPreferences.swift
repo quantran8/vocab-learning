@@ -4,25 +4,30 @@ import Foundation
 struct LearningPreferences: Codable, Equatable {
     /// Matches the backend's `dailyNewWordGoal` limits.
     static let wordsPerDayRange = 1...30
+    /// Matches the backend's `reviewsPerSession` limits.
+    static let reviewsPerSessionRange = 5...50
     static let allWeekdays: Set<Int> = Set(1...7)
 
     /// One collection at a time; `topicIDs` always belong to it.
     var collectionID: String
     var topicIDs: Set<String>
     var wordsPerDay: Int
+    /// Nil follows `wordsPerDay` (see `effectiveReviewsPerSession`).
+    var reviewsPerSession: Int?
     var learningDays: Set<Int>
     var reminderEnabled: Bool
     var reminderHour: Int
     var reminderMinute: Int
 
     private enum CodingKeys: String, CodingKey {
-        case collectionID, topicIDs, wordsPerDay, learningDays, reminderEnabled, reminderHour, reminderMinute
+        case collectionID, topicIDs, wordsPerDay, reviewsPerSession, learningDays, reminderEnabled, reminderHour, reminderMinute
     }
 
     static let `default` = LearningPreferences(
         collectionID: "everyday",
         topicIDs: ["everyday-english", "travel"],
         wordsPerDay: 5,
+        reviewsPerSession: nil,
         learningDays: [2, 3, 4, 5, 6],
         reminderEnabled: true,
         reminderHour: 20,
@@ -42,6 +47,16 @@ struct LearningPreferences: Codable, Equatable {
     /// Today's date at the reminder time; only the hour and minute are meaningful.
     var reminderDate: Date {
         Calendar.current.date(bySettingHour: reminderHour, minute: reminderMinute, second: 0, of: .now) ?? .now
+    }
+
+    /// The backend's rule: the chosen number, else the new-word goal but never below the minimum.
+    var effectiveReviewsPerSession: Int {
+        reviewsPerSession ?? max(wordsPerDay, Self.reviewsPerSessionRange.lowerBound)
+    }
+
+    mutating func adjustReviewsPerSession(by amount: Int) {
+        let range = Self.reviewsPerSessionRange
+        reviewsPerSession = min(range.upperBound, max(range.lowerBound, effectiveReviewsPerSession + amount))
     }
 
     mutating func adjustWordsPerDay(by amount: Int) {
@@ -97,6 +112,7 @@ extension LearningPreferences {
             self.topicIDs = topicIDs.intersection(collection?.topicIDs ?? [])
         }
         wordsPerDay = min(try container.decode(Int.self, forKey: .wordsPerDay), Self.wordsPerDayRange.upperBound)
+        reviewsPerSession = try container.decodeIfPresent(Int.self, forKey: .reviewsPerSession)
         learningDays = try container.decode(Set<Int>.self, forKey: .learningDays)
         reminderEnabled = try container.decode(Bool.self, forKey: .reminderEnabled)
         reminderHour = try container.decode(Int.self, forKey: .reminderHour)

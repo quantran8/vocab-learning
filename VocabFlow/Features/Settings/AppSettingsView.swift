@@ -5,12 +5,14 @@ struct AppSettingsView: View {
     @Environment(TemplateSandboxStore.self) private var sandbox
     @Environment(AuthStore.self) private var auth
     @Environment(LearnerStore.self) private var learner
+    @Environment(RankingStore.self) private var ranking
     @Environment(\.motion) private var motion
     @State private var isConfirmingDeletion = false
     @State private var isChoosingLanguage = false
     @State private var pickedLanguage: AppLanguage?
     @State private var isPreviewingSyllie = false
     @State private var isChangingPassword = false
+    @State private var leaderboardError: String?
 
     var body: some View {
         @Bindable var settings = settings
@@ -28,9 +30,17 @@ struct AppSettingsView: View {
                     }
                 }
 
-                group("Learning") {
-                    SettingRow(systemImage: "checkmark.bubble", title: "Skip words I know", subtitle: "Try recalling a new word before it is taught. Experimental.") {
-                        Toggle("Skip words I know", isOn: $settings.offersKnownCheck)
+                if let visible = learner.profile?.settings.leaderboardVisible {
+                    group("Leaderboard") {
+                        SettingRow(systemImage: "trophy", title: "Show me on the leaderboard", subtitle: "Your name, avatar, Tier and LP this week become public") {
+                            Toggle("Show me on the leaderboard", isOn: Binding(get: { visible }, set: setLeaderboardVisible))
+                        }
+                        if let leaderboardError {
+                            Text(verbatim: leaderboardError)
+                                .font(Typography.micro)
+                                .foregroundStyle(Color.errorInk)
+                                .padding(.top, Spacing.xs)
+                        }
                     }
                 }
 
@@ -144,6 +154,17 @@ struct AppSettingsView: View {
         guard let pickedLanguage, pickedLanguage != settings.language else { return }
         settings.chooseLanguage(pickedLanguage)
         Task { await learner.languageDidChange() }
+    }
+
+    private func setLeaderboardVisible(_ visible: Bool) {
+        Task {
+            do {
+                try await ranking.setVisible(visible)
+                leaderboardError = nil
+            } catch {
+                leaderboardError = error.asAPIError.userMessage
+            }
+        }
     }
 
     private func group<Content: View>(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) -> some View {

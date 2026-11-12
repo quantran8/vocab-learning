@@ -17,11 +17,6 @@ final class AppSettingsStore {
         didSet { defaults?.set(reduceMotion, forKey: Keys.reduceMotion) }
     }
 
-    /// Experiment: "I know this" before each new word in Daily. Off by default.
-    var offersKnownCheck: Bool {
-        didSet { defaults?.set(offersKnownCheck, forKey: Keys.knownCheck) }
-    }
-
     /// `nil` until the learner has chosen, which is what puts the language step on screen.
     private(set) var language: AppLanguage?
 
@@ -31,7 +26,6 @@ final class AppSettingsStore {
     private enum Keys {
         static let haptics = "settings.haptics"
         static let reduceMotion = "settings.reduceMotion"
-        static let knownCheck = "settings.knownCheck"
         static let language = "settings.language"
         /// The system's per-app language: read at launch for everything outside SwiftUI's
         /// environment, such as permission prompts, and changed by iOS Settings › Syll.
@@ -44,7 +38,6 @@ final class AppSettingsStore {
         self.defaults = defaults
         hapticsEnabled = defaults?.object(forKey: Keys.haptics) as? Bool ?? true
         reduceMotion = defaults?.bool(forKey: Keys.reduceMotion) ?? false
-        offersKnownCheck = defaults?.bool(forKey: Keys.knownCheck) ?? false
         feedback.isEnabled = hapticsEnabled
         language = Self.savedLanguage(in: defaults)
         if let language { AppLanguage.active = language }

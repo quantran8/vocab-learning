@@ -5,9 +5,12 @@ struct ProfileView: View {
     let onEditFocus: () -> Void
     let onEditRoutine: () -> Void
     let onOpenSettings: () -> Void
+    var onOpenTier: () -> Void = {}
     @Environment(LearningPlanStore.self) private var plan
     @Environment(LearnerStore.self) private var learner
+    @Environment(RankingStore.self) private var ranking
     @State private var saveError: String?
+    @State private var isEditingPublicProfile = false
 
     var body: some View {
         let preferences = plan.current
@@ -26,6 +29,11 @@ struct ProfileView: View {
 
                 identity
                     .padding(.top, Spacing.l - 1)
+
+                if let summary = learner.profile?.tierSummary {
+                    effortSection(summary)
+                        .padding(.top, Spacing.l - 1)
+                }
 
                 Rectangle()
                     .fill(Color.neutralSurface)
@@ -54,9 +62,58 @@ struct ProfileView: View {
             .padding(.top, Spacing.m)
             .padding(.bottom, Spacing.l)
         }
+        .task {
+            guard learner.profile?.tierSummary != nil else { return }
+            await ranking.refreshTier()
+        }
+        .sheet(isPresented: $isEditingPublicProfile) {
+            EditPublicProfileSheet()
+        }
     }
 
+    private func effortSection(_ summary: TierSummary) -> some View {
+        Button(action: onOpenTier) {
+            TierCard(summary: summary, next: ranking.tier?.nextTier, showsChevron: true)
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityHint(Text("Shows your Tier and milestones"))
+    }
+
+    @ViewBuilder
     private var identity: some View {
+        if let username = learner.profile?.username {
+            HStack(spacing: Spacing.s) {
+                AvatarView(key: learner.profile?.avatarKey ?? "", size: 60)
+                VStack(alignment: .leading, spacing: Spacing.xxs) {
+                    Text(verbatim: username)
+                        .font(.system(.title2, weight: .heavy))
+                        .tracking(-1.1)
+                        .foregroundStyle(Color.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("My learning space")
+                        .font(Typography.micro)
+                        .foregroundStyle(Color.mutedInk)
+                }
+                Spacer(minLength: Spacing.s)
+                Button {
+                    isEditingPublicProfile = true
+                } label: {
+                    Text("Edit")
+                        .font(Typography.micro.weight(.heavy))
+                        .foregroundStyle(Color.selectedInk)
+                        .frame(minHeight: Spacing.minTouchTarget)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(Text("Edit name and avatar"))
+            }
+        } else {
+            placeholderIdentity
+        }
+    }
+
+    private var placeholderIdentity: some View {
         let name = String(localized: "Learner", bundle: .appLanguage)
         return HStack(spacing: Spacing.s) {
             RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
@@ -140,6 +197,8 @@ struct ProfileView: View {
             sectionHeader("Your routine", editLabel: "Edit routine", action: onEditRoutine)
             VStack(spacing: 0) {
                 dataRow("book", label: "New words / day", value: Text("\(preferences.wordsPerDay) words"))
+                Divider().overlay(Color.neutralSurface)
+                dataRow("arrow.clockwise", label: "Reviews / session", value: Text("\(preferences.effectiveReviewsPerSession) words"))
                 Divider().overlay(Color.neutralSurface)
                 dataRow("calendar", label: "Learning days", value: Text(verbatim: daysSummary(preferences)))
                 Divider().overlay(Color.neutralSurface)
