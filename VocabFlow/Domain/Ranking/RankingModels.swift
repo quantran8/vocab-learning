@@ -145,6 +145,8 @@ struct MyRanking: Decodable, Equatable {
     let listed: Bool
     let position: RankingPosition?
     let tier: TierDetailSummary
+    /// Listed learners this week ("#42 / 120"). Not sent by the backend yet — see memory ranking-ui-mockup.
+    var totalListed: Int? = nil
 }
 
 /// The Tier block inside `/me/ranking`: like `TierDetail` without milestones.

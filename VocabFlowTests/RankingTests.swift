@@ -175,7 +175,7 @@ final class RankingTests: XCTestCase {
     }
 
     func testWeekLabelReadsInUTC() {
-        XCTAssertFalse(WeekLabel.text("2026-11-09").isEmpty)
-        XCTAssertEqual(WeekLabel.text("not-a-date"), "not-a-date")
+        XCTAssertNotNil(WeekLabel.range("2026-11-09"))
+        XCTAssertNil(WeekLabel.range("not-a-date"))
     }
 }

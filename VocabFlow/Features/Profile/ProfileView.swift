@@ -5,7 +5,6 @@ struct ProfileView: View {
     let onEditFocus: () -> Void
     let onEditRoutine: () -> Void
     let onOpenSettings: () -> Void
-    var onOpenTier: () -> Void = {}
     @Environment(LearningPlanStore.self) private var plan
     @Environment(LearnerStore.self) private var learner
     @Environment(RankingStore.self) private var ranking
@@ -72,30 +71,21 @@ struct ProfileView: View {
     }
 
     private func effortSection(_ summary: TierSummary) -> some View {
-        Button(action: onOpenTier) {
-            TierCard(summary: summary, next: ranking.tier?.nextTier, showsChevron: true)
-        }
-        .buttonStyle(PressScaleButtonStyle())
-        .accessibilityHint(Text("Shows your Tier and milestones"))
+        ProfileTierCard(summary: summary, next: ranking.tier?.nextTier)
     }
 
     @ViewBuilder
     private var identity: some View {
         if let username = learner.profile?.username {
             HStack(spacing: Spacing.s) {
-                AvatarView(key: learner.profile?.avatarKey ?? "", size: 60)
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(verbatim: username)
-                        .font(.system(.title2, weight: .heavy))
-                        .tracking(-1.1)
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .accessibilityAddTraits(.isHeader)
-                    Text("My learning space")
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
-                }
+                AvatarView(key: learner.profile?.avatarKey ?? "", size: 64, cornerRadius: Radii.card)
+                Text(verbatim: username)
+                    .font(.system(.title2, weight: .heavy))
+                    .tracking(-0.8)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: Spacing.s)
                 Button {
                     isEditingPublicProfile = true
@@ -118,7 +108,7 @@ struct ProfileView: View {
         return HStack(spacing: Spacing.s) {
             RoundedRectangle(cornerRadius: Radii.card, style: .continuous)
                 .fill(Color.selectedSurface)
-                .frame(width: 60, height: 60)
+                .frame(width: 64, height: 64)
                 .overlay(
                     Text(verbatim: String(name.prefix(1)))
                         .font(Typography.challengeTerm)
@@ -127,16 +117,11 @@ struct ProfileView: View {
                         .foregroundStyle(Color.selectedInk)
                 )
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text(verbatim: name)
-                    .font(.system(.title2, weight: .heavy))
-                    .tracking(-1.1)
-                    .foregroundStyle(Color.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("My learning space")
-                    .font(Typography.micro)
-                    .foregroundStyle(Color.mutedInk)
-            }
+            Text(verbatim: name)
+                .font(.system(.title2, weight: .heavy))
+                .tracking(-0.8)
+                .foregroundStyle(Color.ink)
+                .accessibilityAddTraits(.isHeader)
         }
     }
 

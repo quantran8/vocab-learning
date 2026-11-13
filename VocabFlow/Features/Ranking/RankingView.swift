@@ -11,16 +11,23 @@ struct RankingView: View {
     @State private var isEditingProfile = false
     @State private var reportTarget: LeaderboardRow?
     @State private var notice: String?
+    @State private var showsLPInfo = false
 
     private var isVisible: Bool { learner.profile?.settings.leaderboardVisible ?? false }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.l) {
-                PunctuatedTitle(text: "Weekly ranking")
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    PunctuatedTitle(text: "Weekly ranking")
+                    if let mine = ranking.mine {
+                        Text(verbatim: weekSubtitle(mine))
+                            .font(Typography.secondary)
+                            .foregroundStyle(Color.mutedInk)
+                    }
+                }
                 if let mine = ranking.mine {
-                    weekHeader(mine)
-                    lifetimeTier(mine.tier)
+                    statsCard(mine)
                 } else if ranking.isLoading {
                     ProgressView().frame(maxWidth: .infinity)
                 }
@@ -36,10 +43,9 @@ struct RankingView: View {
                 if let notice {
                     message(Text(verbatim: notice))
                 }
-                history
             }
             .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.m)
+            .padding(.top, Spacing.l)
             .padding(.bottom, Spacing.l)
         }
         .background(Color.canvas)
@@ -69,94 +75,126 @@ struct RankingView: View {
 
     // MARK: This week
 
-    private func weekHeader(_ mine: MyRanking) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
-            Eyebrow(text: "This week")
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.m) {
-                VStack(alignment: .leading, spacing: Spacing.xxs) {
-                    Text(mine.weeklyLP, format: .number)
+    /// "09–15/11 · Resets Monday, 07:00": the ISO week in UTC, the reset in device time.
+    private func weekSubtitle(_ mine: MyRanking) -> String {
+        let locale = AppLanguage.active.locale
+        let reset = mine.weekEndsAt.formatted(.dateTime.weekday(.wide).hour().minute().locale(locale))
+        guard let range = WeekLabel.range(mine.weekStart) else {
+            return String(localized: "Resets \(reset)", bundle: .appLanguage)
+        }
+        return String(localized: "\(range) · Resets \(reset)", bundle: .appLanguage)
+    }
+
+    private func statsCard(_ mine: MyRanking) -> some View {
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                positionValue(mine)
+                    .frame(minHeight: 44, alignment: .bottomLeading)
+                Text(mine.position?.kind == .percentile ? "Estimated" : "Weekly rank")
+                    .font(Typography.micro)
+                    .foregroundStyle(Color.mutedInk)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+
+            Rectangle()
+                .fill(Color.stroke)
+                .frame(width: 1)
+                .padding(.horizontal, Spacing.m)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xxs) {
+                    Text(mine.weeklyLP, format: .number.locale(AppLanguage.active.locale))
                         .font(Typography.display.monospacedDigit())
-                        .foregroundStyle(Color.ink)
+                    Text(verbatim: "LP")
+                        .font(Typography.emphasis.weight(.heavy))
+                }
+                .foregroundStyle(Color.ink)
+                .frame(minHeight: 44, alignment: .bottomLeading)
+                .accessibilityElement(children: .combine)
+                HStack(spacing: Spacing.xs) {
                     Text("LP this week")
                         .font(Typography.micro)
                         .foregroundStyle(Color.mutedInk)
-                }
-                Spacer(minLength: Spacing.s)
-                if let position = mine.position {
-                    positionLabel(position)
+                    lpInfoButton
                 }
             }
-            if mine.weeklyLP == 0 {
-                Text("No learning recorded this week yet.")
-                    .font(Typography.secondary)
-                    .foregroundStyle(Color.mutedInk)
-            }
-            Text("Resets \(mine.weekEndsAt.formatted(.dateTime.weekday(.wide).hour().minute().locale(AppLanguage.active.locale)))")
-                .font(Typography.micro)
-                .foregroundStyle(Color.mutedInk)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(Spacing.m)
-        .cardSurface(radius: Radii.card - 2)
-        .accessibilityElement(children: .combine)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, Spacing.m + 2)
+        .padding(.vertical, Spacing.l - 2)
+        .cardSurface(radius: Radii.card)
     }
 
     @ViewBuilder
-    private func positionLabel(_ position: RankingPosition) -> some View {
-        switch position.kind {
-        case .rank:
-            if let rank = position.rank {
-                VStack(alignment: .trailing, spacing: Spacing.xxs) {
-                    Text("#\(rank)")
-                        .font(Typography.screenTitle.monospacedDigit())
+    private func positionValue(_ mine: MyRanking) -> some View {
+        switch mine.position?.kind {
+        case .rank?:
+            if let rank = mine.position?.rank {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xxs) {
+                    Text(verbatim: "#\(rank)")
+                        .font(Typography.display.monospacedDigit())
                         .foregroundStyle(Color.ink)
-                    Text("Weekly rank")
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
+                    if let total = mine.totalListed, total >= rank {
+                        Text(verbatim: "/ \(total)")
+                            .font(Typography.emphasis.weight(.semibold).monospacedDigit())
+                            .foregroundStyle(Color.mutedInk)
+                    }
                 }
+            } else {
+                noPosition
             }
-        case .percentile:
-            if let percentile = position.percentile {
-                VStack(alignment: .trailing, spacing: Spacing.xxs) {
-                    Text("About top \(percentText(percentile))")
-                        .font(Typography.emphasis)
-                        .foregroundStyle(Color.ink)
-                    Text("Estimated")
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
-                }
+        case .percentile?:
+            if let percentile = mine.position?.percentile {
+                Text("About top \(percentText(percentile))")
+                    .font(Typography.screenTitle)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+            } else {
+                noPosition
             }
-        case .unranked:
-            EmptyView()
+        default:
+            noPosition
+        }
+    }
+
+    private var noPosition: some View {
+        Text(verbatim: "–")
+            .font(Typography.display)
+            .foregroundStyle(Color.mutedInk)
+            .accessibilityLabel(Text("Not on the board"))
+    }
+
+    private var lpInfoButton: some View {
+        Button {
+            showsLPInfo = true
+        } label: {
+            Text(verbatim: "?")
+                .font(Typography.micro.weight(.heavy))
+                .foregroundStyle(Color.mutedInk)
+                .frame(width: 22, height: 22)
+                .background(Color.neutralSurface, in: Circle())
+                .frame(minWidth: Spacing.minTouchTarget, minHeight: Spacing.minTouchTarget, alignment: .leading)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, -Spacing.s)
+        .accessibilityLabel(Text("About LP"))
+        .popover(isPresented: $showsLPInfo) {
+            Text("You earn LP by learning new words, reviewing words when they’re due and practising extra. Right and wrong answers earn the same. Weekly LP starts again every Monday.")
+                .font(Typography.secondary)
+                .foregroundStyle(Color.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(Spacing.m)
+                .frame(width: 280, alignment: .leading)
+                .presentationCompactAdaptation(.popover)
         }
     }
 
     private func percentText(_ value: Int) -> String {
         (Double(value) / 100).formatted(.percent.precision(.fractionLength(0)).locale(AppLanguage.active.locale))
-    }
-
-    private func lifetimeTier(_ tier: TierDetailSummary) -> some View {
-        HStack(spacing: Spacing.s) {
-            Image(systemName: (tier.level > 0 ? tier.key : nil)?.systemImage ?? "leaf")
-                .font(.headline)
-                .frame(width: 36, height: 36)
-                .background(tier.level > 0 ? Color.reward : Color.neutralSurface, in: Circle())
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                Text("Lifetime Tier")
-                    .font(Typography.micro)
-                    .foregroundStyle(Color.mutedInk)
-                Group {
-                    if tier.level > 0, let key = tier.key { Text(key.name) } else { Text("No Tier yet") }
-                }
-                .font(Typography.secondary.weight(.bold))
-                .foregroundStyle(Color.ink)
-            }
-            Spacer()
-            Text("\(tier.lifetimeLP) LP earned")
-                .font(Typography.micro)
-                .foregroundStyle(Color.mutedInk)
-        }
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: Board
@@ -177,13 +215,13 @@ struct RankingView: View {
             PrimaryButton(title: "Join the leaderboard") { setVisible(true) }
         }
         .padding(Spacing.m)
-        .cardSurface(radius: Radii.card - 2)
+        .cardSurface(radius: Radii.card)
     }
 
     private var board: some View {
-        VStack(alignment: .leading, spacing: Spacing.s) {
+        VStack(alignment: .leading, spacing: Spacing.m) {
             Picker("Leaderboard", selection: $view) {
-                Text("Top 100").tag(LeaderboardView.top)
+                Text("All").tag(LeaderboardView.top)
                 Text("Around me").tag(LeaderboardView.around)
             }
             .pickerStyle(.segmented)
@@ -208,57 +246,9 @@ struct RankingView: View {
                             }
                     }
                 }
-                .padding(.horizontal, Spacing.m)
-                .cardSurface(radius: Radii.card - 2)
+                .cardSurface(radius: Radii.card)
             }
         }
-    }
-
-    // MARK: History
-
-    @ViewBuilder
-    private var history: some View {
-        if let weeks = ranking.history?.weeks {
-            let active = weeks.filter { $0.weeklyLP > 0 }
-            VStack(alignment: .leading, spacing: Spacing.s) {
-                PlanSectionTitle(text: "Past weeks")
-                if active.isEmpty {
-                    Text("Your past weeks will show up here.")
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.mutedInk)
-                } else {
-                    VStack(spacing: 0) {
-                        ForEach(Array(active.enumerated()), id: \.element.id) { index, week in
-                            if index > 0 { Divider().overlay(Color.neutralSurface) }
-                            historyRow(week)
-                        }
-                    }
-                    .padding(.horizontal, Spacing.m)
-                    .cardSurface(radius: Radii.card - 2)
-                }
-            }
-        }
-    }
-
-    private func historyRow(_ week: RankingWeek) -> some View {
-        HStack {
-            Text("Week of \(WeekLabel.text(week.weekStart))")
-                .font(Typography.secondary.weight(.semibold))
-                .foregroundStyle(Color.ink)
-            Spacer()
-            VStack(alignment: .trailing, spacing: Spacing.xxs) {
-                Text("\(week.weeklyLP) LP")
-                    .font(Typography.secondary.weight(.bold).monospacedDigit())
-                    .foregroundStyle(Color.ink)
-                Group {
-                    if let rank = week.rank { Text("#\(rank)") } else { Text("Not on the board") }
-                }
-                .font(Typography.micro)
-                .foregroundStyle(Color.mutedInk)
-            }
-        }
-        .frame(minHeight: 54)
-        .accessibilityElement(children: .combine)
     }
 
     // MARK: Actions
@@ -302,32 +292,31 @@ struct LeaderboardRowView: View {
     var body: some View {
         HStack(spacing: Spacing.s) {
             Group {
-                if let rank = row.rank { Text("#\(rank)") } else { Text(verbatim: "–") }
+                if let rank = row.rank { Text(verbatim: "\(rank)") } else { Text(verbatim: "–") }
             }
             .font(Typography.secondary.weight(.bold).monospacedDigit())
             .foregroundStyle(Color.mutedInk)
-            .frame(minWidth: 44, alignment: .leading)
-            AvatarView(key: row.avatarKey, size: 36)
-            VStack(alignment: .leading, spacing: Spacing.xxs) {
-                HStack(spacing: Spacing.xs) {
-                    Text(verbatim: row.username)
-                        .font(Typography.secondary.weight(.semibold))
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(1)
-                    if row.isMe {
-                        Chip(text: "You", fill: .selectedSurface, foreground: .selectedInk)
-                    }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: 32, alignment: .leading)
+            AvatarView(key: row.avatarKey, size: 40, cornerRadius: Radii.chip)
+            HStack(spacing: Spacing.xs) {
+                Text(verbatim: row.username)
+                    .font(Typography.emphasis)
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                if row.isMe {
+                    Chip(text: "You", fill: .surface, foreground: .selectedInk)
                 }
-                TierBadgeLabel(badge: row.lifetimeTier)
             }
             Spacer(minLength: Spacing.s)
             Text("\(row.weeklyLP) LP")
-                .font(Typography.secondary.weight(.bold).monospacedDigit())
+                .font(Typography.emphasis.monospacedDigit())
                 .foregroundStyle(Color.ink)
         }
-        .frame(minHeight: 60)
-        .padding(.horizontal, row.isMe ? Spacing.xs : 0)
-        .background(row.isMe ? Color.selectedSurface : Color.clear, in: RoundedRectangle(cornerRadius: Radii.chip, style: .continuous))
+        .padding(.horizontal, Spacing.m + 2)
+        .frame(minHeight: 66)
+        .background(row.isMe ? Color.selectedSurface : Color.clear)
         .accessibilityElement(children: .combine)
     }
 }
@@ -343,11 +332,17 @@ enum WeekLabel {
         return formatter
     }()
 
-    static func text(_ weekStart: String) -> String {
-        guard let date = parser.date(from: weekStart) else { return weekStart }
-        var style = Date.FormatStyle.dateTime.day().month(.abbreviated).locale(AppLanguage.active.locale)
-        style.timeZone = TimeZone(identifier: "UTC")!
-        return date.formatted(style)
+    /// Monday to Sunday of the week, e.g. "09–15/11".
+    static func range(_ weekStart: String) -> String? {
+        var calendar = Calendar(identifier: .iso8601)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        guard let start = parser.date(from: weekStart),
+              let end = calendar.date(byAdding: .day, value: 6, to: start) else { return nil }
+        let formatter = DateIntervalFormatter()
+        formatter.locale = AppLanguage.active.locale
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateTemplate = "ddMM"
+        return formatter.string(from: start, to: end)
     }
 }
 
@@ -429,72 +424,6 @@ struct RankingIntroSheet: View {
                 dismiss()
             } catch {
                 self.error = error.asAPIError.userMessage
-            }
-        }
-    }
-}
-
-/// Lifetime Tier in full: both progress bars and the milestones unlocked so far (spec §3.5).
-struct TierDetailView: View {
-    @Environment(RankingStore.self) private var ranking
-    @Environment(LearnerStore.self) private var learner
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: Spacing.l) {
-                PunctuatedTitle(text: "Your Tier")
-                if let tier = ranking.tier {
-                    TierCard(summary: tier.summary, next: tier.nextTier)
-                    Text("A learning day is a UTC day with at least \(tier.minQualifiedDayLP ?? 5) LP. Days don’t need to be in a row, and taking a break never lowers your Tier.")
-                        .font(Typography.micro)
-                        .foregroundStyle(Color.mutedInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                    milestones(tier.milestones)
-                } else if let summary = learner.profile?.tierSummary {
-                    TierCard(summary: summary)
-                }
-                if let error = ranking.error, ranking.tier == nil {
-                    Text(verbatim: error)
-                        .font(Typography.secondary)
-                        .foregroundStyle(Color.mutedInk)
-                }
-            }
-            .padding(.horizontal, Spacing.screenGutter)
-            .padding(.top, Spacing.xs)
-            .padding(.bottom, Spacing.l)
-        }
-        .background(Color.canvas)
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await ranking.refreshTier() }
-    }
-
-    @ViewBuilder
-    private func milestones(_ items: [TierMilestone]) -> some View {
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: Spacing.s) {
-                PlanSectionTitle(text: "Milestones")
-                VStack(spacing: 0) {
-                    ForEach(Array(items.reversed().enumerated()), id: \.element.id) { index, item in
-                        if index > 0 { Divider().overlay(Color.neutralSurface) }
-                        HStack(spacing: Spacing.s) {
-                            Image(systemName: (item.key ?? .unknown).systemImage)
-                                .frame(width: 28)
-                                .foregroundStyle(Color.ink)
-                                .accessibilityHidden(true)
-                            Text((item.key ?? .unknown).name)
-                                .font(Typography.secondary.weight(.semibold))
-                                .foregroundStyle(Color.ink)
-                            Spacer()
-                            Text(item.unlockedAt, format: .dateTime.day().month().year().locale(AppLanguage.active.locale))
-                                .font(Typography.micro)
-                                .foregroundStyle(Color.mutedInk)
-                        }
-                        .frame(minHeight: 50)
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-                .padding(.horizontal, Spacing.m)
-                .cardSurface(radius: Radii.card - 2)
             }
         }
     }

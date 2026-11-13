@@ -28,7 +28,6 @@ enum ShellPage: Hashable {
     case settings
     case randomPractice
     case challengeMap
-    case tier
 }
 
 /// Plan editors Profile presents as bottom sheets.
@@ -136,8 +135,7 @@ struct MainShellView: View {
                 onEditLevel: { planSheet = .level },
                 onEditFocus: { planSheet = .focus },
                 onEditRoutine: { planSheet = .routine },
-                onOpenSettings: { profilePath.append(.settings) },
-                onOpenTier: { profilePath.append(.tier) }
+                onOpenSettings: { profilePath.append(.settings) }
             )
             .background(Color.canvas)
             // Hidden bar, but the title still names the back button for VoiceOver on pushed pages.
@@ -175,10 +173,6 @@ struct MainShellView: View {
                 .iconOnlyBackButton()
         case .challengeMap:
             ChallengeMapView()
-                .toolbar(.hidden, for: .tabBar)
-                .iconOnlyBackButton()
-        case .tier:
-            TierDetailView()
                 .toolbar(.hidden, for: .tabBar)
                 .iconOnlyBackButton()
         }

@@ -6,14 +6,11 @@ import Observation
 @Observable
 @MainActor
 final class RankingStore {
-    static let historyWeeks = 8
-
     private(set) var meta: RankingMeta?
     private(set) var mine: MyRanking?
     private(set) var tier: TierDetail?
     private(set) var top: [LeaderboardRow] = []
     private(set) var around: [LeaderboardRow] = []
-    private(set) var history: RankingHistory?
     /// Set when the last load failed; whatever was on screen stays.
     private(set) var error: String?
     private(set) var isLoading = false
@@ -60,13 +57,10 @@ final class RankingStore {
         do {
             async let meta = api.rankingMeta()
             async let mine = api.myRanking()
-            async let history = try? api.rankingHistory(weeks: Self.historyWeeks)
             let (fetchedMeta, fetchedMine) = try await (meta, mine)
-            let fetchedHistory = await history
             guard started == generation else { return }
             self.meta = fetchedMeta
             self.mine = fetchedMine
-            if let fetchedHistory { self.history = fetchedHistory }
             isBoardClosed = !fetchedMeta.rankingEnabled
             if fetchedMeta.rankingEnabled {
                 try await loadBoard(listed: fetchedMine.listed, started: started)
@@ -141,7 +135,6 @@ final class RankingStore {
         tier = nil
         top = []
         around = []
-        history = nil
         error = nil
         isLoading = false
         isBoardClosed = false
